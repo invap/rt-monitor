@@ -69,21 +69,9 @@ def _configure_logging(logging_cfg):
                                 datefmt='%d/%m/%Y %H:%M:%S',
                                 format='%(asctime)s : [%(name)s:%(levelname)s] - %(message)s',
                                 encoding='utf-8')
-        case "VISUAL":
-            logging.basicConfig(stream=sys.stdout,
-                                level=logging_cfg.level,
-                                datefmt='%d/%m/%Y %H:%M:%S',
-                                format='%(asctime)s : [%(name)s:%(levelname)s] - %(message)s',
-                                encoding='utf-8')
         case "STDOUT":
             logging.basicConfig(stream=sys.stdout,
                                 level=logging_cfg.level,
-                                datefmt='%d/%m/%Y %H:%M:%S',
-                                format='%(asctime)s : [%(name)s:%(levelname)s] - %(message)s',
-                                encoding='utf-8')
-        case _:
-            logging.basicConfig(stream=sys.stdout,
-                                level=logging.INFO,
                                 datefmt='%d/%m/%Y %H:%M:%S',
                                 format='%(asctime)s : [%(name)s:%(levelname)s] - %(message)s',
                                 encoding='utf-8')
