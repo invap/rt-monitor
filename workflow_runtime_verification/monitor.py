@@ -1,0 +1,451 @@
+import logging
+import z3
+from workflow_runtime_verification.reporting.event_decoder import EventDecoder
+
+
+class UndeclaredVariable(Exception):
+    def __init__(self, varname):
+        super().__init__()
+        self._varname = varname
+
+    def getVarname (self):
+        return self._varname
+
+
+class UnboundVariables(Exception):
+    def __init__(self, vars):
+        super().__init__()
+        self._vars = vars
+
+    def getVars (self):
+        return self._vars
+
+
+class AlreadyDeclaredVariable(Exception):
+    def __init__(self, varname):
+        super().__init__()
+        self._varname = varname
+
+    def getVarname (self):
+        return self._varname
+
+
+class NoValueAssignedToVariable(Exception):
+    def __init__(self, varname):
+        super().__init__()
+        self._varname = varname
+
+    def getVarname (self):
+        return self._varname
+
+
+class NoValue:
+    pass
+
+
+class AnalysisFailed (Exception):
+    pass
+
+
+class CheckpointNotExists (Exception):
+    def __init__(self, checkpoint_name):
+        super().__init__()
+        self._checkpoint_name = checkpoint_name
+
+    def getCheckpointName (self):
+        return self._checkpoint_name
+
+
+class TaskNotExists (Exception):
+    def __init__(self, task_name):
+        super().__init__()
+        self._task_name = task_name
+
+    def getTaskName (self):
+        return self._task_name
+
+
+class HardwareDeviceNotExists (Exception):
+    def __init__(self, device_name):
+        super().__init__()
+        self._device_name = device_name
+
+    def getDeviceName (self):
+        return self._device_name
+
+
+class FunctionNotImplemented (Exception):
+    def __init__(self, function_name):
+        super().__init__()
+        self._function_name = function_name
+
+    def getFunctionName (self):
+        return self._function_name
+
+
+class FormulaError(Exception):
+    def __init__(self, formula):
+        super().__init__()
+        self._formula = formula
+
+    def getFormula (self):
+        return self._formula
+
+
+class EventError(Exception):
+    def __init__(self, event):
+        super().__init__()
+        self._event = event
+
+    def getEvent (self):
+        return self._event
+
+
+class AbortRun(Exception):
+    pass
+
+
+class Monitor:
+    WORKFLOW_IDLE_STATE = "wf_idle"
+    WORKFLOW_FINISHED = "wf_finished"
+
+    TASK_STARTED_SUFFIX = "_started"
+    TASK_FINISHED_SUFFIX = "_finished"
+    CHECKPOINT_REACHED_SUFFIX = "_reached"
+
+    def __init__(self, workflow_specification, hardware_dictionary):
+        self._event_decoder = EventDecoder()
+        self._hardware_dictionary = hardware_dictionary
+        self._workflow_specification = workflow_specification
+        self._workflow_state = set()
+        self._execution_state = {}
+
+    def run(self, event_report_file):
+        try:
+            is_a_valid_report = True
+            for line in event_report_file:
+                if not is_a_valid_report:
+                    break
+                decoded_event = self._event_decoder.decode(line.strip())
+                logging.info(f"Processing: {decoded_event.serialized()}")
+                is_a_valid_report = decoded_event.process_with(self)
+                if not is_a_valid_report:
+                    logging.info(f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]")
+
+            if not is_a_valid_report:
+                logging.info(f"Verification completed UNSUCCESFULLY.")
+            else:
+                logging.info(f"Verification completed SUCCESFULLY.")
+
+            return is_a_valid_report
+        except TaskNotExists as e:
+            logging.error(f"Task [ {e.getTaskName()} ] does not exists.")
+            raise AbortRun()
+        except CheckpointNotExists as e:
+            logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exists.")
+            raise AbortRun()
+        except AlreadyDeclaredVariable as e:
+            logging.error(f"Variable [ {e.getVarname()} ] is already declared.")
+            raise AbortRun()
+        except EventError as e:
+            logging.critical(f"Event [ {e.getEvent()} ] produced an error.")
+            raise AbortRun()
+
+    def process_task_started(self, task_started_event):
+        task_name = task_started_event.name()
+
+        if not self._workflow_specification.task_exists(task_name):
+            raise TaskNotExists(task_name)
+
+        can_start = self._task_can_start(task_name)
+
+        task_specification = self._workflow_specification.task_specification_named (task_name)
+        try:
+            preconditions_are_met = self.__class__._are_all_properties_satisfied(
+                task_started_event.time(),
+                self._execution_state,
+                self._hardware_dictionary,
+                task_specification.preconditions())
+
+            self._update_workflow_state_with_started_task(task_started_event)
+
+            return can_start and preconditions_are_met
+        except AnalysisFailed:
+            logging.critical(f"Analysis FAILED.")
+            raise EventError(task_started_event)
+
+    def process_task_finished(self, task_finished_event):
+        task_name = task_finished_event.name()
+
+        if not self._workflow_specification.task_exists(task_name):
+            raise TaskNotExists(task_name)
+
+        had_previously_started = self._task_has_previously_started(task_name)
+
+        task_specification = self._workflow_specification.task_specification_named (task_name)
+        try:
+            posconditions_are_met = self.__class__._are_all_properties_satisfied(
+                task_finished_event.time(),
+                self._execution_state,
+                self._hardware_dictionary,
+                task_specification.posconditions())
+
+            self._update_workflow_state_with_finished_task(task_finished_event)
+
+            return had_previously_started and posconditions_are_met
+        except AnalysisFailed:
+            logging.critical(f"Analysis FAILED.")
+            raise EventError(task_finished_event)
+
+    def process_declare_variable(self, declare_variable_event):
+        variable_name = declare_variable_event.variable_name()
+        variable_type = declare_variable_event.variable_type()
+
+        if variable_name in self._execution_state:
+            raise AlreadyDeclaredVariable(variable_name)
+
+        self._execution_state[variable_name] = [variable_type, NoValue()]
+        return True
+
+    def process_variable_value_assigned(self, variable_value_assigned_event):
+        variable_name = variable_value_assigned_event.variable_name()
+        variable_value = variable_value_assigned_event.variable_value()
+
+        if variable_name not in self._execution_state:
+            raise UndeclaredVariable(variable_name)
+
+        self._execution_state[variable_name] = [self._execution_state[variable_name][0], variable_value]
+        return True
+
+    def process_checkpoint_reached(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+
+        if not self._workflow_specification.checkpoint_exists(checkpoint_name):
+            raise CheckpointNotExists(checkpoint_name)
+
+        self._update_workflow_state_with_reached_checkpoint(checkpoint_reached_event)
+        try:
+            formulas_are_met = self.__class__._are_all_properties_satisfied(
+                checkpoint_reached_event.time(),
+                self._execution_state,
+                self._hardware_dictionary,
+                self._workflow_specification.checkpoint_formulas_named(checkpoint_name))
+
+            self._update_workflow_state_with_reached_checkpoint(checkpoint_reached_event)
+
+            return formulas_are_met
+        except AnalysisFailed:
+            logging.crotical(f"Analysis FAILED.")
+            raise EventError(checkpoint_reached_event)
+
+    def process_hardware_event(self, hardware_event):
+        hardware_data = hardware_event.hardware_data()
+        device = hardware_data[: hardware_data.find(",")]
+        function_call = hardware_data[hardware_data.find(",") + 1:]
+
+        if device not in self._hardware_dictionary:
+            raise HardwareDeviceNotExists(device)
+
+        try:
+            (self._hardware_dictionary[device]).process_high_level_call(function_call)
+            return True
+        except FunctionNotImplemented as e:
+            logging.error(f"Function [ {e.getFunctionName()} ] is not implemented for device [ {device} ].")
+            raise EventError(hardware_event)
+
+    def _update_workflow_state_with_started_task(self, task_started_event):
+        task_name = task_started_event.name()
+
+        self._workflow_state.clear()
+        self._workflow_state.add(task_name + Monitor.TASK_STARTED_SUFFIX)
+
+    def _update_workflow_state_with_finished_task(self, task_finished_event):
+        task_name = task_finished_event.name()
+
+        self._workflow_state.clear()
+        self._workflow_state.add(task_name + Monitor.TASK_FINISHED_SUFFIX)
+
+    def _update_workflow_state_with_reached_checkpoint(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+
+        self._workflow_state = {
+            state_word
+            for state_word in self._workflow_state
+            if not state_word.endswith(Monitor.CHECKPOINT_REACHED_SUFFIX)
+        }
+        self._workflow_state.add(checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
+
+    #####
+    # Methods implementing the verification of a set of properties
+    #####
+    @classmethod
+    def _is_property_satisfied(cls, event_time, program_state, hardware_dictionary, logic_property):
+        logging.info(f"Checking property {logic_property[2]}...")
+        try:
+            declarations = cls._build_declarations(program_state, hardware_dictionary, logic_property)
+            assumptions = cls._build_assumptions(program_state, hardware_dictionary, logic_property)
+            not_logic_property_assert = f"(assert (not \n {logic_property[1]} \n))"
+            spec = declarations+"\n"+assumptions+"\n"+not_logic_property_assert
+            temp_solver = z3.Solver()
+            temp_solver.from_string(spec)
+            negation_is_sat = (z3.sat == temp_solver.check())
+            if not negation_is_sat:
+                logging.info(f"Property {logic_property[2]} PASSED")
+            else:
+                logging.info(f"Property {logic_property[2]} FAILED")
+                spec_filename = logic_property[2]+"@"+str(event_time)+".smt2"
+                spec_file = open(spec_filename, "w")
+                spec_file.write(spec)
+                spec_file.close()
+                logging.info(f"Specification dumped: [ {spec_filename} ]")
+            return negation_is_sat
+        except NoValueAssignedToVariable as e:
+            logging.error(f"Variable [ {e.getVarname()} ] has no value.")
+            raise FormulaError (logic_property[1])
+        except UnboundVariables as e:
+            logging.error(f"Unbounded variables [ {e.getVars()} ] in formula [ {logic_property[2]} ]")
+            raise FormulaError (logic_property[1])
+
+    @classmethod
+    def _are_all_properties_satisfied(cls, event_time, program_state, hardware_dictionary, logic_properties):
+        neg_properties_sat = False
+        for logic_property in logic_properties:
+            if neg_properties_sat:
+                break
+            try:
+                neg_properties_sat = cls._is_property_satisfied(event_time, program_state, hardware_dictionary, logic_property)
+            except FormulaError as e:
+                logging.error(f"Error in formula [ {e.getFormula} ]")
+                raise AnalysisFailed()
+
+        return not neg_properties_sat
+
+    @classmethod
+    def _c_type_2_z3_type(cls, varname, var_c_type):
+        match var_c_type[0]:
+            case "char_t": return f"(declare-const {varname} Int)"
+            case "uint8_t": return f"(declare-const {varname} Int)"
+            case "int8_t": return f"(declare-const {varname} Int)"
+            case "uint16_t": return f"(declare-const {varname} Int)"
+            case "int16_t": return f"(declare-const {varname} Int)"
+            case "int": return f"(declare-const {varname} Int)"
+            case "unsigned int": return f"(declare-const {varname} Int)"
+            case "float": return f"(declare-const {varname} Real)"
+            case "double": return f"(declare-const {varname} Real)"
+            case "char*": return f"(declare-const {varname} String)"
+            case "uint8_t[]": return f"(declare-const {varname} (Array Int Int))"
+            case "uint8_t[][]": return f"(declare-const {varname} (Array Int (Array Int Int)))"
+            case "uint8_t[][][]": return f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
+            case _: raise TypeError()
+
+    @classmethod
+    def _build_declaration(cls, varname, vartype):
+        declaration = f"{cls._c_type_2_z3_type(varname, vartype)}\n"
+        return declaration
+
+    @classmethod
+    def _build_assumption(cls, varname, vartype, varvalue):
+        assumption = ""
+        match len(vartype):
+            case 1:
+                assumption = assumption + f"(assert (= {varname} {varvalue}))\n"
+            case 2:
+                assumption = "(assert (and\n"
+                for i in range(0, int(vartype[1])):
+                    assumption = assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
+                assumption = assumption + ") )\n"
+            case 3:
+                assumption = "(assert (and\n"
+                for i in range(0, int(vartype[1])):
+                    for j in range(0, int(vartype[2])):
+                        assumption = assumption + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
+                assumption = assumption + ") )\n"
+            case 4:
+                assumption = "(assert (and\n"
+                for i in range(0, int(vartype[1])):
+                    for j in range(0, int(vartype[2])):
+                        for k in range(0, int(vartype[3])):
+                            assumption = assumption + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
+                assumption = assumption + ") )\n"
+            case _:
+                raise TypeError()
+
+        return assumption
+
+    @classmethod
+    def _build_declarations(cls, program_state, hardware_dictionary, logic_property):
+        declarations = ""
+        # Building a set from the frozen set containing the variables occurring in the formula
+        variables = set()
+        for var in logic_property[0]:
+            variables.add(var)
+        for varname in program_state:
+            if varname in variables:
+                if program_state[varname][1] == NoValue():
+                    raise NoValueAssignedToVariable(varname)
+                declarations = declarations + cls._build_declaration(varname, program_state[varname][0])
+                variables.remove(varname)
+        for device in hardware_dictionary:
+            dictionary = hardware_dictionary[device].state()
+            for varname in dictionary:
+                if varname in variables:
+                    if dictionary[varname][1].any() == NoValue():
+                        raise NoValueAssignedToVariable(varname)
+                    declarations = declarations + cls._build_declaration(varname, dictionary[varname][0])
+                    variables.remove(varname)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return declarations
+
+    @classmethod
+    def _build_assumptions(cls, program_state, hardware_dictionary, logic_property):
+        assumptions = ""
+        # Building a set from the frozen set containing the variables occurring in the formula
+        variables = set()
+        for var in logic_property[0]:
+            variables.add(var)
+        for varname in program_state:
+            if varname in variables:
+                if program_state[varname][1] == NoValue():
+                    raise NoValueAssignedToVariable(varname)
+                assumptions = assumptions + cls._build_assumption(varname, program_state[varname][0], program_state[varname][1])
+                variables.remove(varname)
+        for device in hardware_dictionary:
+            dictionary = hardware_dictionary[device].state()
+            for varname in dictionary:
+                if varname in variables:
+                    if dictionary[varname][1].any() == NoValue():
+                        raise NoValueAssignedToVariable(varname)
+                    assumptions = assumptions + cls._build_assumption(varname, dictionary[varname][0], dictionary[varname][1])
+                    variables.remove(varname)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return assumptions
+
+    def _task_can_start(self, task_name):
+        return self._is_workflow_state_valid_for_starting_task(
+            self._workflow_state, task_name
+        )
+
+    def _is_workflow_state_valid_for_starting_task(self, workflow_state, task_name):
+        preceding_tasks = self._workflow_specification.immediately_preceding_tasks_for(
+            task_name
+        )
+
+        follows_a_corresponding_finishing_task = any(
+            (preceding_task.name() + Monitor.TASK_FINISHED_SUFFIX) in workflow_state
+            for preceding_task in preceding_tasks
+        )
+        is_starting_task_and_state_is_empty = (
+            self._workflow_specification.is_starting_task(task_name)
+            and workflow_state == set()
+        )
+
+        return (
+            follows_a_corresponding_finishing_task
+            or is_starting_task_and_state_is_empty
+        )
+
+    def _task_has_previously_started(self, task_name):
+        return (task_name + Monitor.TASK_STARTED_SUFFIX) in self._workflow_state
+
