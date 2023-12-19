@@ -1,10 +1,11 @@
 import importlib
+import logging
 import os
 import shutil
 import sys
 import threading
+
 import wx
-import logging
 
 from workflow_runtime_verification.monitor import Monitor, AbortRun
 from workflow_runtime_verification.specification.workflow_specification import (
@@ -54,7 +55,7 @@ class LoggingConf:
         self.log_dest = None
         # log_dest = "FILE" : file destination
         self.filename = ""
-        self.filemode = 'w'
+        self.filemode = "w"
         # log_dest = "VISUAL" : Window box destination
         # log_dest = "STDOUT" : Standard output destination
         self.stream = None
@@ -63,19 +64,38 @@ class LoggingConf:
 def _configure_logging(logging_cfg):
     match logging_cfg.log_dest:
         case "FILE":
-            logging.basicConfig(filename=logging_cfg.filename+'.log',
-                                filemode='w',
-                                level=logging_cfg.level,
-                                datefmt='%d/%m/%Y %H:%M:%S',
-                                format='%(asctime)s : [%(name)s:%(levelname)s] - %(message)s',
-                                encoding='utf-8')
+            logging.basicConfig(
+                filename=logging_cfg.filename + ".log",
+                filemode="w",
+                level=logging_cfg.level,
+                datefmt="%d/%m/%Y %H:%M:%S",
+                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                encoding="utf-8",
+            )
+        case "VISUAL":
+            logging.basicConfig(
+                stream=sys.stdout,
+                level=logging_cfg.level,
+                datefmt="%d/%m/%Y %H:%M:%S",
+                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                encoding="utf-8",
+            )
         case "STDOUT":
-            logging.basicConfig(stream=sys.stdout,
-                                level=logging_cfg.level,
-                                datefmt='%d/%m/%Y %H:%M:%S',
-                                format='%(asctime)s : [%(name)s:%(levelname)s] - %(message)s',
-                                encoding='utf-8')
-
+            logging.basicConfig(
+                stream=sys.stdout,
+                level=logging_cfg.level,
+                datefmt="%d/%m/%Y %H:%M:%S",
+                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                encoding="utf-8",
+            )
+        case _:
+            logging.basicConfig(
+                stream=sys.stdout,
+                level=logging.INFO,
+                datefmt="%d/%m/%Y %H:%M:%S",
+                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                encoding="utf-8",
+            )
 
 
 class SetupSimulationPanel(wx.Panel):
@@ -176,7 +196,7 @@ class SetupSimulationPanel(wx.Panel):
             # line_[1]: complete class name (including package, module, etc.)
             classname_str = "".join(line_[1:])
             pkg_mod_class_str = classname_str.strip()
-            mod_classname = pkg_mod_class_str.rsplit('.', 1)
+            mod_classname = pkg_mod_class_str.rsplit(".", 1)
             module = importlib.import_module(mod_classname[0])
             my_class = getattr(module, mod_classname[1])
             hardware_map[line_[0]] = my_class()
@@ -185,17 +205,21 @@ class SetupSimulationPanel(wx.Panel):
     def on_start(self, event):
         path_file = os.path.split(self.framework_specification_text.Label)
         file_ext = os.path.splitext(path_file[1])
-        directory = path_file[0]+'/'+file_ext[0]
+        directory = path_file[0] + "/" + file_ext[0]
         try:
             os.mkdir(directory)
         except FileExistsError:
             shutil.rmtree(directory)
             os.mkdir(directory)
-        shutil.unpack_archive(path_file[0]+'/'+path_file[1], directory)
+        shutil.unpack_archive(path_file[0] + "/" + path_file[1], directory)
         # Read variables dictionary, hardware specification and workflow specification from file
-        workflow_specification = WorkflowSpecification.new_from_open_file(open(directory+'/workflow.desc', 'r'))
+        workflow_specification = WorkflowSpecification.new_from_open_file(
+            open(directory + "/workflow.desc", "r")
+        )
         # Configuring logger
-        hardware_specification = SetupSimulationPanel.__new_hardware_map_from_open_file(open(directory + '/hardware.desc', 'r'))
+        hardware_specification = SetupSimulationPanel.__new_hardware_map_from_open_file(
+            open(directory + "/hardware.desc", "r")
+        )
         # Setting up logger
         logging_cfg = LoggingConf()
         logging_cfg.log_dest = "STDOUT"
@@ -206,7 +230,9 @@ class SetupSimulationPanel(wx.Panel):
         # Create a new thread to read from the pipe
         event_report_file = open(self.text_report_events.Label, "r")
         try:
-            self.__process_thread = threading.Thread(target=self._monitor.run, args=[event_report_file])
+            self.__process_thread = threading.Thread(
+                target=self._monitor.run, args=[event_report_file]
+            )
         except AbortRun:
             logging.critical(f"Runtime monitoring process ABORTED.")
 

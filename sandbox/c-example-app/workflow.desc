@@ -1,0 +1,15 @@
+13;{(0,1),(1,2),(2,3),(3,4),(3,5),(5,6),(6,7),(7,8),(4,8),(8,9),(9,10),(10,11),(11,12),(12,2)}
+0
+0:task,init,{},{init_fondo_display},{}
+1:operator,seq_composition
+2:operator,omega_start
+3:operator,choice_start
+4:task,filtering_B,{filtering_B_pre},{filtering_B_post},{<filtering_chk,{12bitsreading;additionbound}>,<filtering_chk_2,{12bitsreading;additionbound}>}
+5:task,filtering,{filtering_pre},{filtering_post},{<filtering_chk,{12bitsreading;additionbound}>}
+6:operator,seq_composition
+7:task,conversion,{conversion_pre},{conversion_post},{}
+8:operator,choice_end
+9:operator,seq_composition
+10:checkpoint,display_chk,{barpointiscorrect;bariscorrect}
+11:operator,seq_composition
+12:operator,omega_end

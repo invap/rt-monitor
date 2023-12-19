@@ -1,0 +1,5 @@
+variable,another_variable
+(and
+    (= variable 1)
+    (= another_variable 2)
+)

@@ -1,5 +1,7 @@
 import logging
+
 import z3
+
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
@@ -8,7 +10,7 @@ class UndeclaredVariable(Exception):
         super().__init__()
         self._varname = varname
 
-    def getVarname (self):
+    def getVarname(self):
         return self._varname
 
 
@@ -17,7 +19,7 @@ class UnboundVariables(Exception):
         super().__init__()
         self._vars = vars
 
-    def getVars (self):
+    def getVars(self):
         return self._vars
 
 
@@ -26,7 +28,7 @@ class AlreadyDeclaredVariable(Exception):
         super().__init__()
         self._varname = varname
 
-    def getVarname (self):
+    def getVarname(self):
         return self._varname
 
 
@@ -35,7 +37,7 @@ class NoValueAssignedToVariable(Exception):
         super().__init__()
         self._varname = varname
 
-    def getVarname (self):
+    def getVarname(self):
         return self._varname
 
 
@@ -43,43 +45,43 @@ class NoValue:
     pass
 
 
-class AnalysisFailed (Exception):
+class AnalysisFailed(Exception):
     pass
 
 
-class CheckpointNotExists (Exception):
+class CheckpointDoesNotExist(Exception):
     def __init__(self, checkpoint_name):
         super().__init__()
         self._checkpoint_name = checkpoint_name
 
-    def getCheckpointName (self):
+    def getCheckpointName(self):
         return self._checkpoint_name
 
 
-class TaskNotExists (Exception):
+class TaskNotExists(Exception):
     def __init__(self, task_name):
         super().__init__()
         self._task_name = task_name
 
-    def getTaskName (self):
+    def getTaskName(self):
         return self._task_name
 
 
-class HardwareDeviceNotExists (Exception):
+class HardwareDeviceNotExists(Exception):
     def __init__(self, device_name):
         super().__init__()
         self._device_name = device_name
 
-    def getDeviceName (self):
+    def getDeviceName(self):
         return self._device_name
 
 
-class FunctionNotImplemented (Exception):
+class FunctionNotImplemented(Exception):
     def __init__(self, function_name):
         super().__init__()
         self._function_name = function_name
 
-    def getFunctionName (self):
+    def getFunctionName(self):
         return self._function_name
 
 
@@ -88,7 +90,7 @@ class FormulaError(Exception):
         super().__init__()
         self._formula = formula
 
-    def getFormula (self):
+    def getFormula(self):
         return self._formula
 
 
@@ -97,7 +99,7 @@ class EventError(Exception):
         super().__init__()
         self._event = event
 
-    def getEvent (self):
+    def getEvent(self):
         return self._event
 
 
@@ -130,7 +132,9 @@ class Monitor:
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
                 if not is_a_valid_report:
-                    logging.info(f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]")
+                    logging.info(
+                        f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]"
+                    )
 
             if not is_a_valid_report:
                 logging.info(f"Verification completed UNSUCCESFULLY.")
@@ -141,7 +145,7 @@ class Monitor:
         except TaskNotExists as e:
             logging.error(f"Task [ {e.getTaskName()} ] does not exists.")
             raise AbortRun()
-        except CheckpointNotExists as e:
+        except CheckpointDoesNotExist as e:
             logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exists.")
             raise AbortRun()
         except AlreadyDeclaredVariable as e:
@@ -159,13 +163,16 @@ class Monitor:
 
         can_start = self._task_can_start(task_name)
 
-        task_specification = self._workflow_specification.task_specification_named (task_name)
+        task_specification = self._workflow_specification.task_specification_named(
+            task_name
+        )
         try:
             preconditions_are_met = self.__class__._are_all_properties_satisfied(
                 task_started_event.time(),
                 self._execution_state,
                 self._hardware_dictionary,
-                task_specification.preconditions())
+                task_specification.preconditions(),
+            )
 
             self._update_workflow_state_with_started_task(task_started_event)
 
@@ -180,19 +187,22 @@ class Monitor:
         if not self._workflow_specification.task_exists(task_name):
             raise TaskNotExists(task_name)
 
-        had_previously_started = self._task_has_previously_started(task_name)
+        had_previously_started = self._task_had_started(task_name)
 
-        task_specification = self._workflow_specification.task_specification_named (task_name)
+        task_specification = self._workflow_specification.task_specification_named(
+            task_name
+        )
         try:
-            posconditions_are_met = self.__class__._are_all_properties_satisfied(
+            postconditions_are_met = self.__class__._are_all_properties_satisfied(
                 task_finished_event.time(),
                 self._execution_state,
                 self._hardware_dictionary,
-                task_specification.posconditions())
+                task_specification.postconditions(),
+            )
 
             self._update_workflow_state_with_finished_task(task_finished_event)
 
-            return had_previously_started and posconditions_are_met
+            return had_previously_started and postconditions_are_met
         except AnalysisFailed:
             logging.critical(f"Analysis FAILED.")
             raise EventError(task_finished_event)
@@ -214,34 +224,27 @@ class Monitor:
         if variable_name not in self._execution_state:
             raise UndeclaredVariable(variable_name)
 
-        self._execution_state[variable_name] = [self._execution_state[variable_name][0], variable_value]
+        self._execution_state[variable_name] = [
+            self._execution_state[variable_name][0],
+            variable_value,
+        ]
         return True
 
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
 
-        if not self._workflow_specification.checkpoint_exists(checkpoint_name):
-            raise CheckpointNotExists(checkpoint_name)
+        if self._workflow_specification.global_checkpoint_exists(checkpoint_name):
+            return self._process_global_checkpoint_reached(checkpoint_reached_event)
 
-        self._update_workflow_state_with_reached_checkpoint(checkpoint_reached_event)
-        try:
-            formulas_are_met = self.__class__._are_all_properties_satisfied(
-                checkpoint_reached_event.time(),
-                self._execution_state,
-                self._hardware_dictionary,
-                self._workflow_specification.checkpoint_formulas_named(checkpoint_name))
+        if self._workflow_specification.local_checkpoint_exists(checkpoint_name):
+            return self._process_local_checkpoint_reached(checkpoint_reached_event)
 
-            self._update_workflow_state_with_reached_checkpoint(checkpoint_reached_event)
-
-            return formulas_are_met
-        except AnalysisFailed:
-            logging.crotical(f"Analysis FAILED.")
-            raise EventError(checkpoint_reached_event)
+        raise CheckpointDoesNotExist(checkpoint_name)
 
     def process_hardware_event(self, hardware_event):
         hardware_data = hardware_event.hardware_data()
         device = hardware_data[: hardware_data.find(",")]
-        function_call = hardware_data[hardware_data.find(",") + 1:]
+        function_call = hardware_data[hardware_data.find(",") + 1 :]
 
         if device not in self._hardware_dictionary:
             raise HardwareDeviceNotExists(device)
@@ -250,7 +253,9 @@ class Monitor:
             (self._hardware_dictionary[device]).process_high_level_call(function_call)
             return True
         except FunctionNotImplemented as e:
-            logging.error(f"Function [ {e.getFunctionName()} ] is not implemented for device [ {device} ].")
+            logging.error(
+                f"Function [ {e.getFunctionName()} ] is not implemented for device [ {device} ]."
+            )
             raise EventError(hardware_event)
 
     def _update_workflow_state_with_started_task(self, task_started_event):
@@ -265,7 +270,9 @@ class Monitor:
         self._workflow_state.clear()
         self._workflow_state.add(task_name + Monitor.TASK_FINISHED_SUFFIX)
 
-    def _update_workflow_state_with_reached_checkpoint(self, checkpoint_reached_event):
+    def _update_workflow_state_with_reached_global_checkpoint(
+        self, checkpoint_reached_event
+    ):
         checkpoint_name = checkpoint_reached_event.name()
 
         self._workflow_state = {
@@ -275,25 +282,42 @@ class Monitor:
         }
         self._workflow_state.add(checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
-    #####
-    # Methods implementing the verification of a set of properties
-    #####
+    def _update_workflow_state_with_reached_local_checkpoint(
+        self, checkpoint_reached_event, task_name
+    ):
+        checkpoint_name = checkpoint_reached_event.name()
+
+        self._workflow_state = {
+            state_word
+            for state_word in self._workflow_state
+            if not state_word.endswith(Monitor.CHECKPOINT_REACHED_SUFFIX)
+        }
+        self._workflow_state.add(
+            task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX
+        )
+
     @classmethod
-    def _is_property_satisfied(cls, event_time, program_state, hardware_dictionary, logic_property):
+    def _is_property_satisfied(
+        cls, event_time, program_state, hardware_dictionary, logic_property
+    ):
         logging.info(f"Checking property {logic_property[2]}...")
         try:
-            declarations = cls._build_declarations(program_state, hardware_dictionary, logic_property)
-            assumptions = cls._build_assumptions(program_state, hardware_dictionary, logic_property)
+            declarations = cls._build_declarations(
+                program_state, hardware_dictionary, logic_property
+            )
+            assumptions = cls._build_assumptions(
+                program_state, hardware_dictionary, logic_property
+            )
             not_logic_property_assert = f"(assert (not \n {logic_property[1]} \n))"
-            spec = declarations+"\n"+assumptions+"\n"+not_logic_property_assert
+            spec = declarations + "\n" + assumptions + "\n" + not_logic_property_assert
             temp_solver = z3.Solver()
             temp_solver.from_string(spec)
-            negation_is_sat = (z3.sat == temp_solver.check())
+            negation_is_sat = z3.sat == temp_solver.check()
             if not negation_is_sat:
                 logging.info(f"Property {logic_property[2]} PASSED")
             else:
                 logging.info(f"Property {logic_property[2]} FAILED")
-                spec_filename = logic_property[2]+"@"+str(event_time)+".smt2"
+                spec_filename = logic_property[2] + "@" + str(event_time) + ".smt2"
                 spec_file = open(spec_filename, "w")
                 spec_file.write(spec)
                 spec_file.close()
@@ -301,19 +325,25 @@ class Monitor:
             return negation_is_sat
         except NoValueAssignedToVariable as e:
             logging.error(f"Variable [ {e.getVarname()} ] has no value.")
-            raise FormulaError (logic_property[1])
+            raise FormulaError(logic_property[1])
         except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.getVars()} ] in formula [ {logic_property[2]} ]")
-            raise FormulaError (logic_property[1])
+            logging.error(
+                f"Unbounded variables [ {e.getVars()} ] in formula [ {logic_property[2]} ]"
+            )
+            raise FormulaError(logic_property[1])
 
     @classmethod
-    def _are_all_properties_satisfied(cls, event_time, program_state, hardware_dictionary, logic_properties):
+    def _are_all_properties_satisfied(
+        cls, event_time, program_state, hardware_dictionary, logic_properties
+    ):
         neg_properties_sat = False
         for logic_property in logic_properties:
             if neg_properties_sat:
                 break
             try:
-                neg_properties_sat = cls._is_property_satisfied(event_time, program_state, hardware_dictionary, logic_property)
+                neg_properties_sat = cls._is_property_satisfied(
+                    event_time, program_state, hardware_dictionary, logic_property
+                )
             except FormulaError as e:
                 logging.error(f"Error in formula [ {e.getFormula} ]")
                 raise AnalysisFailed()
@@ -323,20 +353,36 @@ class Monitor:
     @classmethod
     def _c_type_2_z3_type(cls, varname, var_c_type):
         match var_c_type[0]:
-            case "char_t": return f"(declare-const {varname} Int)"
-            case "uint8_t": return f"(declare-const {varname} Int)"
-            case "int8_t": return f"(declare-const {varname} Int)"
-            case "uint16_t": return f"(declare-const {varname} Int)"
-            case "int16_t": return f"(declare-const {varname} Int)"
-            case "int": return f"(declare-const {varname} Int)"
-            case "unsigned int": return f"(declare-const {varname} Int)"
-            case "float": return f"(declare-const {varname} Real)"
-            case "double": return f"(declare-const {varname} Real)"
-            case "char*": return f"(declare-const {varname} String)"
-            case "uint8_t[]": return f"(declare-const {varname} (Array Int Int))"
-            case "uint8_t[][]": return f"(declare-const {varname} (Array Int (Array Int Int)))"
-            case "uint8_t[][][]": return f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
-            case _: raise TypeError()
+            case "char_t":
+                return f"(declare-const {varname} Int)"
+            case "uint8_t":
+                return f"(declare-const {varname} Int)"
+            case "int8_t":
+                return f"(declare-const {varname} Int)"
+            case "uint16_t":
+                return f"(declare-const {varname} Int)"
+            case "int16_t":
+                return f"(declare-const {varname} Int)"
+            case "int":
+                return f"(declare-const {varname} Int)"
+            case "unsigned int":
+                return f"(declare-const {varname} Int)"
+            case "float":
+                return f"(declare-const {varname} Real)"
+            case "double":
+                return f"(declare-const {varname} Real)"
+            case "char*":
+                return f"(declare-const {varname} String)"
+            case "uint8_t[]":
+                return f"(declare-const {varname} (Array Int Int))"
+            case "uint8_t[][]":
+                return f"(declare-const {varname} (Array Int (Array Int Int)))"
+            case "uint8_t[][][]":
+                return (
+                    f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
+                )
+            case _:
+                raise TypeError()
 
     @classmethod
     def _build_declaration(cls, varname, vartype):
@@ -352,20 +398,28 @@ class Monitor:
             case 2:
                 assumption = "(assert (and\n"
                 for i in range(0, int(vartype[1])):
-                    assumption = assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
+                    assumption = (
+                        assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
+                    )
                 assumption = assumption + ") )\n"
             case 3:
                 assumption = "(assert (and\n"
                 for i in range(0, int(vartype[1])):
                     for j in range(0, int(vartype[2])):
-                        assumption = assumption + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
+                        assumption = (
+                            assumption
+                            + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
+                        )
                 assumption = assumption + ") )\n"
             case 4:
                 assumption = "(assert (and\n"
                 for i in range(0, int(vartype[1])):
                     for j in range(0, int(vartype[2])):
                         for k in range(0, int(vartype[3])):
-                            assumption = assumption + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
+                            assumption = (
+                                assumption
+                                + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
+                            )
                 assumption = assumption + ") )\n"
             case _:
                 raise TypeError()
@@ -381,9 +435,11 @@ class Monitor:
             variables.add(var)
         for varname in program_state:
             if varname in variables:
-                if program_state[varname][1] == NoValue():
+                if isinstance(program_state[varname][1], NoValue):
                     raise NoValueAssignedToVariable(varname)
-                declarations = declarations + cls._build_declaration(varname, program_state[varname][0])
+                declarations = declarations + cls._build_declaration(
+                    varname, program_state[varname][0]
+                )
                 variables.remove(varname)
         for device in hardware_dictionary:
             dictionary = hardware_dictionary[device].state()
@@ -391,7 +447,9 @@ class Monitor:
                 if varname in variables:
                     if dictionary[varname][1].any() == NoValue():
                         raise NoValueAssignedToVariable(varname)
-                    declarations = declarations + cls._build_declaration(varname, dictionary[varname][0])
+                    declarations = declarations + cls._build_declaration(
+                        varname, dictionary[varname][0]
+                    )
                     variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
@@ -408,7 +466,9 @@ class Monitor:
             if varname in variables:
                 if program_state[varname][1] == NoValue():
                     raise NoValueAssignedToVariable(varname)
-                assumptions = assumptions + cls._build_assumption(varname, program_state[varname][0], program_state[varname][1])
+                assumptions = assumptions + cls._build_assumption(
+                    varname, program_state[varname][0], program_state[varname][1]
+                )
                 variables.remove(varname)
         for device in hardware_dictionary:
             dictionary = hardware_dictionary[device].state()
@@ -416,36 +476,132 @@ class Monitor:
                 if varname in variables:
                     if dictionary[varname][1].any() == NoValue():
                         raise NoValueAssignedToVariable(varname)
-                    assumptions = assumptions + cls._build_assumption(varname, dictionary[varname][0], dictionary[varname][1])
+                    assumptions = assumptions + cls._build_assumption(
+                        varname, dictionary[varname][0], dictionary[varname][1]
+                    )
                     variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
         return assumptions
 
+    def _process_global_checkpoint_reached(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+
+        can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
+
+        checkpoint = self._workflow_specification.global_checkpoint_named(
+            checkpoint_name
+        )
+        try:
+            properties_are_met = self.__class__._are_all_properties_satisfied(
+                checkpoint_reached_event.time(),
+                self._execution_state,
+                self._hardware_dictionary,
+                checkpoint.properties(),
+            )
+
+            self._update_workflow_state_with_reached_global_checkpoint(
+                checkpoint_reached_event
+            )
+
+            return can_be_reached and properties_are_met
+        except AnalysisFailed:
+            logging.critical(f"Analysis FAILED.")
+            raise EventError(checkpoint_reached_event)
+
+    def _process_local_checkpoint_reached(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+
+        can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
+
+        checkpoint = self._workflow_specification.local_checkpoint_named(
+            checkpoint_name
+        )
+        try:
+            properties_are_met = self.__class__._are_all_properties_satisfied(
+                checkpoint_reached_event.time(),
+                self._execution_state,
+                self._hardware_dictionary,
+                checkpoint.properties(),
+            )
+
+            started_task_name = self._started_task_name_from_state()
+            self._update_workflow_state_with_reached_local_checkpoint(
+                checkpoint_reached_event, started_task_name
+            )
+
+            return can_be_reached and properties_are_met
+        except AnalysisFailed:
+            logging.critical(f"Analysis FAILED.")
+            raise EventError(checkpoint_reached_event)
+
     def _task_can_start(self, task_name):
-        return self._is_workflow_state_valid_for_starting_task(
-            self._workflow_state, task_name
+        return self._is_workflow_state_valid_for_reaching_element_named(task_name)
+
+    def _global_checkpoint_can_be_reached(self, checkpoint_name):
+        return self._is_workflow_state_valid_for_reaching_element_named(checkpoint_name)
+
+    def _local_checkpoint_can_be_reached(self, checkpoint_name):
+        there_is_a_task_in_progress = self._there_is_a_task_in_progress()
+        if not there_is_a_task_in_progress:
+            return False
+
+        task_in_progress_name = self._started_task_name_from_state()
+        task_in_progress = self._workflow_specification.task_specification_named(
+            task_in_progress_name
         )
 
-    def _is_workflow_state_valid_for_starting_task(self, workflow_state, task_name):
-        preceding_tasks = self._workflow_specification.immediately_preceding_tasks_for(
-            task_name
+        task_in_progress_has_that_checkpoint = any(
+            checkpoint.is_named(checkpoint_name)
+            for checkpoint in task_in_progress.checkpoints()
+        )
+
+        return task_in_progress_has_that_checkpoint
+
+    def _is_workflow_state_valid_for_reaching_element_named(self, element_name):
+        preceding_elements = (
+            self._workflow_specification.immediately_preceding_elements_for(
+                element_name
+            )
         )
 
         follows_a_corresponding_finishing_task = any(
-            (preceding_task.name() + Monitor.TASK_FINISHED_SUFFIX) in workflow_state
-            for preceding_task in preceding_tasks
+            self._task_had_finished(preceding_element.name())
+            for preceding_element in preceding_elements
         )
-        is_starting_task_and_state_is_empty = (
-            self._workflow_specification.is_starting_task(task_name)
-            and workflow_state == set()
+        follows_a_corresponding_reached_checkpoint = any(
+            self._checkpoint_had_been_reached(preceding_element.name())
+            for preceding_element in preceding_elements
+        )
+        is_starting_element_and_state_is_empty = (
+            self._workflow_specification.is_starting_element(element_name)
+            and self._workflow_state == set()
         )
 
         return (
             follows_a_corresponding_finishing_task
-            or is_starting_task_and_state_is_empty
+            or follows_a_corresponding_reached_checkpoint
+            or is_starting_element_and_state_is_empty
         )
 
-    def _task_has_previously_started(self, task_name):
+    def _task_had_started(self, task_name):
         return (task_name + Monitor.TASK_STARTED_SUFFIX) in self._workflow_state
 
+    def _task_had_finished(self, task_name):
+        return (task_name + Monitor.TASK_FINISHED_SUFFIX) in self._workflow_state
+
+    def _checkpoint_had_been_reached(self, checkpoint_name):
+        state_word = checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX
+        return state_word in self._workflow_state
+
+    def _there_is_a_task_in_progress(self):
+        return any(
+            state_word.endswith(Monitor.TASK_STARTED_SUFFIX)
+            for state_word in self._workflow_state
+        )
+
+    def _started_task_name_from_state(self):
+        # This method assumes that there is a task in progress.
+        for state_word in self._workflow_state:
+            if state_word.endswith(Monitor.TASK_STARTED_SUFFIX):
+                return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]

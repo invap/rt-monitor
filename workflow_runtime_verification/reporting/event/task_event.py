@@ -10,4 +10,3 @@ class TaskEvent(WorkflowEvent):
 
     def name(self):
         return self._name
-

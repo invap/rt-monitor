@@ -1,24 +1,28 @@
-class TaskSpecification:
+from workflow_runtime_verification.specification.workflow_node.workflow_element import (
+    WorkflowElement,
+)
+
+
+class TaskSpecification(WorkflowElement):
     @classmethod
     def new_named(cls, name):
         return cls(name)
 
     def __init__(
-        self,
-        name,
-        preconditions=None,
-        posconditions=None,
+        self, name, preconditions=None, postconditions=None, checkpoints=None
     ) -> None:
-        super().__init__()
+        super().__init__(name)
 
         if preconditions is None:
             preconditions = set()
-        if posconditions is None:
-            posconditions = set()
+        if postconditions is None:
+            postconditions = set()
+        if checkpoints is None:
+            checkpoints = set()
 
-        self._name = name
         self._preconditions = preconditions
-        self._posconditions = posconditions
+        self._postconditions = postconditions
+        self._checkpoints = checkpoints
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -26,11 +30,13 @@ class TaskSpecification:
 
         it_has_the_same_name = self._name == other._name
         it_has_the_same_preconditions = self._preconditions == other._preconditions
-        it_has_the_same_posconditions = self._posconditions == other._posconditions
+        it_has_the_same_postconditions = self._postconditions == other._postconditions
+        it_has_the_same_checkpoints = self._checkpoints == other._checkpoints
         return (
             it_has_the_same_name
             and it_has_the_same_preconditions
-            and it_has_the_same_posconditions
+            and it_has_the_same_postconditions
+            and it_has_the_same_checkpoints
         )
 
     def __hash__(self) -> int:
@@ -39,18 +45,28 @@ class TaskSpecification:
                 self.__class__.__name__,
                 self._name,
                 tuple(self._preconditions),
-                tuple(self._posconditions),
+                tuple(self._postconditions),
+                tuple(self._checkpoints),
             )
         )
 
-    def name(self):
-        return self._name
+    def has_checkpoint_named(self, checkpoint_name):
+        return any(
+            checkpoint.is_named(checkpoint_name) for checkpoint in self._checkpoints
+        )
+
+    def checkpoint_named(self, checkpoint_name):
+        return next(
+            checkpoint
+            for checkpoint in self._checkpoints
+            if checkpoint.is_named(checkpoint_name)
+        )
 
     def preconditions(self):
         return self._preconditions
 
-    def posconditions(self):
-        return self._posconditions
+    def postconditions(self):
+        return self._postconditions
 
-    def is_named(self, task_name):
-        return self._name == task_name
+    def checkpoints(self):
+        return self._checkpoints

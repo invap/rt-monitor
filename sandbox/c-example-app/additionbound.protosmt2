@@ -1,0 +1,2 @@
+main_addition
+(and (<= 0 main_addition) (< main_addition (* 16 4096)))

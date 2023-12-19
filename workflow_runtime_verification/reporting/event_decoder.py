@@ -1,6 +1,9 @@
 from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
     CheckpointReachedEvent,
 )
+from workflow_runtime_verification.reporting.event.declare_variable_event import (
+    DeclareVariableEvent,
+)
 from workflow_runtime_verification.reporting.event.hardware_event import (
     HardwareEvent,
 )
@@ -12,9 +15,6 @@ from workflow_runtime_verification.reporting.event.task_started_event import (
 )
 from workflow_runtime_verification.reporting.event.variable_value_assigned_event import (
     VariableValueAssignedEvent,
-)
-from workflow_runtime_verification.reporting.event.declare_variable_event import (
-    DeclareVariableEvent,
 )
 
 
@@ -116,8 +116,7 @@ class EventDecoder:
 
     def _decode_variable_type(self, encoded_event):
         encoded_parameters = self._encoded_event_parameters(encoded_event)
-        type = encoded_parameters[2].split(",")
-        return type
+        return encoded_parameters[2].split(",")
 
     def _decode_variable_value(self, encoded_event):
         encoded_parameters = self._encoded_event_parameters(encoded_event)

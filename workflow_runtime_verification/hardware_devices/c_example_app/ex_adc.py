@@ -1,6 +1,10 @@
 import inspect
+
 import numpy as np
-from workflow_runtime_verification.hardware_devices.c_example_app.ex_adcVisual import ADCVisual
+
+from workflow_runtime_verification.hardware_devices.c_example_app.ex_adcVisual import (
+    adcVisual,
+)
 from workflow_runtime_verification.monitor import NoValue, FunctionNotImplemented
 
 
@@ -15,7 +19,7 @@ class adc:
         self.__total_values_read = 0
         self.__current_value = 0
         # create the visualization features associated
-        self.__visualADC = ADCVisual(parent=self, adc_comp=self)
+        self.__visualADC = adcVisual(parent=self, adc_comp=self)
         self.__visualADC.Show()
 
     def stop(self):
@@ -36,12 +40,8 @@ class adc:
     def get_status(self):
         return [self.__total_values_read, self.__current_value]
 
-
     # component exported methods
-    exported_functions = {
-        "adc_init": adc_init,
-        "sample": sample
-    }
+    exported_functions = {"adc_init": adc_init, "sample": sample}
 
     def process_high_level_call(self, string_call):
         """

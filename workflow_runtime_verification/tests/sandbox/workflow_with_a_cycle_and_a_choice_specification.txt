@@ -1,0 +1,14 @@
+5;{(0, 1),(1, 2),(2, 3),(2, 4),(3, 9),(4, 5),(5, 6),(6, 7),(7, 8),(8, 4),(8, 9),(9, 10),(10, 11)}
+0
+0:task,starting task,{},{},{}
+1:operator,seq_composition
+2:operator,choice_start
+3:task,middle task 1,{},{},{}
+4:operator,omega_start
+5:task,middle task 2,{},{},{}
+6:operator,seq_composition
+7:task,middle task 3,{},{},{}
+8:operator,omega_end
+9:operator,choice_end
+10:operator,seq_composition
+11:task,final task,{},{},{}

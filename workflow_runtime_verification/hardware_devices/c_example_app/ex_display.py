@@ -4,7 +4,9 @@ from enum import Enum
 
 import numpy as np
 
-from workflow_runtime_verification.hardware_devices.c_example_app import ex_displayVisual
+from workflow_runtime_verification.hardware_devices.c_example_app import (
+    ex_displayVisual,
+)
 from workflow_runtime_verification.monitor import FunctionNotImplemented
 
 
@@ -146,7 +148,9 @@ class display:
         # - Default Font Matrix Map 6_8
         self.__font_matrix = Font6_8()
         # create the visualization features associated
-        self.__visualDisplay = ex_displayVisual.ex_displayVisual(parent=self, display=self)
+        self.__visualDisplay = ex_displayVisual.ex_displayVisual(
+            parent=self, display=self
+        )
         self.__visualDisplay.Show()
 
     def stop(self):
@@ -158,7 +162,10 @@ class display:
         state = {
             "height": [["int"], self.height],
             "width": [["int"], self.width],
-            "pixels": [["uint8_t[][][]",self.width,self.height,3], self.__display_pixels]
+            "pixels": [
+                ["uint8_t[][][]", self.width, self.height, 3],
+                self.__display_pixels,
+            ],
         }
         return state
 
@@ -542,18 +549,20 @@ class display:
         self.__write_data(np.uint8(g))
         self.__write_data(np.uint8(b))
 
-    # component exported methods
+        # component exported methods
+
     exported_functions = {
-        "display_rect": display_rect,
+        "display_set_text_origin_position": display_set_text_origin_position,
         "display_box": display_box,
+        "display_write_text": display_write_text,
+        "display_rect": display_rect,
+        "display_Show_RGB": display_show_rgb,
         "display_set_text_color": display_set_text_color,
         "display_set_text_bgcolor": display_set_text_bgcolor,
         "display_set_text_scale": display_set_text_scale,
         "display_set_text_pos": display_set_text_pos,
         "display_set_text_pos2": display_set_text_pos2,
-        "display_set_text_origin_position": display_set_text_origin_position,
-        "display_write_text": display_write_text,
-        "display_Show_RGB": display_show_rgb,
+        "display_set_pixel": display_set_pixel,
     }
 
     def process_high_level_call(self, string_call):
