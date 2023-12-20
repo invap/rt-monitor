@@ -15,7 +15,7 @@ from workflow_runtime_verification.specification.workflow_specification import (
 
 class MainWindow(wx.Frame):
     def __init__(self):
-        super().__init__(parent=None, title="INVAP (VESE) - Simulador y Verificador")
+        super().__init__(parent=None, title="Run-time Monitor")
         self.Bind(wx.EVT_CLOSE, self.on_close)
         # Creamos un divisor para dividir la ventana en dos partes
         # splitter = wx.SplitterWindow(self, -1, style=wx.SP_3DSASH)
@@ -45,7 +45,7 @@ class ControlPanel(wx.Notebook):
         super().__init__(parent=parent)
         # build the control panel
         self.setup_reporter_panel = SetupSimulationPanel(parent=self)
-        self.AddPage(self.setup_reporter_panel, "Configuración de simulación")
+        self.AddPage(self.setup_reporter_panel, "Run-time monitor setup")
 
 
 class LoggingConf:

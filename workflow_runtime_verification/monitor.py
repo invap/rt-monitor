@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterable
 
 import z3
 
@@ -445,8 +446,14 @@ class Monitor:
             dictionary = hardware_dictionary[device].state()
             for varname in dictionary:
                 if varname in variables:
-                    if dictionary[varname][1].any() == NoValue():
-                        raise NoValueAssignedToVariable(varname)
+                    # Revisar con Julián y Germán esta forma de manejar la excepción NoValueAssignedToVariable
+                    # en el caso de las variables compuestas.
+                    if isinstance(dictionary[varname][1], Iterable):
+                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                            raise NoValueAssignedToVariable(varname)
+                    else:
+                        if isinstance(dictionary[varname][1], NoValue):
+                            raise NoValueAssignedToVariable(varname)
                     declarations = declarations + cls._build_declaration(
                         varname, dictionary[varname][0]
                     )
@@ -464,7 +471,7 @@ class Monitor:
             variables.add(var)
         for varname in program_state:
             if varname in variables:
-                if program_state[varname][1] == NoValue():
+                if isinstance(program_state[varname][1], NoValue):
                     raise NoValueAssignedToVariable(varname)
                 assumptions = assumptions + cls._build_assumption(
                     varname, program_state[varname][0], program_state[varname][1]
@@ -474,8 +481,14 @@ class Monitor:
             dictionary = hardware_dictionary[device].state()
             for varname in dictionary:
                 if varname in variables:
-                    if dictionary[varname][1].any() == NoValue():
-                        raise NoValueAssignedToVariable(varname)
+                    # Revisar con Julián y Germán esta forma de manejar la excepción NoValueAssignedToVariable
+                    # en el caso de las variables compuestas.
+                    if isinstance(dictionary[varname][1], Iterable):
+                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                            raise NoValueAssignedToVariable(varname)
+                    else:
+                        if isinstance(dictionary[varname][1], NoValue):
+                            raise NoValueAssignedToVariable(varname)
                     assumptions = assumptions + cls._build_assumption(
                         varname, dictionary[varname][0], dictionary[varname][1]
                     )
