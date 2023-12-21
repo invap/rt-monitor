@@ -448,7 +448,9 @@ class Monitor:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                        if any(
+                            [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                        ):
                             raise NoValueAssignedToVariable(varname)
                     else:
                         if isinstance(dictionary[varname][1], NoValue):
@@ -482,7 +484,9 @@ class Monitor:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                        if any(
+                            [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                        ):
                             raise NoValueAssignedToVariable(varname)
                     else:
                         if isinstance(dictionary[varname][1], NoValue):
