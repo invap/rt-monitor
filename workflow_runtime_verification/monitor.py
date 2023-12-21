@@ -446,8 +446,7 @@ class Monitor:
             dictionary = hardware_dictionary[device].state()
             for varname in dictionary:
                 if varname in variables:
-                    # Revisar con Julián y Germán esta forma de manejar la excepción NoValueAssignedToVariable
-                    # en el caso de las variables compuestas.
+                    # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
                         if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
                             raise NoValueAssignedToVariable(varname)
@@ -481,8 +480,7 @@ class Monitor:
             dictionary = hardware_dictionary[device].state()
             for varname in dictionary:
                 if varname in variables:
-                    # Revisar con Julián y Germán esta forma de manejar la excepción NoValueAssignedToVariable
-                    # en el caso de las variables compuestas.
+                    # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
                         if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
                             raise NoValueAssignedToVariable(varname)
