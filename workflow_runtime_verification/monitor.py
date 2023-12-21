@@ -452,9 +452,8 @@ class Monitor:
                             [isinstance(x, NoValue) for x in dictionary[varname][1]]
                         ):
                             raise NoValueAssignedToVariable(varname)
-                    else:
-                        if isinstance(dictionary[varname][1], NoValue):
-                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
                     declarations = declarations + cls._build_declaration(
                         varname, dictionary[varname][0]
                     )
@@ -488,9 +487,8 @@ class Monitor:
                             [isinstance(x, NoValue) for x in dictionary[varname][1]]
                         ):
                             raise NoValueAssignedToVariable(varname)
-                    else:
-                        if isinstance(dictionary[varname][1], NoValue):
-                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
                     assumptions = assumptions + cls._build_assumption(
                         varname, dictionary[varname][0], dictionary[varname][1]
                     )
