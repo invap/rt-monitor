@@ -124,6 +124,4 @@ class EventReporter:
         ).serialized()
 
     def report_hardware_event(self, hardware_device, hardware_data, time):
-        return HardwareEvent(
-            hardware_device + "," + hardware_data, time
-        ).serialized()
+        return HardwareEvent(hardware_device + "," + hardware_data, time).serialized()
