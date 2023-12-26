@@ -59,7 +59,7 @@ class CheckpointDoesNotExist(Exception):
         return self._checkpoint_name
 
 
-class TaskNotExists(Exception):
+class TaskDoesNotExist(Exception):
     def __init__(self, task_name):
         super().__init__()
         self._task_name = task_name
@@ -68,7 +68,7 @@ class TaskNotExists(Exception):
         return self._task_name
 
 
-class HardwareDeviceNotExists(Exception):
+class HardwareDeviceDoesNotExist(Exception):
     def __init__(self, device_name):
         super().__init__()
         self._device_name = device_name
@@ -143,7 +143,7 @@ class Monitor:
                 logging.info(f"Verification completed SUCCESFULLY.")
 
             return is_a_valid_report
-        except TaskNotExists as e:
+        except TaskDoesNotExist as e:
             logging.error(f"Task [ {e.getTaskName()} ] does not exists.")
             raise AbortRun()
         except CheckpointDoesNotExist as e:
@@ -160,7 +160,7 @@ class Monitor:
         task_name = task_started_event.name()
 
         if not self._workflow_specification.task_exists(task_name):
-            raise TaskNotExists(task_name)
+            raise TaskDoesNotExist(task_name)
 
         can_start = self._task_can_start(task_name)
 
@@ -186,7 +186,7 @@ class Monitor:
         task_name = task_finished_event.name()
 
         if not self._workflow_specification.task_exists(task_name):
-            raise TaskNotExists(task_name)
+            raise TaskDoesNotExist(task_name)
 
         had_previously_started = self._task_had_started(task_name)
 
@@ -243,19 +243,19 @@ class Monitor:
         raise CheckpointDoesNotExist(checkpoint_name)
 
     def process_hardware_event(self, hardware_event):
-        hardware_data = hardware_event.hardware_data()
-        device = hardware_data[: hardware_data.find(",")]
-        function_call = hardware_data[hardware_data.find(",") + 1 :]
+        hardware_data = hardware_event.data()
+        component_name = hardware_event.component_name()
 
-        if device not in self._hardware_dictionary:
-            raise HardwareDeviceNotExists(device)
+        if component_name not in self._hardware_dictionary:
+            raise HardwareDeviceDoesNotExist(component_name)
 
         try:
-            (self._hardware_dictionary[device]).process_high_level_call(function_call)
+            hardware_component = self._hardware_dictionary[component_name]
+            hardware_component.process_high_level_call(hardware_data)
             return True
         except FunctionNotImplemented as e:
             logging.error(
-                f"Function [ {e.getFunctionName()} ] is not implemented for device [ {device} ]."
+                f"Function [ {e.getFunctionName()} ] is not implemented for device [ {component_name} ]."
             )
             raise EventError(hardware_event)
 
@@ -448,11 +448,12 @@ class Monitor:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                        if any(
+                            [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                        ):
                             raise NoValueAssignedToVariable(varname)
-                    else:
-                        if isinstance(dictionary[varname][1], NoValue):
-                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
                     declarations = declarations + cls._build_declaration(
                         varname, dictionary[varname][0]
                     )
@@ -482,11 +483,12 @@ class Monitor:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                        if any(
+                            [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                        ):
                             raise NoValueAssignedToVariable(varname)
-                    else:
-                        if isinstance(dictionary[varname][1], NoValue):
-                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
                     assumptions = assumptions + cls._build_assumption(
                         varname, dictionary[varname][0], dictionary[varname][1]
                     )

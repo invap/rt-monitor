@@ -54,18 +54,10 @@ class EventDecoder:
 
     def decode_hardware_event(self, encoded_event):
         return HardwareEvent(
+            self._decode_hardware_component_name(encoded_event),
             self._decode_hardware_event_data(encoded_event),
             self._decode_time(encoded_event),
         )
-
-    def _decode_hardware_event_data(self, encoded_event):
-        event_data_as_array = encoded_event.split(",")[2:]
-        event_data_with_escaped_characters = ",".join(event_data_as_array)
-
-        event_data = bytes(event_data_with_escaped_characters, "utf-8").decode(
-            "unicode_escape"
-        )
-        return event_data
 
     def decode_task_started_event(self, encoded_event):
         return TaskStartedEvent(
@@ -107,33 +99,45 @@ class EventDecoder:
         return encoded_event.split(",")[2]
 
     def _decode_task_name(self, encoded_event):
-        encoded_parameters = self._encoded_event_parameters(encoded_event)
+        encoded_parameters = self._encoded_task_event_parameters(encoded_event)
         return encoded_parameters[1]
 
     def _decode_variable_name(self, encoded_event):
-        encoded_parameters = self._encoded_event_parameters(encoded_event)
+        encoded_parameters = self._encoded_task_event_parameters(encoded_event)
         return encoded_parameters[1]
 
     def _decode_variable_type(self, encoded_event):
-        encoded_parameters = self._encoded_event_parameters(encoded_event)
+        encoded_parameters = self._encoded_task_event_parameters(encoded_event)
         return encoded_parameters[2].split(",")
 
     def _decode_variable_value(self, encoded_event):
-        encoded_parameters = self._encoded_event_parameters(encoded_event)
+        encoded_parameters = self._encoded_task_event_parameters(encoded_event)
         return encoded_parameters[2]
 
     def _decode_checkpoint_name(self, encoded_event):
-        encoded_parameters = self._encoded_event_parameters(encoded_event)
+        encoded_parameters = self._encoded_task_event_parameters(encoded_event)
         return encoded_parameters[1]
 
     def _decode_time(self, encoded_event):
-        encoded_parameters = self._encoded_event_parameters(encoded_event)
+        encoded_parameters = self._encoded_task_event_parameters(encoded_event)
         serialized_time = encoded_parameters[0]
 
         return int(serialized_time)
 
+    def _decode_hardware_component_name(self, encoded_event):
+        return encoded_event.split(",")[2]
+
+    def _decode_hardware_event_data(self, encoded_event):
+        event_data_as_array = encoded_event.split(",")[3:]
+        event_data_with_escaped_characters = ",".join(event_data_as_array)
+
+        event_data = bytes(event_data_with_escaped_characters, "utf-8").decode(
+            "unicode_escape"
+        )
+        return event_data
+
     @staticmethod
-    def _encoded_event_parameters(encoded_event):
+    def _encoded_task_event_parameters(encoded_event):
         encoded_time = encoded_event.split(",")[0]
         encoded_parameters_without_time = encoded_event.split(",")[3:]
         encoded_parameters = [encoded_time] + encoded_parameters_without_time

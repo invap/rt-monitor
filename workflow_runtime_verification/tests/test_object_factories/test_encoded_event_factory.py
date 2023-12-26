@@ -4,6 +4,7 @@ from workflow_runtime_verification.reporting.event.checkpoint_reached_event impo
 from workflow_runtime_verification.reporting.event.declare_variable_event import (
     DeclareVariableEvent,
 )
+from workflow_runtime_verification.reporting.event.hardware_event import HardwareEvent
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
 )
@@ -69,6 +70,11 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
             f"(no_value_delimiter@{self.time()})"
         )
 
+    def hardware_encoded_event(self, component_name, data):
+        return self.event_reporter().report_hardware_event(
+            component_name, data, self.time()
+        )
+
     def report_without_task_events(self):
         return [
             self.declared_variable_encoded_event(
@@ -107,10 +113,13 @@ class EventReporter:
     def report_declared_variable(self, variable_name, variable_type, time):
         return DeclareVariableEvent(variable_name, variable_type, time).serialized()
 
+    def report_checkpoint_reached(self, checkpoint_name, time):
+        return CheckpointReachedEvent(checkpoint_name, time).serialized()
+
     def report_variable_value_assigned(self, variable_name, variable_value, time):
         return VariableValueAssignedEvent(
             variable_name, variable_value, time
         ).serialized()
 
-    def report_checkpoint_reached(self, checkpoint_name, time):
-        return CheckpointReachedEvent(checkpoint_name, time).serialized()
+    def report_hardware_event(self, component_name, data, time):
+        return HardwareEvent(component_name, data, time).serialized()

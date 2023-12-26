@@ -45,8 +45,9 @@ class adc:
 
     def process_high_level_call(self, string_call):
         """
-        this method receive as parameter an string_call containing a sequence of values, the first one is the
-        class method name (e.g. lectura ), then a lists of parameters to its invocation.
+        This method receive as parameter a string_call containing a sequence of values,
+        the first one is the class method name (e.g. lectura), then a lists of
+        parameters for its call.
         """
         # get information from string
         ls = string_call.split(",")
