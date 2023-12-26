@@ -7,7 +7,7 @@ from workflow_runtime_verification.tests.test import Test
 
 class VerificationWithHardwareTest(Test):
     def test_verifies_a_valid_report_verifying_hardware_properties(self):
-        app = wx.App()  # Remove
+        _app = wx.App()
         workflow_specification = self.objects.workflow_specification_with_one_task()
         hardware_dictionary = {
             "adc": self._hardware_component()
@@ -18,7 +18,7 @@ class VerificationWithHardwareTest(Test):
         )
         event_report = [
             self.objects.hardware_encoded_event(
-                self._hardware_device(),
+                self._hardware_component_name(),
                 self._hardware_data()
             ),
         ]
@@ -30,7 +30,7 @@ class VerificationWithHardwareTest(Test):
     def _hardware_component(self):
         return adc()
 
-    def _hardware_device(self):
+    def _hardware_component_name(self):
         return "adc"
 
     def _hardware_data(self):
