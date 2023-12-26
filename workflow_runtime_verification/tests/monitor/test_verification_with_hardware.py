@@ -15,7 +15,7 @@ class VerificationWithHardwareTest(Test):
         monitor = Monitor(workflow_specification, hardware_dictionary)
         event_report = [
             self.objects.hardware_encoded_event(
-                self._hardware_component_name(), self._hardware_data()
+                self._hardware_component_name(), self._hardware_event_data()
             ),
         ]
 
@@ -29,5 +29,5 @@ class VerificationWithHardwareTest(Test):
     def _hardware_component_name(self):
         return "adc"
 
-    def _hardware_data(self):
+    def _hardware_event_data(self):
         return "sample,2042"
