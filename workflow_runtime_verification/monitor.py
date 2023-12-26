@@ -59,7 +59,7 @@ class CheckpointDoesNotExist(Exception):
         return self._checkpoint_name
 
 
-class TaskNotExists(Exception):
+class TaskDoesNotExist(Exception):
     def __init__(self, task_name):
         super().__init__()
         self._task_name = task_name
@@ -68,7 +68,7 @@ class TaskNotExists(Exception):
         return self._task_name
 
 
-class HardwareDeviceNotExists(Exception):
+class HardwareDeviceDoesNotExist(Exception):
     def __init__(self, device_name):
         super().__init__()
         self._device_name = device_name
@@ -143,7 +143,7 @@ class Monitor:
                 logging.info(f"Verification completed SUCCESFULLY.")
 
             return is_a_valid_report
-        except TaskNotExists as e:
+        except TaskDoesNotExist as e:
             logging.error(f"Task [ {e.getTaskName()} ] does not exists.")
             raise AbortRun()
         except CheckpointDoesNotExist as e:
@@ -160,7 +160,7 @@ class Monitor:
         task_name = task_started_event.name()
 
         if not self._workflow_specification.task_exists(task_name):
-            raise TaskNotExists(task_name)
+            raise TaskDoesNotExist(task_name)
 
         can_start = self._task_can_start(task_name)
 
@@ -186,7 +186,7 @@ class Monitor:
         task_name = task_finished_event.name()
 
         if not self._workflow_specification.task_exists(task_name):
-            raise TaskNotExists(task_name)
+            raise TaskDoesNotExist(task_name)
 
         had_previously_started = self._task_had_started(task_name)
 
@@ -247,7 +247,7 @@ class Monitor:
         component_name = hardware_event.component_name()
 
         if component_name not in self._hardware_dictionary:
-            raise HardwareDeviceNotExists(component_name)
+            raise HardwareDeviceDoesNotExist(component_name)
 
         try:
             hardware_component = self._hardware_dictionary[component_name]
