@@ -70,10 +70,10 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
             f"(no_value_delimiter@{self.time()})"
         )
 
-    def hardware_encoded_event(self, hardware_device, hardware_data):
+    def hardware_encoded_event(self, component_name, data):
         return self.event_reporter().report_hardware_event(
-            hardware_device,
-            hardware_data,
+            component_name,
+            data,
             self.time(),
         )
 
@@ -123,5 +123,5 @@ class EventReporter:
             variable_name, variable_value, time
         ).serialized()
 
-    def report_hardware_event(self, hardware_device, hardware_data, time):
-        return HardwareEvent(hardware_device + "," + hardware_data, time).serialized()
+    def report_hardware_event(self, component_name, data, time):
+        return HardwareEvent(component_name, data, time).serialized()
