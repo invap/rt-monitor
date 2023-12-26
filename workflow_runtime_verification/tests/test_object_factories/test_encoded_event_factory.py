@@ -72,9 +72,7 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
 
     def hardware_encoded_event(self, component_name, data):
         return self.event_reporter().report_hardware_event(
-            component_name,
-            data,
-            self.time(),
+            component_name, data, self.time()
         )
 
     def report_without_task_events(self):
