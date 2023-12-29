@@ -19,13 +19,9 @@ class adcVisual(wx.Frame):
         self.Close(True)
 
     def on_timer(self):
-        self.counter_display.SetValue(
-            self._counter_display_label()
-        )
+        self.counter_display.SetValue(self._counter_display_label())
 
-        self.value_display.SetValue(
-            self._value_display_label()
-        )
+        self.value_display.SetValue(self._value_display_label())
 
         self.Refresh()
         self.Update()
@@ -50,4 +46,7 @@ class adcVisual(wx.Frame):
         return f"Cantidad de lecturas: {self.adc_component.get_status()[0]}"
 
     def _value_display_label(self):
-        return f"Valor actual: {self.adc_component.get_status()[1]} <<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]"
+        return (
+            f"Valor actual: {self.adc_component.get_status()[1]} "
+            f"<<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]"
+        )
