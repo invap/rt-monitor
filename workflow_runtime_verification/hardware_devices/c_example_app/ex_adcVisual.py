@@ -35,8 +35,12 @@ class adcVisual(wx.Frame):
 
     def _set_up_components(self):
         self._set_up_counter_display()
+        self._add_dividing_line()
         self._set_up_value_display()
         self._set_up_binary_value_display()
+
+    def _add_dividing_line(self):
+        self.sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_counter_display(self):
         counter_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
