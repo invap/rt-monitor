@@ -9,7 +9,6 @@ class adcVisual(wx.Frame):
         self._render()
 
         self.timer = wx.CallLater(50, self.on_timer)
-        self.Centre()
         self.Show()
 
     def close(self):
@@ -30,6 +29,9 @@ class adcVisual(wx.Frame):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self._set_up_components()
         self.SetSizerAndFit(self.sizer)
+
+        position = (50, wx.DisplaySize()[1] - self.GetSize()[1] - 150)
+        self.SetPosition(position)
 
     def _set_up_components(self):
         self._set_up_counter_display()
