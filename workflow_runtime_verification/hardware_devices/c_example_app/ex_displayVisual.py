@@ -12,8 +12,7 @@ class ex_displayVisual(wx.Frame):
         self.display = display
 
         self.visual_lcd = wx.Window(self, style=wx.STAY_ON_TOP)
-        self.visual_lcd.SetVirtualSize((self.display.height, self.display.width))
-        self.SetSize((self.display.height + 250, self.display.width))
+        self.SetClientSize((self.display.height, self.display.width))
         self.visual_lcd.Bind(wx.EVT_PAINT, self.on_paint)
 
         self.timer = wx.CallLater(50, self.on_timer)
