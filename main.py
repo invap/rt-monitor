@@ -104,11 +104,6 @@ class SetupSimulationPanel(wx.Panel):
 
     def __init__(self, parent):
         super().__init__(parent=parent)
-        self.__delay = None
-        self.__stop_event = None
-        self.__process_thread = None
-        self._monitor = None
-        self.comm_channel = None  # generated on play
         # create visual elements
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         # create Select Object file to report
