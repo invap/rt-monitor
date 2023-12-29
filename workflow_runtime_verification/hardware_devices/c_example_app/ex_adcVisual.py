@@ -34,10 +34,15 @@ class adcVisual(wx.Frame):
         self.SetSizer(self.sizer)
 
     def _set_up_components(self):
+        self._set_up_counter_display()
+        self._set_up_value_display()
+
+    def _set_up_counter_display(self):
         self.counter_display = wx.TextCtrl(self, -1, "", size=(600, -1))
         self.counter_display.SetValue("Iniciando...")
         self.sizer.Add(self.counter_display, 0, wx.EXPAND, 5)
 
+    def _set_up_value_display(self):
         self.value_display = wx.TextCtrl(self, -1, "", size=(600, -1))
         self.value_display.SetValue("Valor actual: -")
         self.sizer.Add(self.value_display, 0, wx.EXPAND, 5)
