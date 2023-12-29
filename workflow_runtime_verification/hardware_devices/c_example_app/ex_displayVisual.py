@@ -7,18 +7,17 @@ class ex_displayVisual(wx.Frame):
             None,
             title="SSD1963",
             style=wx.CAPTION | wx.RESIZE_BORDER,
-        )  # TODO take some name of the component
-        # self.Bind(wx.EVT_CLOSE, ignore_event)
+        )
+
         self.display = display
-        # Create a scrolled window
-        #        self.visual_lcd = wx.ScrolledWindow(self, style=wx.VSCROLL | wx.HSCROLL | wx.STAY_ON_TOP)
+
         self.visual_lcd = wx.Window(self, style=wx.STAY_ON_TOP)
         self.visual_lcd.SetVirtualSize((self.display.height, self.display.width))
         self.SetSize((self.display.height + 250, self.display.width))
         self.visual_lcd.Bind(wx.EVT_PAINT, self.on_paint)
-        # Init timer to reload the data from Logic
+
         self.timer = wx.CallLater(50, self.on_timer)
-        # show
+
         self.Show()
 
     def close(self):
