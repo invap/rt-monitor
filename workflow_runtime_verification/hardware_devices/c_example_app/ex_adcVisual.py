@@ -20,7 +20,7 @@ class adcVisual(wx.Frame):
 
     def on_timer(self):
         self.counter_display_number.SetLabel(self._counter_value())
-        self.value_display.SetValue(self._value_display_label())
+        self.measured_value_display.SetLabel(self._measured_value())
 
         self.Refresh()
         self.Update()
@@ -30,7 +30,7 @@ class adcVisual(wx.Frame):
     def _render(self):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self._set_up_components()
-        self.SetSizer(self.sizer)
+        self.SetSizerAndFit(self.sizer)
 
     def _set_up_components(self):
         self._set_up_counter_display()
@@ -49,14 +49,23 @@ class adcVisual(wx.Frame):
 
         self.sizer.Add(counter_display_sizer, 0, wx.CENTER)
 
-    def _set_up_display(self, display_text, sizer):
+    def _set_up_value_display(self):
+        self.measured_value_display = wx.StaticText(
+            self, label=self._measured_value(), style=wx.ALIGN_RIGHT
+        )
+        self._set_up_display(self.measured_value_display, self.sizer, self._blue())
+
+    def _set_up_display(self, display_text, sizer, foreground_color=None):
+        if foreground_color is None:
+            foreground_color = self._silver()
+
         font = wx.Font(
             18, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
         )
         display_text.SetFont(font)
 
         display_text.SetBackgroundColour(self._black())
-        display_text.SetForegroundColour(self._green())
+        display_text.SetForegroundColour(foreground_color)
 
         maximum_digits = 10
         minimum_counter_display_size = wx.Size(
@@ -66,22 +75,21 @@ class adcVisual(wx.Frame):
 
         sizer.Add(display_text, 0, wx.ALL, border=10)
 
-    def _set_up_value_display(self):
-        self.value_display = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.value_display.SetValue("Valor actual: -")
-        self.sizer.Add(self.value_display, 0, wx.EXPAND, 5)
-
     def _counter_value(self):
         return str(self.adc_component.get_status()[0])
 
-    def _value_display_label(self):
-        return (
-            f"Valor actual: {self.adc_component.get_status()[1]} "
-            f"<<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]"
-        )
+    def _measured_value(self):
+        # old_label = (
+        #     f"Valor actual: {self.adc_component.get_status()[1]} "
+        #     f"<<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]"
+        # )
+        return str(self.adc_component.get_status()[1])
 
-    def _green(self):
-        return wx.Colour(0, 255, 0)
+    def _silver(self):
+        return wx.Colour(128, 128, 128)
+
+    def _blue(self):
+        return wx.Colour(64, 224, 208)
 
     def _black(self):
         return wx.Colour(0, 0, 0)
