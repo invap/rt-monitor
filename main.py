@@ -32,6 +32,7 @@ class MainWindow(wx.Frame):
 
         # Establecemos el tamaño de la ventana y la mostramos
         self.SetSize((800, 600))
+        self.Centre()
         self.Show()
 
     def on_close(self, event):
