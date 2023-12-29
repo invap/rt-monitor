@@ -202,6 +202,7 @@ class SimulationPanel(wx.Panel):
     def _set_up_components(self):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
+
         # create information and running status
         self.Value_status_title = wx.StaticText(self, label="Estado de la simulación:")
         self.main_sizer.Add(self.Value_status_title, 0, wx.ALL, border=10)
@@ -210,6 +211,7 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
         self.panel_actividad = wx.Panel(self)
         self.main_sizer.Add(self.panel_actividad)
+
         self._set_up_action_buttons()
 
     def _set_up_action_buttons(self):
