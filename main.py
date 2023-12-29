@@ -17,18 +17,17 @@ class MainWindow(wx.Frame):
     def __init__(self):
         super().__init__(parent=None, title="Run-time Monitor")
         self.Bind(wx.EVT_CLOSE, self.on_close)
-        # Creamos un divisor para dividir la ventana en dos partes
-        # splitter = wx.SplitterWindow(self, -1, style=wx.SP_3DSASH)
 
-        # Creamos un notebook con 3 páginas
+        self._set_up_control_panel()
+
+        self._adjust_size_and_show()
+
+    def _set_up_control_panel(self):
         self.control_panel = ControlPanel(parent=self)
-
-        # Agregamos los paneles al sizer principal
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.main_sizer.Add((20, 20))
-        self.main_sizer.Add(self.control_panel, 1, wx.EXPAND)
+        self.main_sizer.Add(self.control_panel)
 
-        # Establecemos el tamaño de la ventana y la mostramos
+    def _adjust_size_and_show(self):
         self.SetSizerAndFit(self.main_sizer)
         self.Centre()
         self.Show()
@@ -201,7 +200,11 @@ class SimulationPanel(wx.Panel):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
         self._set_up_simulation_status_components()
+        self._add_dividing_line()
         self._set_up_action_components()
+
+    def _add_dividing_line(self):
+        self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
         self.button_Obj = wx.Button(
@@ -223,23 +226,20 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_simulation_status_components(self):
         self.total_events_count = 0
-        self.text_status = wx.StaticText(self, label=self._simulation_status_label())
-        self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
+        self.text_status = wx.StaticText(self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE)
+        self.main_sizer.Add(self.text_status, 0, wx.EXPAND | wx.ALL, border=10)
 
     def _set_up_action_components(self):
-        self.main_sizer.Add(
-            wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM, border=10
-        )
         self.play_button = wx.Button(self, label="Start")
         self.stop_button = wx.Button(self, label="Stop")
         self.play_button.Bind(wx.EVT_BUTTON, self.on_start)
         self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
         self.run_ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.run_ctrl_sizer.Add(
-            self.play_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT, border=10
+            self.play_button, 0, wx.ALL, border=10
         )
         self.run_ctrl_sizer.Add(
-            self.stop_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT, border=10
+            self.stop_button, 0, wx.ALL, border=10
         )
         self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
 
