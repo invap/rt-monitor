@@ -19,8 +19,7 @@ class adcVisual(wx.Frame):
         self.Close(True)
 
     def on_timer(self):
-        self.counter_display.SetValue(self._counter_display_label())
-
+        self.counter_display_number.SetLabel(self._counter_value())
         self.value_display.SetValue(self._value_display_label())
 
         self.Refresh()
@@ -38,17 +37,22 @@ class adcVisual(wx.Frame):
         self._set_up_value_display()
 
     def _set_up_counter_display(self):
-        self.counter_display = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.counter_display.SetValue("Iniciando...")
-        self.sizer.Add(self.counter_display, 0, wx.EXPAND, 5)
+        self.counter_display_label = wx.StaticText(self, label="Cantidad de lecturas: ")
+        self.counter_display_number = wx.StaticText(self, label=self._counter_value())
+
+        counter_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        counter_display_sizer.Add(self.counter_display_label, 0, wx.ALL, border=10)
+        counter_display_sizer.Add(self.counter_display_number, 0, wx.ALL, border=10)
+
+        self.sizer.Add(counter_display_sizer, 0, wx.CENTER)
 
     def _set_up_value_display(self):
         self.value_display = wx.TextCtrl(self, -1, "", size=(600, -1))
         self.value_display.SetValue("Valor actual: -")
         self.sizer.Add(self.value_display, 0, wx.EXPAND, 5)
 
-    def _counter_display_label(self):
-        return f"Cantidad de lecturas: {self.adc_component.get_status()[0]}"
+    def _counter_value(self):
+        return str({self.adc_component.get_status()[0]})
 
     def _value_display_label(self):
         return (
