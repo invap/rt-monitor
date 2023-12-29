@@ -98,10 +98,6 @@ def _configure_logging(logging_cfg):
 
 
 class SimulationPanel(wx.Panel):
-    """
-    The setup panel controls de initial configuration to perform any simulation
-    """
-
     def __init__(self, parent):
         super().__init__(parent=parent)
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
