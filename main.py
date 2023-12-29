@@ -215,6 +215,7 @@ class SimulationPanel(wx.Panel):
         action_label = "Seleccionar archivo de reporte de eventos:"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, 33))
+        self.event_report_file_path_field.Disable()
 
         self._set_up_file_selection_components_with(
             action, action_label, self.event_report_file_path_field
@@ -226,6 +227,7 @@ class SimulationPanel(wx.Panel):
         self.framework_specification_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33)
         )
+        self.framework_specification_file_path_field.Disable()
 
         self._set_up_file_selection_components_with(
             action, action_label, self.framework_specification_file_path_field
