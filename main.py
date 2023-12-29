@@ -42,9 +42,9 @@ class ControlPanel(wx.Notebook):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        self.setup_reporter_panel = SimulationPanel(parent=self)
-        self.setup_reporter_panel.SetFocus()
-        self.AddPage(self.setup_reporter_panel, "Run-time monitor setup")
+        simulation_panel = SimulationPanel(parent=self)
+        simulation_panel.SetFocus()
+        self.AddPage(simulation_panel, "Run-time monitor setup")
 
 
 class LoggingConf:
@@ -241,14 +241,14 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_action_components(self):
-        self.play_button = wx.Button(self, label="Start")
-        self.stop_button = wx.Button(self, label="Stop")
-        self.play_button.Bind(wx.EVT_BUTTON, self.on_start)
-        self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
-        self.run_ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.run_ctrl_sizer.Add(self.play_button, 0, wx.ALL, border=10)
-        self.run_ctrl_sizer.Add(self.stop_button, 0, wx.ALL, border=10)
-        self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
+        start_button = wx.Button(self, label="Start")
+        stop_button = wx.Button(self, label="Stop")
+        start_button.Bind(wx.EVT_BUTTON, self.on_start)
+        stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        action_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        action_buttons_sizer.Add(start_button, 0, wx.ALL, border=10)
+        action_buttons_sizer.Add(stop_button, 0, wx.ALL, border=10)
+        self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
         return f"Cantidad de eventos a verificar: {self.total_events_count}\n"
