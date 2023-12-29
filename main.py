@@ -123,7 +123,7 @@ class SimulationPanel(wx.Panel):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Seleccionar archivo con la especificación del framework",
+            "Seleccionar archivo con la especificación del framework (.zip):",
             "",
             "",
             "All files (*.*)|*.*",
@@ -214,7 +214,7 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
-        action_label = "Seleccionar archivo de reporte de eventos:"
+        action_label = "Seleccionar archivo de reporte de eventos (.txt):"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
