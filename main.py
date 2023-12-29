@@ -209,17 +209,21 @@ class SimulationPanel(wx.Panel):
         action_label = "Seleccionar archivo de eventos a reportar:"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, -1))
-        text_field = self.event_report_file_path_field
 
-        self._set_up_file_selection_components_with(action, action_label, text_field)
+        self._set_up_file_selection_components_with(
+            action, action_label, self.event_report_file_path_field
+        )
 
     def _set_up_workflow_selection_components(self):
         action_label = "Seleccionar archivo de especificación del framework:"
         action = self.select_specification
-        self.framework_specification_file_path_field = wx.TextCtrl(self, -1, "", size=(600, -1))
-        text_field = self.framework_specification_file_path_field
+        self.framework_specification_file_path_field = wx.TextCtrl(
+            self, -1, "", size=(600, -1)
+        )
 
-        self._set_up_file_selection_components_with(action, action_label, text_field)
+        self._set_up_file_selection_components_with(
+            action, action_label, self.framework_specification_file_path_field
+        )
 
     def _set_up_file_selection_components_with(self, action, action_label, text_field):
         button = wx.Button(self, label=action_label)
@@ -229,7 +233,9 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_simulation_status_components(self):
         self.total_events_count = 0
-        self.text_status = wx.StaticText(self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE)
+        self.text_status = wx.StaticText(
+            self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE
+        )
         self.main_sizer.Add(self.text_status, 0, wx.EXPAND | wx.ALL, border=10)
 
     def _set_up_action_components(self):
@@ -238,12 +244,8 @@ class SimulationPanel(wx.Panel):
         self.play_button.Bind(wx.EVT_BUTTON, self.on_start)
         self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
         self.run_ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.run_ctrl_sizer.Add(
-            self.play_button, 0, wx.ALL, border=10
-        )
-        self.run_ctrl_sizer.Add(
-            self.stop_button, 0, wx.ALL, border=10
-        )
+        self.run_ctrl_sizer.Add(self.play_button, 0, wx.ALL, border=10)
+        self.run_ctrl_sizer.Add(self.stop_button, 0, wx.ALL, border=10)
         self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
