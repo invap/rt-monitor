@@ -209,23 +209,23 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
-        button_label = "Seleccionar archivo de eventos a reportar:"
+        action_label = "Seleccionar archivo de eventos a reportar:"
         action = self.select_report
         self.text_report_events = wx.TextCtrl(self, -1, "", size=(600, -1))
         text_field = self.text_report_events
 
-        self._set_up_file_selection_components_with(action, button_label, text_field)
+        self._set_up_file_selection_components_with(action, action_label, text_field)
 
     def _set_up_workflow_selection_components(self):
-        button_label = "Seleccionar archivo de especificación del framework:"
+        action_label = "Seleccionar archivo de especificación del framework:"
         action = self.select_specification
         self.framework_specification_text = wx.TextCtrl(self, -1, "", size=(600, -1))
         text_field = self.framework_specification_text
 
-        self._set_up_file_selection_components_with(action, button_label, text_field)
+        self._set_up_file_selection_components_with(action, action_label, text_field)
 
-    def _set_up_file_selection_components_with(self, action, button_label, text_field):
-        button = wx.Button(self, label=button_label)
+    def _set_up_file_selection_components_with(self, action, action_label, text_field):
+        button = wx.Button(self, label=action_label)
         button.Bind(wx.EVT_BUTTON, action)
         self.main_sizer.Add(button, 0, wx.ALL, border=10)
         self.main_sizer.Add(text_field, 0, wx.ALL, border=10)
