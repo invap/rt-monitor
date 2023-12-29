@@ -19,7 +19,7 @@ class adc:
         self.__total_values_read = 0
         self.__current_value = 0
         # create the visualization features associated
-        self.__visualADC = adcVisual(parent=self, adc_comp=self)
+        self.__visualADC = adcVisual(parent=self, adc_component=self)
         self.__visualADC.Show()
 
     def stop(self):
