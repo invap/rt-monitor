@@ -52,10 +52,17 @@ class adcVisual(wx.Frame):
         self.sizer.Add(counter_display_sizer, 0, wx.CENTER)
 
     def _set_up_value_display(self):
+        value_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        measured_value_label = wx.StaticText(self, label="Valor medido: ")
+        value_display_sizer.Add(measured_value_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=10)
+
         self.measured_value_display = wx.StaticText(
             self, label=self._measured_value(), style=wx.ALIGN_RIGHT
         )
-        self._set_up_display(self.measured_value_display, self.sizer, self._blue())
+        self._set_up_display(self.measured_value_display, value_display_sizer, self._blue())
+
+        self.sizer.Add(value_display_sizer)
 
     def _set_up_binary_value_display(self):
         self.measured_binary_value_display = wx.StaticText(
