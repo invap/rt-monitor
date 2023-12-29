@@ -104,44 +104,9 @@ class SetupSimulationPanel(wx.Panel):
 
     def __init__(self, parent):
         super().__init__(parent=parent)
-        # create visual elements
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
-        # create Select Object file to report
-        self.button_Obj = wx.Button(
-            self, label="Seleccionar archivo de eventos a reportar:"
-        )
-        self.button_Obj.Bind(wx.EVT_BUTTON, self.select_report)
-        self.text_report_events = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.main_sizer.Add(self.button_Obj, 0, wx.ALL, border=10)
-        self.main_sizer.Add(self.text_report_events, 0, wx.ALL, border=10)
-        # select workflow specification file
-        self.select_specification_button = wx.Button(
-            self, label="Seleccionar archivo de especificación del framework:"
-        )
-        self.select_specification_button.Bind(wx.EVT_BUTTON, self.select_specification)
-        self.framework_specification_text = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.main_sizer.Add(self.select_specification_button, 0, wx.ALL, border=10)
-        self.main_sizer.Add(self.framework_specification_text, 0, wx.ALL, border=10)
-        # create information and running status
-        self.Value_status_title = wx.StaticText(self, label="Estado de la simulación:")
-        self.main_sizer.Add(self.Value_status_title, 0, wx.ALL, border=10)
-        self.text_status = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
-        self.panel_actividad = wx.Panel(self )
-        self.main_sizer.Add(self.panel_actividad)
-        # create the play stop controls
-        self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM, border=10)
-        self.play_button = wx.Button(self, label="Start")
-        self.stop_button = wx.Button(self, label="Stop")
-        self.play_button.Bind(wx.EVT_BUTTON, self.on_start)
-        self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
-        self.run_ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.run_ctrl_sizer.Add(self.play_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT, border=10)
-        self.run_ctrl_sizer.Add(self.stop_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT, border=10)
-        self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
+        self._set_up_components()
         self.SetSizer(self.main_sizer)
-        # status and properties variables
-        self.total_events_count = 0
 
     def select_report(self, event):
         # Open Dialog
@@ -237,6 +202,51 @@ class SetupSimulationPanel(wx.Panel):
 
     def on_stop(self, event):
         pass
+
+    def _set_up_components(self):
+        self._set_up_log_file_selection_components()
+        self._set_up_workflow_selection_components()
+        # create information and running status
+        self.Value_status_title = wx.StaticText(self, label="Estado de la simulación:")
+        self.main_sizer.Add(self.Value_status_title, 0, wx.ALL, border=10)
+        self.total_events_count = 0
+        self.text_status = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
+        self.panel_actividad = wx.Panel(self)
+        self.main_sizer.Add(self.panel_actividad)
+        self._set_up_action_buttons()
+
+    def _set_up_action_buttons(self):
+        self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM,
+                            border=10)
+        self.play_button = wx.Button(self, label="Start")
+        self.stop_button = wx.Button(self, label="Stop")
+        self.play_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        self.run_ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.run_ctrl_sizer.Add(self.play_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT,
+                                border=10)
+        self.run_ctrl_sizer.Add(self.stop_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT,
+                                border=10)
+        self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
+
+    def _set_up_workflow_selection_components(self):
+        self.select_specification_button = wx.Button(
+            self, label="Seleccionar archivo de especificación del framework:"
+        )
+        self.select_specification_button.Bind(wx.EVT_BUTTON, self.select_specification)
+        self.framework_specification_text = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.main_sizer.Add(self.select_specification_button, 0, wx.ALL, border=10)
+        self.main_sizer.Add(self.framework_specification_text, 0, wx.ALL, border=10)
+
+    def _set_up_log_file_selection_components(self):
+        self.button_Obj = wx.Button(
+            self, label="Seleccionar archivo de eventos a reportar:"
+        )
+        self.button_Obj.Bind(wx.EVT_BUTTON, self.select_report)
+        self.text_report_events = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.main_sizer.Add(self.button_Obj, 0, wx.ALL, border=10)
+        self.main_sizer.Add(self.text_report_events, 0, wx.ALL, border=10)
 
 
 if __name__ == "__main__":
