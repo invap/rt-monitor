@@ -227,17 +227,20 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
 
     def _set_up_action_components(self):
-        self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM,
-                            border=10)
+        self.main_sizer.Add(
+            wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM, border=10
+        )
         self.play_button = wx.Button(self, label="Start")
         self.stop_button = wx.Button(self, label="Stop")
         self.play_button.Bind(wx.EVT_BUTTON, self.on_start)
         self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
         self.run_ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.run_ctrl_sizer.Add(self.play_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT,
-                                border=10)
-        self.run_ctrl_sizer.Add(self.stop_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT,
-                                border=10)
+        self.run_ctrl_sizer.Add(
+            self.play_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT, border=10
+        )
+        self.run_ctrl_sizer.Add(
+            self.stop_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT, border=10
+        )
         self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
