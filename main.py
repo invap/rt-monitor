@@ -190,9 +190,6 @@ class SimulationPanel(wx.Panel):
         except AbortRun:
             logging.critical(f"Runtime monitoring process ABORTED.")
 
-        # Create a flag to stop and pause the process
-        self.__stop_event = threading.Event()
-        self.__delay = 0
         self.__process_thread.start()
 
     def on_stop(self, event):
