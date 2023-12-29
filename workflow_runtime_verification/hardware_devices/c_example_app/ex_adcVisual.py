@@ -42,7 +42,7 @@ class adcVisual(wx.Frame):
         counter_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self.counter_display_label = wx.StaticText(self, label="Cantidad de lecturas: ")
-        counter_display_sizer.Add(self.counter_display_label, 0, wx.ALL, border=10)
+        counter_display_sizer.Add(self.counter_display_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=10)
 
         self.counter_display_number = wx.StaticText(
             self, label=self._counter_value(), style=wx.ALIGN_RIGHT
