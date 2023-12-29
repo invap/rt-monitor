@@ -274,8 +274,16 @@ class SimulationPanel(wx.Panel):
         return f"Cantidad de eventos a verificar: {self.total_events_count}\n"
 
     def _update_start_button(self):
-        if self.event_report_file_path_field.Value != "" and self.framework_specification_file_path_field.Value != "":
+        report_file_path = self.event_report_file_path_field.Value
+        report_file_was_selected = report_file_path.endswith(".txt")
+
+        specification_file_path = self.framework_specification_file_path_field.Value
+        specification_file_was_selected = specification_file_path.endswith(".zip")
+
+        if report_file_was_selected and specification_file_was_selected:
             self.start_button.Enable()
+        else:
+            self.start_button.Disable()
 
 
 if __name__ == "__main__":
