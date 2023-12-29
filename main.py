@@ -191,10 +191,12 @@ class SimulationPanel(wx.Panel):
         except AbortRun:
             logging.critical(f"Runtime monitoring process ABORTED.")
 
+        self.stop_button.Enable()
+
         self.__process_thread.start()
 
     def on_stop(self, event):
-        pass
+        self.stop_button.Disable()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -263,12 +265,13 @@ class SimulationPanel(wx.Panel):
         self.start_button.Bind(wx.EVT_BUTTON, self.on_start)
         self.start_button.Disable()
 
-        stop_button = wx.Button(self, label="Stop")
-        stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        self.stop_button = wx.Button(self, label="Stop")
+        self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        self.stop_button.Disable()
 
         action_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
         action_buttons_sizer.Add(self.start_button, 0, wx.ALL, border=10)
-        action_buttons_sizer.Add(stop_button, 0, wx.ALL, border=10)
+        action_buttons_sizer.Add(self.stop_button, 0, wx.ALL, border=10)
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
