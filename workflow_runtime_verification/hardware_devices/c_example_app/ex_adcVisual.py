@@ -8,17 +8,18 @@ class adcVisual(wx.Frame):
         )
 
         self.adc_component = adc_component
-
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self._set_up_status_information_components()
-        self.SetSizer(self.sizer)
+        self._render()
 
         self.timer = wx.CallLater(50, self.on_timer)
-
         self.Centre()
         self.Show()
 
-    def _set_up_status_information_components(self):
+    def _render(self):
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self._set_up_components()
+        self.SetSizer(self.sizer)
+
+    def _set_up_components(self):
         self.counter_display = wx.TextCtrl(self, -1, "", size=(600, -1))
         self.counter_display.SetValue("Iniciando...")
         self.sizer.Add(self.counter_display, 0, wx.EXPAND, 5)

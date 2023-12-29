@@ -101,9 +101,7 @@ class SimulationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        self.main_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._set_up_components()
-        self.SetSizer(self.main_sizer)
+        self._render()
 
     def select_report(self, event):
         # Open Dialog
@@ -195,6 +193,11 @@ class SimulationPanel(wx.Panel):
 
     def on_stop(self, event):
         pass
+
+    def _render(self):
+        self.main_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._set_up_components()
+        self.SetSizer(self.main_sizer)
 
     def _set_up_components(self):
         self._set_up_log_file_selection_components()
