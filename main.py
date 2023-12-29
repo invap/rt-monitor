@@ -42,8 +42,8 @@ class MainWindow(wx.Frame):
 class ControlPanel(wx.Notebook):
     def __init__(self, parent):
         super().__init__(parent=parent)
-        # build the control panel
-        self.setup_reporter_panel = SetupSimulationPanel(parent=self)
+
+        self.setup_reporter_panel = SimulationPanel(parent=self)
         self.AddPage(self.setup_reporter_panel, "Run-time monitor setup")
 
 
@@ -97,7 +97,7 @@ def _configure_logging(logging_cfg):
             )
 
 
-class SetupSimulationPanel(wx.Panel):
+class SimulationPanel(wx.Panel):
     """
     The setup panel controls de initial configuration to perform any simulation
     """
@@ -176,7 +176,7 @@ class SetupSimulationPanel(wx.Panel):
             open(directory + "/workflow.desc", "r")
         )
         # Configuring logger
-        hardware_specification = SetupSimulationPanel.__new_hardware_map_from_open_file(
+        hardware_specification = SimulationPanel.__new_hardware_map_from_open_file(
             open(directory + "/hardware.desc", "r")
         )
         # Setting up logger
