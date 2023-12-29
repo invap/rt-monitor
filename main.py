@@ -229,8 +229,6 @@ class SimulationPanel(wx.Panel):
         self.total_events_count = 0
         self.text_status = wx.TextCtrl(self, -1, "", size=(600, -1))
         self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
-        self.panel_actividad = wx.Panel(self)
-        self.main_sizer.Add(self.panel_actividad)
 
     def _set_up_action_components(self):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM,
