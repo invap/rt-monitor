@@ -21,6 +21,7 @@ class adcVisual(wx.Frame):
     def on_timer(self):
         self.counter_display_number.SetLabel(self._counter_value())
         self.measured_value_display.SetLabel(self._measured_value())
+        self.measured_binary_value_display.SetLabel(self._measured_binary_value())
 
         self.Refresh()
         self.Update()
@@ -35,6 +36,7 @@ class adcVisual(wx.Frame):
     def _set_up_components(self):
         self._set_up_counter_display()
         self._set_up_value_display()
+        self._set_up_binary_value_display()
 
     def _set_up_counter_display(self):
         counter_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -54,6 +56,12 @@ class adcVisual(wx.Frame):
             self, label=self._measured_value(), style=wx.ALIGN_RIGHT
         )
         self._set_up_display(self.measured_value_display, self.sizer, self._blue())
+
+    def _set_up_binary_value_display(self):
+        self.measured_binary_value_display = wx.StaticText(
+            self, label=self._measured_binary_value(), style=wx.ALIGN_RIGHT
+        )
+        self._set_up_display(self.measured_binary_value_display, self.sizer)
 
     def _set_up_display(self, display_text, sizer, foreground_color=None):
         if foreground_color is None:
@@ -79,11 +87,10 @@ class adcVisual(wx.Frame):
         return str(self.adc_component.get_status()[0])
 
     def _measured_value(self):
-        # old_label = (
-        #     f"Valor actual: {self.adc_component.get_status()[1]} "
-        #     f"<<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]"
-        # )
         return str(self.adc_component.get_status()[1])
+
+    def _measured_binary_value(self):
+        return str(bin(self.adc_component.get_status()[1]))[2:]
 
     def _silver(self):
         return wx.Colour(128, 128, 128)
