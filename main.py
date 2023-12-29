@@ -27,9 +27,6 @@ class MainWindow(wx.Frame):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         self.main_sizer.Add(self.control_panel, 1, wx.EXPAND)
 
-        # Establecemos el sizer principal para la ventana
-        self.SetSizer(self.main_sizer)
-
         # Establecemos el tamaño de la ventana y la mostramos
         self.SetSizerAndFit(self.main_sizer)
         self.Centre()
