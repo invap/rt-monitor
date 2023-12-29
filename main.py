@@ -115,7 +115,7 @@ class SimulationPanel(wx.Panel):
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
-            self.text_report_events.SetValue(dialog.GetPath())
+            self.event_report_file_path_field.SetValue(dialog.GetPath())
             self.update_report_properties()
         dialog.Destroy()
 
@@ -130,16 +130,16 @@ class SimulationPanel(wx.Panel):
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
-            self.framework_specification_text.SetValue(dialog.GetPath())
+            self.framework_specification_file_path_field.SetValue(dialog.GetPath())
         dialog.Destroy()
 
     def update_report_properties(self):
-        with open(self.text_report_events.Value, "r") as f:
+        with open(self.event_report_file_path_field.Value, "r") as f:
             self.total_events_count = sum(1 for _ in f)
             f.close()
         self.text_status.SetLabel(self._simulation_status_label())
         self.main_sizer.Layout()
-        self.text_report_events.Refresh()
+        self.event_report_file_path_field.Refresh()
 
     @staticmethod
     def __new_hardware_map_from_open_file(hardware_file):
@@ -157,7 +157,7 @@ class SimulationPanel(wx.Panel):
         return hardware_map
 
     def on_start(self, event):
-        path_file = os.path.split(self.framework_specification_text.Value)
+        path_file = os.path.split(self.framework_specification_file_path_field.Value)
         file_ext = os.path.splitext(path_file[1])
         directory = path_file[0] + "/" + file_ext[0]
         try:
@@ -182,7 +182,7 @@ class SimulationPanel(wx.Panel):
         # Running the monitor
         self._monitor = Monitor(workflow_specification, hardware_specification)
         # Create a new thread to read from the pipe
-        event_report_file = open(self.text_report_events.Value, "r")
+        event_report_file = open(self.event_report_file_path_field.Value, "r")
         try:
             self.__process_thread = threading.Thread(
                 target=self._monitor.run, args=[event_report_file]
@@ -208,16 +208,16 @@ class SimulationPanel(wx.Panel):
     def _set_up_log_file_selection_components(self):
         action_label = "Seleccionar archivo de eventos a reportar:"
         action = self.select_report
-        self.text_report_events = wx.TextCtrl(self, -1, "", size=(600, -1))
-        text_field = self.text_report_events
+        self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, -1))
+        text_field = self.event_report_file_path_field
 
         self._set_up_file_selection_components_with(action, action_label, text_field)
 
     def _set_up_workflow_selection_components(self):
         action_label = "Seleccionar archivo de especificación del framework:"
         action = self.select_specification
-        self.framework_specification_text = wx.TextCtrl(self, -1, "", size=(600, -1))
-        text_field = self.framework_specification_text
+        self.framework_specification_file_path_field = wx.TextCtrl(self, -1, "", size=(600, -1))
+        text_field = self.framework_specification_file_path_field
 
         self._set_up_file_selection_components_with(action, action_label, text_field)
 
