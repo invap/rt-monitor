@@ -37,16 +37,16 @@ class adcVisual(wx.Frame):
         self._set_up_value_display()
 
     def _set_up_counter_display(self):
-        self.counter_display_label = wx.StaticText(self, label="Cantidad de lecturas: ")
-        self._set_up_counter_display_number()
-
         counter_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.counter_display_label = wx.StaticText(self, label="Cantidad de lecturas: ")
         counter_display_sizer.Add(self.counter_display_label, 0, wx.ALL, border=10)
-        counter_display_sizer.Add(self.counter_display_number, 0, wx.ALL, border=10)
+
+        self._set_up_counter_display_number(counter_display_sizer)
 
         self.sizer.Add(counter_display_sizer, 0, wx.CENTER)
 
-    def _set_up_counter_display_number(self):
+    def _set_up_counter_display_number(self, sizer):
         self.counter_display_number = wx.StaticText(
             self, label=self._counter_value(), style=wx.ALIGN_RIGHT
         )
@@ -64,6 +64,8 @@ class adcVisual(wx.Frame):
             counter_display_font.GetPixelSize().GetWidth() * maximum_digits, -1
         )
         self.counter_display_number.SetMinSize(minimum_counter_display_size)
+
+        sizer.Add(self.counter_display_number, 0, wx.ALL, border=10)
 
     def _set_up_value_display(self):
         self.value_display = wx.TextCtrl(self, -1, "", size=(600, -1))
