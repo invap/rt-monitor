@@ -42,30 +42,29 @@ class adcVisual(wx.Frame):
         self.counter_display_label = wx.StaticText(self, label="Cantidad de lecturas: ")
         counter_display_sizer.Add(self.counter_display_label, 0, wx.ALL, border=10)
 
-        self._set_up_counter_display_number(counter_display_sizer)
-
-        self.sizer.Add(counter_display_sizer, 0, wx.CENTER)
-
-    def _set_up_counter_display_number(self, sizer):
         self.counter_display_number = wx.StaticText(
             self, label=self._counter_value(), style=wx.ALIGN_RIGHT
         )
+        self._set_up_display(self.counter_display_number, counter_display_sizer)
 
-        counter_display_font = wx.Font(
+        self.sizer.Add(counter_display_sizer, 0, wx.CENTER)
+
+    def _set_up_display(self, display_text, sizer):
+        font = wx.Font(
             18, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
         )
-        self.counter_display_number.SetFont(counter_display_font)
+        display_text.SetFont(font)
 
-        self.counter_display_number.SetBackgroundColour(self._black())
-        self.counter_display_number.SetForegroundColour(self._green())
+        display_text.SetBackgroundColour(self._black())
+        display_text.SetForegroundColour(self._green())
 
         maximum_digits = 10
         minimum_counter_display_size = wx.Size(
-            counter_display_font.GetPixelSize().GetWidth() * maximum_digits, -1
+            font.GetPixelSize().GetWidth() * maximum_digits, -1
         )
-        self.counter_display_number.SetMinSize(minimum_counter_display_size)
+        display_text.SetMinSize(minimum_counter_display_size)
 
-        sizer.Add(self.counter_display_number, 0, wx.ALL, border=10)
+        sizer.Add(display_text, 0, wx.ALL, border=10)
 
     def _set_up_value_display(self):
         self.value_display = wx.TextCtrl(self, -1, "", size=(600, -1))
