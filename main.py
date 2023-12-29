@@ -227,10 +227,10 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_file_selection_components_with(self, action, action_label, text_field):
         action_label_component = wx.StaticText(
-            self, label=action_label, style=wx.ALIGN_CENTRE
+            self, label=action_label
         )
         self.main_sizer.Add(
-            action_label_component, 0, wx.EXPAND | wx.ALL, border=10
+            action_label_component, 0, wx.LEFT | wx.TOP, border=15
         )
 
         folder_icon = wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, (16, 16))
@@ -239,7 +239,7 @@ class SimulationPanel(wx.Panel):
 
         folder_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         folder_selection_sizer.Add(text_field, 0, wx.ALL, border=10)
-        folder_selection_sizer.Add(folder_selection_button, 0, wx.ALL, border=10)
+        folder_selection_sizer.Add(folder_selection_button, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=10)
 
         self.main_sizer.Add(folder_selection_sizer, 0)
 
