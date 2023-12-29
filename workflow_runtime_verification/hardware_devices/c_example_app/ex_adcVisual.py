@@ -61,9 +61,13 @@ class adcVisual(wx.Frame):
         self.measured_binary_value_display = wx.StaticText(
             self, label=self._measured_binary_value(), style=wx.ALIGN_RIGHT
         )
-        self._set_up_display(self.measured_binary_value_display, self.sizer)
+        self._set_up_display(
+            self.measured_binary_value_display, self.sizer, maximum_digits=25
+        )
 
-    def _set_up_display(self, display_text, sizer, foreground_color=None):
+    def _set_up_display(
+        self, display_text, sizer, foreground_color=None, maximum_digits=10
+    ):
         if foreground_color is None:
             foreground_color = self._silver()
 
@@ -75,7 +79,6 @@ class adcVisual(wx.Frame):
         display_text.SetBackgroundColour(self._black())
         display_text.SetForegroundColour(foreground_color)
 
-        maximum_digits = 10
         minimum_counter_display_size = wx.Size(
             font.GetPixelSize().GetWidth() * maximum_digits, -1
         )
