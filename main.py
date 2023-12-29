@@ -116,6 +116,7 @@ class SimulationPanel(wx.Panel):
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
             self.update_report_properties()
+            self._update_start_button()
         dialog.Destroy()
 
     def select_specification(self, event):
@@ -130,6 +131,7 @@ class SimulationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.framework_specification_file_path_field.SetValue(dialog.GetPath())
+            self._update_start_button()
         dialog.Destroy()
 
     def update_report_properties(self):
@@ -255,20 +257,25 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_action_components(self):
-        start_button = wx.Button(self, label="Start")
-        start_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self.start_button = wx.Button(self, label="Start")
+        self.start_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self.start_button.Disable()
 
         stop_button = wx.Button(self, label="Stop")
         stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
 
         action_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        action_buttons_sizer.Add(start_button, 0, wx.ALL, border=10)
+        action_buttons_sizer.Add(self.start_button, 0, wx.ALL, border=10)
         action_buttons_sizer.Add(stop_button, 0, wx.ALL, border=10)
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
         return f"Cantidad de eventos a verificar: {self.total_events_count}\n"
+
+    def _update_start_button(self):
+        if self.event_report_file_path_field.Value != "" and self.framework_specification_file_path_field.Value != "":
+            self.start_button.Enable()
 
 
 if __name__ == "__main__":
