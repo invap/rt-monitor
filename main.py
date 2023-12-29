@@ -43,6 +43,7 @@ class ControlPanel(wx.Notebook):
         super().__init__(parent=parent)
 
         self.setup_reporter_panel = SimulationPanel(parent=self)
+        self.setup_reporter_panel.SetFocus()
         self.AddPage(self.setup_reporter_panel, "Run-time monitor setup")
 
 
@@ -137,6 +138,7 @@ class SimulationPanel(wx.Panel):
             self.total_events_count = sum(1 for _ in f)
             f.close()
         self.text_status.SetLabel(self._simulation_status_label())
+        self.main_sizer.Layout()
         self.text_report_events.Refresh()
 
     @staticmethod
@@ -207,22 +209,26 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
-        self.button_Obj = wx.Button(
-            self, label="Seleccionar archivo de eventos a reportar:"
-        )
-        self.button_Obj.Bind(wx.EVT_BUTTON, self.select_report)
+        button_label = "Seleccionar archivo de eventos a reportar:"
+        action = self.select_report
         self.text_report_events = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.main_sizer.Add(self.button_Obj, 0, wx.ALL, border=10)
-        self.main_sizer.Add(self.text_report_events, 0, wx.ALL, border=10)
+        text_field = self.text_report_events
+
+        self._set_up_file_selection_components_with(action, button_label, text_field)
 
     def _set_up_workflow_selection_components(self):
-        self.select_specification_button = wx.Button(
-            self, label="Seleccionar archivo de especificación del framework:"
-        )
-        self.select_specification_button.Bind(wx.EVT_BUTTON, self.select_specification)
+        button_label = "Seleccionar archivo de especificación del framework:"
+        action = self.select_specification
         self.framework_specification_text = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.main_sizer.Add(self.select_specification_button, 0, wx.ALL, border=10)
-        self.main_sizer.Add(self.framework_specification_text, 0, wx.ALL, border=10)
+        text_field = self.framework_specification_text
+
+        self._set_up_file_selection_components_with(action, button_label, text_field)
+
+    def _set_up_file_selection_components_with(self, action, button_label, text_field):
+        button = wx.Button(self, label=button_label)
+        button.Bind(wx.EVT_BUTTON, action)
+        self.main_sizer.Add(button, 0, wx.ALL, border=10)
+        self.main_sizer.Add(text_field, 0, wx.ALL, border=10)
 
     def _set_up_simulation_status_components(self):
         self.total_events_count = 0
