@@ -50,12 +50,15 @@ class adcVisual(wx.Frame):
         self.counter_display_number = wx.StaticText(
             self, label=self._counter_value(), style=wx.ALIGN_RIGHT
         )
+
         counter_display_font = wx.Font(
             18, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
         )
         self.counter_display_number.SetFont(counter_display_font)
+
         self.counter_display_number.SetBackgroundColour(self._black())
         self.counter_display_number.SetForegroundColour(self._green())
+
         maximum_digits = 10
         minimum_counter_display_size = wx.Size(
             counter_display_font.GetPixelSize().GetWidth() * maximum_digits, -1
