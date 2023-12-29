@@ -137,7 +137,7 @@ class SimulationPanel(wx.Panel):
         with open(self.event_report_file_path_field.Value, "r") as f:
             self.total_events_count = sum(1 for _ in f)
             f.close()
-        self.text_status.SetLabel(self._simulation_status_label())
+        self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self.main_sizer.Layout()
         self.event_report_file_path_field.Refresh()
 
@@ -233,10 +233,12 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_simulation_status_components(self):
         self.total_events_count = 0
-        self.text_status = wx.StaticText(
+        self.simulation_status_text_label = wx.StaticText(
             self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE
         )
-        self.main_sizer.Add(self.text_status, 0, wx.EXPAND | wx.ALL, border=10)
+        self.main_sizer.Add(
+            self.simulation_status_text_label, 0, wx.EXPAND | wx.ALL, border=10
+        )
 
     def _set_up_action_components(self):
         self.play_button = wx.Button(self, label="Start")
