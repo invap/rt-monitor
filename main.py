@@ -31,7 +31,7 @@ class MainWindow(wx.Frame):
         self.SetSizer(self.main_sizer)
 
         # Establecemos el tamaño de la ventana y la mostramos
-        self.SetSize((800, 600))
+        self.SetSizerAndFit(self.main_sizer)
         self.Centre()
         self.Show()
 
