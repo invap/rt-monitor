@@ -208,7 +208,7 @@ class SimulationPanel(wx.Panel):
     def _set_up_log_file_selection_components(self):
         action_label = "Seleccionar archivo de eventos a reportar:"
         action = self.select_report
-        self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, 33))
 
         self._set_up_file_selection_components_with(
             action, action_label, self.event_report_file_path_field
@@ -218,7 +218,7 @@ class SimulationPanel(wx.Panel):
         action_label = "Seleccionar archivo de especificación del framework:"
         action = self.select_specification
         self.framework_specification_file_path_field = wx.TextCtrl(
-            self, -1, "", size=(600, -1)
+            self, -1, "", size=(600, 33)
         )
 
         self._set_up_file_selection_components_with(
@@ -226,10 +226,19 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_file_selection_components_with(self, action, action_label, text_field):
-        button = wx.Button(self, label=action_label)
-        button.Bind(wx.EVT_BUTTON, action)
-        self.main_sizer.Add(button, 0, wx.ALL, border=10)
-        self.main_sizer.Add(text_field, 0, wx.ALL, border=10)
+        folder_icon = wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, (16, 16))
+        folder_selection_button = wx.BitmapButton(self, bitmap=folder_icon)
+        folder_selection_button.Bind(wx.EVT_BUTTON, action)
+
+        folder_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        folder_selection_sizer.Add(text_field, 0, wx.ALL, border=10)
+        folder_selection_sizer.Add(folder_selection_button, 0, wx.ALL, border=10)
+
+        self.main_sizer.Add(folder_selection_sizer, 0)
+
+        # button = wx.Button(self, label=action_label)
+        # button.Bind(wx.EVT_BUTTON, action)
+        # self.main_sizer.Add(button, 0, wx.ALL, border=10)
 
     def _set_up_simulation_status_components(self):
         self.total_events_count = 0
@@ -242,12 +251,15 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_action_components(self):
         start_button = wx.Button(self, label="Start")
-        stop_button = wx.Button(self, label="Stop")
         start_button.Bind(wx.EVT_BUTTON, self.on_start)
+
+        stop_button = wx.Button(self, label="Stop")
         stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+
         action_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
         action_buttons_sizer.Add(start_button, 0, wx.ALL, border=10)
         action_buttons_sizer.Add(stop_button, 0, wx.ALL, border=10)
+
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
