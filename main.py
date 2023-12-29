@@ -129,8 +129,8 @@ class SetupSimulationPanel(wx.Panel):
         self.main_sizer.Add(self.select_specification_button, 0, wx.LEFT | wx.TOP, 20)
         self.main_sizer.Add(self.framework_specification_text, 0, wx.LEFT | wx.TOP, 10)
         # create information and running status
-        self.label_status_title = wx.StaticText(self, label="Estado de la simulación:")
-        self.main_sizer.Add(self.label_status_title, 0, wx.LEFT | wx.TOP, 10)
+        self.Value_status_title = wx.StaticText(self, label="Estado de la simulación:")
+        self.main_sizer.Add(self.Value_status_title, 0, wx.LEFT | wx.TOP, 10)
         self.text_status = wx.TextCtrl(self, -1, "", size=(600, -1))
         self.main_sizer.Add(self.text_status, 0, wx.LEFT | wx.TOP, 10)
         self.panel_actividad = wx.Panel(self)
@@ -160,7 +160,7 @@ class SetupSimulationPanel(wx.Panel):
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
-            self.text_report_events.SetLabel(dialog.GetPath())
+            self.text_report_events.SetValue(dialog.GetPath())
             self.update_report_properties()
         dialog.Destroy()
 
@@ -175,14 +175,14 @@ class SetupSimulationPanel(wx.Panel):
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
-            self.framework_specification_text.SetLabel(dialog.GetPath())
+            self.framework_specification_text.SetValue(dialog.GetPath())
         dialog.Destroy()
 
     def update_report_properties(self):
-        with open(self.text_report_events.Label, "r") as f:
+        with open(self.text_report_events.Value, "r") as f:
             self.total_events_count = sum(1 for _ in f)
             f.close()
-        self.text_status.SetLabel(
+        self.text_status.SetValue(
             f"Cant. Total de eventos a verificar: {self.total_events_count}\n"
         )
         self.text_report_events.Refresh()
@@ -203,7 +203,7 @@ class SetupSimulationPanel(wx.Panel):
         return hardware_map
 
     def on_start(self, event):
-        path_file = os.path.split(self.framework_specification_text.Label)
+        path_file = os.path.split(self.framework_specification_text.Value)
         file_ext = os.path.splitext(path_file[1])
         directory = path_file[0] + "/" + file_ext[0]
         try:
@@ -228,7 +228,7 @@ class SetupSimulationPanel(wx.Panel):
         # Running the monitor
         self._monitor = Monitor(workflow_specification, hardware_specification)
         # Create a new thread to read from the pipe
-        event_report_file = open(self.text_report_events.Label, "r")
+        event_report_file = open(self.text_report_events.Value, "r")
         try:
             self.__process_thread = threading.Thread(
                 target=self._monitor.run, args=[event_report_file]
