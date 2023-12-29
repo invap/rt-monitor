@@ -100,6 +100,7 @@ def _configure_logging(logging_cfg):
 class SimulationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
+
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         self._set_up_components()
         self.SetSizer(self.main_sizer)
@@ -206,7 +207,7 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
-        action_label = "Seleccionar archivo de eventos a reportar:"
+        action_label = "Seleccionar archivo de reporte de eventos:"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, 33))
 

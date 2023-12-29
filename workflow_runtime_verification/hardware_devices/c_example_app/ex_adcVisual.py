@@ -8,9 +8,10 @@ class adcVisual(wx.Frame):
         )
 
         self.adc_component = adc_component
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
 
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self._set_up_status_information_components()
+        self.SetSizer(self.sizer)
 
         self.timer = wx.CallLater(50, self.on_timer)
 
@@ -18,20 +19,26 @@ class adcVisual(wx.Frame):
         self.Show()
 
     def _set_up_status_information_components(self):
-        self.counter = wx.TextCtrl(self, -1, "", size=(600, -1))
-        self.counter.SetLabel("Iniciando...")
-        self.sizer.Add(self.counter)
+        self.counter_display = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.counter_display.SetValue("Iniciando...")
+        self.sizer.Add(self.counter_display, 0, wx.EXPAND, 5)
+
+        self.value_display = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.value_display.SetValue("Valor actual: -")
+        self.sizer.Add(self.value_display, 0, wx.EXPAND, 5)
 
     def close(self):
         self.timer.Stop()
         self.Close(True)
 
     def on_timer(self):
-        self.counter.SetValue(
-            f"Cantidad de lecturas: {self.adc_component.get_status()[0]}\n"
-            + f"Valor actual: {self.adc_component.get_status()[1]} <<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]\n"
+        self.counter_display.SetValue(
+            f"Cantidad de lecturas: {self.adc_component.get_status()[0]}"
         )
-        self.counter.Refresh()
+
+        self.value_display.SetValue(
+            f"Valor actual: {self.adc_component.get_status()[1]} <<== [{str(bin(self.adc_component.get_status()[1]))[2:]}]"
+        )
 
         self.Refresh()
         self.Update()
