@@ -3,9 +3,7 @@ import wx
 
 class adcVisual(wx.Frame):
     def __init__(self, parent, adc_component):
-        super().__init__(
-            None, title="ADC", style=wx.CAPTION | wx.RESIZE_BORDER
-        )
+        super().__init__(None, title="ADC", style=wx.CAPTION | wx.RESIZE_BORDER)
 
         self.adc_component = adc_component
         self._render()
@@ -46,7 +44,12 @@ class adcVisual(wx.Frame):
         counter_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         counter_display_label = wx.StaticText(self, label="Cantidad de lecturas: ")
-        counter_display_sizer.Add(counter_display_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT, border=10)
+        counter_display_sizer.Add(
+            counter_display_label,
+            0,
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT,
+            border=10,
+        )
 
         counter_display_sizer.AddStretchSpacer()
 
@@ -61,14 +64,21 @@ class adcVisual(wx.Frame):
         value_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         measured_value_label = wx.StaticText(self, label="Valor medido: ")
-        value_display_sizer.Add(measured_value_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT, border=10)
+        value_display_sizer.Add(
+            measured_value_label,
+            0,
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT,
+            border=10,
+        )
 
         value_display_sizer.AddStretchSpacer()
 
         self.measured_value_display = wx.StaticText(
             self, label=self._measured_value(), style=wx.ALIGN_RIGHT
         )
-        self._set_up_display(self.measured_value_display, value_display_sizer, self._blue())
+        self._set_up_display(
+            self.measured_value_display, value_display_sizer, self._blue()
+        )
 
         self.sizer.Add(value_display_sizer, 0, wx.EXPAND)
 
