@@ -137,9 +137,7 @@ class SimulationPanel(wx.Panel):
         with open(self.text_report_events.Value, "r") as f:
             self.total_events_count = sum(1 for _ in f)
             f.close()
-        self.text_status.SetValue(
-            f"Cant. Total de eventos a verificar: {self.total_events_count}\n"
-        )
+        self.text_status.SetLabel(self._simulation_status_label())
         self.text_report_events.Refresh()
 
     @staticmethod
@@ -224,10 +222,8 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(self.framework_specification_text, 0, wx.ALL, border=10)
 
     def _set_up_simulation_status_components(self):
-        self.Value_status_title = wx.StaticText(self, label="Estado de la simulación:")
-        self.main_sizer.Add(self.Value_status_title, 0, wx.ALL, border=10)
         self.total_events_count = 0
-        self.text_status = wx.TextCtrl(self, -1, "", size=(600, -1))
+        self.text_status = wx.StaticText(self, label=self._simulation_status_label())
         self.main_sizer.Add(self.text_status, 0, wx.ALL, border=10)
 
     def _set_up_action_components(self):
@@ -243,6 +239,9 @@ class SimulationPanel(wx.Panel):
         self.run_ctrl_sizer.Add(self.stop_button, 0, wx.BOTTOM | wx.RIGHT | wx.LEFT,
                                 border=10)
         self.main_sizer.Add(self.run_ctrl_sizer, 0, wx.CENTER)
+
+    def _simulation_status_label(self):
+        return f"Cantidad de eventos a verificar: {self.total_events_count}\n"
 
 
 if __name__ == "__main__":
