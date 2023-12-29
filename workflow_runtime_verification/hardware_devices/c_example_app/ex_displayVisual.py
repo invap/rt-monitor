@@ -5,7 +5,7 @@ class ex_displayVisual(wx.Frame):
     def __init__(self, parent, display):
         super().__init__(
             None,
-            title="Component: SSD1963 Display",
+            title="SSD1963",
             style=wx.CAPTION | wx.RESIZE_BORDER,
         )  # TODO take some name of the component
         # self.Bind(wx.EVT_CLOSE, ignore_event)
