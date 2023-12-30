@@ -145,16 +145,15 @@ class Monitor:
             return is_a_valid_report
         except TaskDoesNotExist as e:
             logging.error(f"Task [ {e.getTaskName()} ] does not exist.")
-            raise AbortRun()
         except CheckpointDoesNotExist as e:
             logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exist.")
-            raise AbortRun()
         except AlreadyDeclaredVariable as e:
             logging.error(f"Variable [ {e.getVarname()} ] is already declared.")
-            raise AbortRun()
         except EventError as e:
             logging.critical(f"Event [ {e.getEvent()} ] produced an error.")
-            raise AbortRun()
+
+        logging.critical(f"Runtime monitoring process ABORTED.")
+        raise AbortRun()
 
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
