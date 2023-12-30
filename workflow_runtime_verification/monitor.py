@@ -123,7 +123,7 @@ class Monitor:
         self._workflow_state = set()
         self._execution_state = {}
 
-    def run(self, event_report_file, pause_event=None):
+    def run(self, event_report_file, pause_event=None, stop_event=None):
         try:
             is_a_valid_report = True
             for line in event_report_file:
@@ -131,6 +131,8 @@ class Monitor:
                     break
 
                 self._pause_verification_if_requested(pause_event)
+                if stop_event.is_set():
+                    break
 
                 decoded_event = self._event_decoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
@@ -140,7 +142,9 @@ class Monitor:
                         f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]"
                     )
 
-            if not is_a_valid_report:
+            if stop_event.is_set():
+                logging.info(f"Verification process STOPPED.")
+            elif not is_a_valid_report:
                 logging.info(f"Verification completed UNSUCCESSFULLY.")
             else:
                 logging.info(f"Verification completed SUCCESSFULLY.")
