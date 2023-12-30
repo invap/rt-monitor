@@ -194,13 +194,13 @@ class SimulationPanel(wx.Panel):
         verification_thread.start()
 
     def on_stop(self, event):
-        self.stop_button.Disable()
+        self._disable_stop_button()
 
     def _run_verification(self, process_thread):
-        self.stop_button.Enable()
+        self._enable_stop_button()
         process_thread.start()
         process_thread.join()
-        self.stop_button.Disable()
+        self._disable_stop_button()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -271,7 +271,7 @@ class SimulationPanel(wx.Panel):
 
         self.stop_button = wx.Button(self, label="Stop")
         self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
-        self.stop_button.Disable()
+        self._disable_stop_button()
 
         action_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
         action_buttons_sizer.Add(self.start_button, 0, wx.ALL, border=10)
@@ -293,6 +293,12 @@ class SimulationPanel(wx.Panel):
             self.start_button.Enable()
         else:
             self.start_button.Disable()
+
+    def _disable_stop_button(self):
+        self.stop_button.Disable()
+
+    def _enable_stop_button(self):
+        self.stop_button.Enable()
 
 
 if __name__ == "__main__":
