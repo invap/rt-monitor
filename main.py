@@ -97,6 +97,7 @@ def _configure_logging(logging_cfg):
             )
 
 
+# noinspection PyPropertyAccess
 class SimulationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)

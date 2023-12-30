@@ -138,16 +138,16 @@ class Monitor:
                     )
 
             if not is_a_valid_report:
-                logging.info(f"Verification completed UNSUCCESFULLY.")
+                logging.info(f"Verification completed UNSUCCESSFULLY.")
             else:
-                logging.info(f"Verification completed SUCCESFULLY.")
+                logging.info(f"Verification completed SUCCESSFULLY.")
 
             return is_a_valid_report
         except TaskDoesNotExist as e:
-            logging.error(f"Task [ {e.getTaskName()} ] does not exists.")
+            logging.error(f"Task [ {e.getTaskName()} ] does not exist.")
             raise AbortRun()
         except CheckpointDoesNotExist as e:
-            logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exists.")
+            logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exist.")
             raise AbortRun()
         except AlreadyDeclaredVariable as e:
             logging.error(f"Variable [ {e.getVarname()} ] is already declared.")
