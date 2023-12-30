@@ -184,7 +184,7 @@ class SimulationPanel(wx.Panel):
 
         event_report_file = open(self.event_report_file_path_field.Value, "r")
         process_thread = threading.Thread(
-            target=monitor.run, args=[event_report_file]
+            target=monitor.run, args=[event_report_file, self._pause_event]
         )
 
         verification_thread = threading.Thread(
@@ -196,7 +196,7 @@ class SimulationPanel(wx.Panel):
         self._disable_stop_button()
 
     def on_pause(self, event):
-        print("pause")
+        self._pause_event.set()
 
     def _run_verification(self, process_thread):
         self._enable_stop_button()
@@ -269,6 +269,8 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_action_components(self):
+        self._pause_event = threading.Event()
+
         self.multi_action_button = wx.Button(self, label="Start")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
         self.multi_action_button.Disable()

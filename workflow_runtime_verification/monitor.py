@@ -123,12 +123,19 @@ class Monitor:
         self._workflow_state = set()
         self._execution_state = {}
 
-    def run(self, event_report_file):
+    def run(self, event_report_file, pause_event=None):
         try:
             is_a_valid_report = True
             for line in event_report_file:
                 if not is_a_valid_report:
                     break
+
+                if pause_event is not None and pause_event.is_set():
+                    # This is busy waiting. There are better solutions.
+                    logging.info(f"Verification paused.")
+                    while pause_event.is_set():
+                        pause_event.wait()
+
                 decoded_event = self._event_decoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
