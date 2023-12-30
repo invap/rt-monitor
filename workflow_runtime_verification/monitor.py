@@ -130,11 +130,7 @@ class Monitor:
                 if not is_a_valid_report:
                     break
 
-                if pause_event is not None and pause_event.is_set():
-                    # This is busy waiting. There are better solutions.
-                    logging.info(f"Verification paused.")
-                    while pause_event.is_set():
-                        pause_event.wait()
+                self._pause_verification_if_requested(pause_event)
 
                 decoded_event = self._event_decoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
@@ -624,3 +620,10 @@ class Monitor:
         for state_word in self._workflow_state:
             if state_word.endswith(Monitor.TASK_STARTED_SUFFIX):
                 return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]
+
+    def _pause_verification_if_requested(self, pause_event):
+        if pause_event is not None and pause_event.is_set():
+            # This is busy waiting. There are better solutions.
+            logging.info(f"Verification paused.")
+            while pause_event.is_set():
+                pause_event.wait()
