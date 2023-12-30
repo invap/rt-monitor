@@ -157,7 +157,7 @@ class SimulationPanel(wx.Panel):
             hardware_map[line_[0]] = my_class()
         return hardware_map
 
-    def on_start(self, event):
+    def on_start(self, _event):
         path_file = os.path.split(self.framework_specification_file_path_field.Value)
         file_ext = os.path.splitext(path_file[1])
         directory = path_file[0] + "/" + file_ext[0]
@@ -192,11 +192,16 @@ class SimulationPanel(wx.Panel):
         )
         verification_thread.start()
 
-    def on_stop(self, event):
+    def on_stop(self, _event):
         self._disable_stop_button()
 
-    def on_pause(self, event):
+    def on_pause(self, _event):
         self._pause_event.set()
+        self._show_multi_action_button_as_play()
+
+    def on_play(self, _event):
+        self._show_multi_action_button_as_pause()
+        self._pause_event.clear()
 
     def _run_verification(self, process_thread):
         self._enable_stop_button()
@@ -300,14 +305,19 @@ class SimulationPanel(wx.Panel):
         else:
             self.multi_action_button.Disable()
 
+    def _show_multi_action_button_as_start(self):
+        self.multi_action_button.SetLabel("Start")
+        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self.multi_action_button.Enable()
+
     def _show_multi_action_button_as_pause(self):
         self.multi_action_button.SetLabel("Pause")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_pause)
         self.multi_action_button.Enable()
 
-    def _show_multi_action_button_as_start(self):
-        self.multi_action_button.SetLabel("Start")
-        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
+    def _show_multi_action_button_as_play(self):
+        self.multi_action_button.SetLabel("Play")
+        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_play)
         self.multi_action_button.Enable()
 
     def _disable_stop_button(self):

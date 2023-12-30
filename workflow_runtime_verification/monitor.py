@@ -622,8 +622,11 @@ class Monitor:
                 return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]
 
     def _pause_verification_if_requested(self, pause_event):
+        # This is busy waiting. There are better solutions.
         if pause_event is not None and pause_event.is_set():
-            # This is busy waiting. There are better solutions.
             logging.info(f"Verification paused.")
+
             while pause_event.is_set():
-                pause_event.wait()
+                continue
+
+            logging.info(f"Verification resumed.")
