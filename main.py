@@ -197,6 +197,10 @@ class SimulationPanel(wx.Panel):
 
     def on_pause(self, _event):
         self._pause_event.set()
+        logging.info(
+            "Verification will be paused when it finishes processing "
+            "the current event."
+        )
         self._show_multi_action_button_as_play()
 
     def on_play(self, _event):
