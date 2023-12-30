@@ -205,6 +205,9 @@ class SimulationPanel(wx.Panel):
 
     def on_play(self, _event):
         self._show_multi_action_button_as_pause()
+        logging.info(
+            "Verification resumed."
+        )
         self._pause_event.clear()
 
     def _run_verification(self, process_thread):
