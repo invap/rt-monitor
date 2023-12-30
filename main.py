@@ -185,7 +185,7 @@ class SimulationPanel(wx.Panel):
         # Create a new thread to read from the pipe
         event_report_file = open(self.event_report_file_path_field.Value, "r")
         try:
-            self.__process_thread = threading.Thread(
+            process_thread = threading.Thread(
                 target=self._monitor.run, args=[event_report_file]
             )
         except AbortRun:
@@ -193,9 +193,17 @@ class SimulationPanel(wx.Panel):
 
         self.stop_button.Enable()
 
-        self.__process_thread.start()
+        verification_thread = threading.Thread(
+            target=self._run_verification, args=[process_thread]
+        )
+        verification_thread.start()
 
     def on_stop(self, event):
+        self.stop_button.Disable()
+
+    def _run_verification(self, process_thread):
+        process_thread.start()
+        process_thread.join()
         self.stop_button.Disable()
 
     def _render(self):
