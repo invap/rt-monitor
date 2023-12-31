@@ -33,7 +33,7 @@ class MainWindow(wx.Frame):
         self.Show()
 
     def on_close(self, event):
-        # del self.control_panel
+        self.control_panel.close()
         self.Destroy()
         wx.Exit()
 
@@ -42,9 +42,12 @@ class ControlPanel(wx.Notebook):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        simulation_panel = SimulationPanel(parent=self)
-        simulation_panel.SetFocus()
-        self.AddPage(simulation_panel, "Run-time monitor setup")
+        self.simulation_panel = SimulationPanel(parent=self)
+        self.simulation_panel.SetFocus()
+        self.AddPage(self.simulation_panel, "Run-time monitor setup")
+
+    def close(self):
+        self.simulation_panel.close()
 
 
 class LoggingConf:
@@ -213,6 +216,9 @@ class SimulationPanel(wx.Panel):
         logging.info("Verification resumed.")
         self._pause_event.clear()
 
+    def close(self):
+        self.on_stop(None)
+
     def _run_verification(self, process_thread):
         self._stop_event.clear()
         self._pause_event.clear()
@@ -231,7 +237,7 @@ class SimulationPanel(wx.Panel):
             "You will be able to restart the verification when the last one is stopped."
         )
         process_thread.join()
-        self.monitor.stop_hardware_simulation()
+        self.close()
         self._enable_multi_action_button()
 
     def _render(self):
