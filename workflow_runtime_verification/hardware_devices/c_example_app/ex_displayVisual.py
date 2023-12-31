@@ -21,10 +21,7 @@ class ex_displayVisual(wx.Frame):
 
     def close(self):
         self.timer.Stop()
-        self.Close(True)
-
-    def force_refresh(self):
-        self.on_paint()
+        self.Destroy()
 
     def on_timer(self):
         self.Refresh()

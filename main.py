@@ -7,7 +7,7 @@ import threading
 
 import wx
 
-from workflow_runtime_verification.monitor import Monitor, AbortRun
+from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
 )
@@ -33,7 +33,7 @@ class MainWindow(wx.Frame):
         self.Show()
 
     def on_close(self, event):
-        # del self.control_panel
+        self.control_panel.close()
         self.Destroy()
         wx.Exit()
 
@@ -42,9 +42,12 @@ class ControlPanel(wx.Notebook):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        simulation_panel = SimulationPanel(parent=self)
-        simulation_panel.SetFocus()
-        self.AddPage(simulation_panel, "Run-time monitor setup")
+        self.simulation_panel = SimulationPanel(parent=self)
+        self.simulation_panel.SetFocus()
+        self.AddPage(self.simulation_panel, "Run-time monitor setup")
+
+    def close(self):
+        self.simulation_panel.close()
 
 
 class LoggingConf:
@@ -97,6 +100,7 @@ def _configure_logging(logging_cfg):
             )
 
 
+# noinspection PyPropertyAccess
 class SimulationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
@@ -116,13 +120,14 @@ class SimulationPanel(wx.Panel):
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
             self.update_report_properties()
+            self._update_start_button()
         dialog.Destroy()
 
     def select_specification(self, event):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Seleccionar archivo con la especificación del framework",
+            "Seleccionar archivo con la especificación del framework (.zip):",
             "",
             "",
             "All files (*.*)|*.*",
@@ -130,6 +135,7 @@ class SimulationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.framework_specification_file_path_field.SetValue(dialog.GetPath())
+            self._update_start_button()
         dialog.Destroy()
 
     def update_report_properties(self):
@@ -137,11 +143,9 @@ class SimulationPanel(wx.Panel):
             self.total_events_count = sum(1 for _ in f)
             f.close()
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
-        self.main_sizer.Layout()
-        self.event_report_file_path_field.Refresh()
+        self._refresh_window_layout()
 
-    @staticmethod
-    def __new_hardware_map_from_open_file(hardware_file):
+    def __new_hardware_map_from_open_file(self, hardware_file):
         hardware_map = {}
         for line in hardware_file:
             line_ = line.split(",")
@@ -155,7 +159,7 @@ class SimulationPanel(wx.Panel):
             hardware_map[line_[0]] = my_class()
         return hardware_map
 
-    def on_start(self, event):
+    def on_start(self, _event):
         path_file = os.path.split(self.framework_specification_file_path_field.Value)
         file_ext = os.path.splitext(path_file[1])
         directory = path_file[0] + "/" + file_ext[0]
@@ -169,8 +173,7 @@ class SimulationPanel(wx.Panel):
         workflow_specification = WorkflowSpecification.new_from_open_file(
             open(directory + "/workflow.desc", "r")
         )
-        # Configuring logger
-        hardware_specification = SimulationPanel.__new_hardware_map_from_open_file(
+        hardware_specification = self.__new_hardware_map_from_open_file(
             open(directory + "/hardware.desc", "r")
         )
         # Setting up logger
@@ -178,21 +181,64 @@ class SimulationPanel(wx.Panel):
         logging_cfg.log_dest = "STDOUT"
         logging_cfg.level = logging.INFO
         _configure_logging(logging_cfg)
-        # Running the monitor
-        self._monitor = Monitor(workflow_specification, hardware_specification)
-        # Create a new thread to read from the pipe
+
+        self.monitor = Monitor(workflow_specification, hardware_specification)
+
         event_report_file = open(self.event_report_file_path_field.Value, "r")
-        try:
-            self.__process_thread = threading.Thread(
-                target=self._monitor.run, args=[event_report_file]
-            )
-        except AbortRun:
-            logging.critical(f"Runtime monitoring process ABORTED.")
+        process_thread = threading.Thread(
+            target=self.monitor.run,
+            args=[event_report_file, self._pause_event, self._stop_event],
+        )
 
-        self.__process_thread.start()
+        verification_thread = threading.Thread(
+            target=self._run_verification, args=[process_thread]
+        )
+        verification_thread.start()
 
-    def on_stop(self, event):
-        pass
+    def on_stop(self, _event):
+        self._disable_stop_button()
+        logging.info(
+            "Verification is gracefully stopping in the background. "
+            "It will stop when it finishes processing the current event."
+        )
+        self._stop_event.set()
+
+    def on_pause(self, _event):
+        self._pause_event.set()
+        logging.info(
+            "Verification will be paused when it finishes processing "
+            "the current event."
+        )
+        self._show_multi_action_button_as_play()
+
+    def on_play(self, _event):
+        self._show_multi_action_button_as_pause()
+        logging.info("Verification resumed.")
+        self._pause_event.clear()
+
+    def close(self):
+        self.on_stop(None)
+
+    def _run_verification(self, process_thread):
+        self._stop_event.clear()
+        self._pause_event.clear()
+        self._enable_stop_button()
+        self._show_multi_action_button_as_pause()
+        process_thread.start()
+
+        while process_thread.is_alive():
+            if self._stop_event.is_set():
+                break
+
+        self._disable_stop_button()
+        self._show_multi_action_button_as_start()
+        self._disable_multi_action_button()
+        logging.info(
+            "You will be able to restart the verification when the last one is stopped."
+        )
+        process_thread.join()
+        self.close()
+        self._enable_multi_action_button()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -210,9 +256,11 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
-        action_label = "Seleccionar archivo de reporte de eventos:"
+        action_label = "Seleccionar archivo de reporte de eventos (.txt):"
         action = self.select_report
-        self.event_report_file_path_field = wx.TextCtrl(self, -1, "", size=(600, 33))
+        self.event_report_file_path_field = wx.TextCtrl(
+            self, -1, "", size=(600, 33), style=wx.TE_READONLY
+        )
 
         self._set_up_file_selection_components_with(
             action, action_label, self.event_report_file_path_field
@@ -222,7 +270,7 @@ class SimulationPanel(wx.Panel):
         action_label = "Seleccionar archivo de especificación del framework:"
         action = self.select_specification
         self.framework_specification_file_path_field = wx.TextCtrl(
-            self, -1, "", size=(600, 33)
+            self, -1, "", size=(600, 33), style=wx.TE_READONLY
         )
 
         self._set_up_file_selection_components_with(
@@ -255,20 +303,67 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_action_components(self):
-        start_button = wx.Button(self, label="Start")
-        start_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self._pause_event = threading.Event()
+        self._stop_event = threading.Event()
 
-        stop_button = wx.Button(self, label="Stop")
-        stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        self.multi_action_button = wx.Button(self, label="Start")
+        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self._disable_multi_action_button()
+
+        self.stop_button = wx.Button(self, label="Stop")
+        self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        self._disable_stop_button()
 
         action_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        action_buttons_sizer.Add(start_button, 0, wx.ALL, border=10)
-        action_buttons_sizer.Add(stop_button, 0, wx.ALL, border=10)
+        action_buttons_sizer.Add(self.multi_action_button, 0, wx.ALL, border=10)
+        action_buttons_sizer.Add(self.stop_button, 0, wx.ALL, border=10)
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
         return f"Cantidad de eventos a verificar: {self.total_events_count}\n"
+
+    def _update_start_button(self):
+        report_file_path = self.event_report_file_path_field.Value
+        report_file_was_selected = report_file_path.endswith(".txt")
+
+        specification_file_path = self.framework_specification_file_path_field.Value
+        specification_file_was_selected = specification_file_path.endswith(".zip")
+
+        if report_file_was_selected and specification_file_was_selected:
+            self._enable_multi_action_button()
+        else:
+            self._disable_multi_action_button()
+
+    def _show_multi_action_button_as_start(self):
+        self.multi_action_button.SetLabel("Start")
+        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
+        self._enable_multi_action_button()
+
+    def _show_multi_action_button_as_pause(self):
+        self.multi_action_button.SetLabel("Pause")
+        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_pause)
+        self._enable_multi_action_button()
+
+    def _show_multi_action_button_as_play(self):
+        self.multi_action_button.SetLabel("Play")
+        self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_play)
+        self._enable_multi_action_button()
+
+    def _disable_stop_button(self):
+        self.stop_button.Disable()
+
+    def _enable_stop_button(self):
+        self.stop_button.Enable()
+
+    def _disable_multi_action_button(self):
+        self.multi_action_button.Disable()
+
+    def _enable_multi_action_button(self):
+        self.multi_action_button.Enable()
+
+    def _refresh_window_layout(self):
+        self.main_sizer.Layout()
 
 
 if __name__ == "__main__":

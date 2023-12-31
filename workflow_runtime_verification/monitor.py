@@ -123,12 +123,17 @@ class Monitor:
         self._workflow_state = set()
         self._execution_state = {}
 
-    def run(self, event_report_file):
+    def run(self, event_report_file, pause_event=None, stop_event=None):
         try:
             is_a_valid_report = True
             for line in event_report_file:
                 if not is_a_valid_report:
                     break
+
+                self._pause_verification_if_requested(pause_event, stop_event)
+                if self._event_was_set(stop_event):
+                    break
+
                 decoded_event = self._event_decoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
@@ -137,24 +142,25 @@ class Monitor:
                         f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]"
                     )
 
-            if not is_a_valid_report:
-                logging.info(f"Verification completed UNSUCCESFULLY.")
+            if self._event_was_set(stop_event):
+                logging.info(f"Verification process STOPPED.")
+            elif not is_a_valid_report:
+                logging.info(f"Verification completed UNSUCCESSFULLY.")
             else:
-                logging.info(f"Verification completed SUCCESFULLY.")
+                logging.info(f"Verification completed SUCCESSFULLY.")
 
             return is_a_valid_report
         except TaskDoesNotExist as e:
-            logging.error(f"Task [ {e.getTaskName()} ] does not exists.")
-            raise AbortRun()
+            logging.error(f"Task [ {e.getTaskName()} ] does not exist.")
         except CheckpointDoesNotExist as e:
-            logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exists.")
-            raise AbortRun()
+            logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exist.")
         except AlreadyDeclaredVariable as e:
             logging.error(f"Variable [ {e.getVarname()} ] is already declared.")
-            raise AbortRun()
         except EventError as e:
             logging.critical(f"Event [ {e.getEvent()} ] produced an error.")
-            raise AbortRun()
+
+        logging.critical(f"Runtime monitoring process ABORTED.")
+        raise AbortRun()
 
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
@@ -258,6 +264,10 @@ class Monitor:
                 f"Function [ {e.getFunctionName()} ] is not implemented for device [ {component_name} ]."
             )
             raise EventError(hardware_event)
+
+    def stop_hardware_simulation(self):
+        for component_name in self._hardware_dictionary:
+            self._hardware_dictionary[component_name].stop()
 
     def _update_workflow_state_with_started_task(self, task_started_event):
         task_name = task_started_event.name()
@@ -618,3 +628,17 @@ class Monitor:
         for state_word in self._workflow_state:
             if state_word.endswith(Monitor.TASK_STARTED_SUFFIX):
                 return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]
+
+    def _pause_verification_if_requested(self, pause_event, stop_event):
+        # This is busy waiting. There are better solutions.
+        if self._event_was_set(pause_event):
+            logging.info(f"Verification paused.")
+
+            while pause_event.is_set():
+                if stop_event.is_set():
+                    return
+
+            logging.info(f"Verification resumed.")
+
+    def _event_was_set(self, stop_event):
+        return stop_event is not None and stop_event.is_set()
