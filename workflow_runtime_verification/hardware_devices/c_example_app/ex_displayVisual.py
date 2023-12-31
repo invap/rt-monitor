@@ -23,9 +23,6 @@ class ex_displayVisual(wx.Frame):
         self.timer.Stop()
         self.Destroy()
 
-    def force_refresh(self):
-        self.on_paint()
-
     def on_timer(self):
         self.Refresh()
         self.Update()
