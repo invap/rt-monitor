@@ -198,7 +198,6 @@ class SimulationPanel(wx.Panel):
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
-        self.monitor.stop_hardware_simulation()
         self._stop_event.set()
 
     def on_pause(self, _event):
@@ -232,6 +231,7 @@ class SimulationPanel(wx.Panel):
             "You will be able to restart the verification when the last one is stopped."
         )
         process_thread.join()
+        self.monitor.stop_hardware_simulation()
         self._enable_multi_action_button()
 
     def _render(self):
