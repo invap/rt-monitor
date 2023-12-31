@@ -131,7 +131,7 @@ class Monitor:
                     break
 
                 self._pause_verification_if_requested(pause_event, stop_event)
-                if stop_event.is_set():
+                if self._event_was_set(stop_event):
                     break
 
                 decoded_event = self._event_decoder.decode(line.strip())
@@ -142,7 +142,7 @@ class Monitor:
                         f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]"
                     )
 
-            if stop_event.is_set():
+            if self._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
             elif not is_a_valid_report:
                 logging.info(f"Verification completed UNSUCCESSFULLY.")
@@ -627,7 +627,7 @@ class Monitor:
 
     def _pause_verification_if_requested(self, pause_event, stop_event):
         # This is busy waiting. There are better solutions.
-        if pause_event is not None and pause_event.is_set():
+        if self._event_was_set(pause_event):
             logging.info(f"Verification paused.")
 
             while pause_event.is_set():
@@ -635,3 +635,6 @@ class Monitor:
                     return
 
             logging.info(f"Verification resumed.")
+
+    def _event_was_set(self, stop_event):
+        return stop_event is not None and stop_event.is_set()
