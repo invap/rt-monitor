@@ -225,8 +225,8 @@ class SimulationPanel(wx.Panel):
             if self._stop_event.is_set():
                 break
 
-        self._show_multi_action_button_as_start()
         self._disable_stop_button()
+        self._show_multi_action_button_as_start()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
