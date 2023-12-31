@@ -196,11 +196,9 @@ class SimulationPanel(wx.Panel):
     def on_stop(self, _event):
         self._disable_stop_button()
         logging.info(
-            "Verification will be stopped when it finishes processing "
-            "the current event."
+            "Verification is gracefully stopping in the background. "
+            "It will stop when it finishes processing the current event."
         )
-        # The verification could be stopped immediately by running the Z3 verification
-        # in a separate thread, and killing it as son as the stop button is pressed.
         self._stop_event.set()
 
     def on_pause(self, _event):
@@ -220,7 +218,11 @@ class SimulationPanel(wx.Panel):
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
         process_thread.start()
-        process_thread.join()
+
+        while process_thread.is_alive():
+            if self._stop_event.is_set():
+                break
+
         self._show_multi_action_button_as_start()
         self._disable_stop_button()
 
