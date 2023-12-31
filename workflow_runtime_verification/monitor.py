@@ -265,6 +265,10 @@ class Monitor:
             )
             raise EventError(hardware_event)
 
+    def stop_hardware_simulation(self):
+        for component_name in self._hardware_dictionary:
+            self._hardware_dictionary[component_name].stop()
+
     def _update_workflow_state_with_started_task(self, task_started_event):
         task_name = task_started_event.name()
 

@@ -170,7 +170,7 @@ class SimulationPanel(wx.Panel):
         workflow_specification = WorkflowSpecification.new_from_open_file(
             open(directory + "/workflow.desc", "r")
         )
-        self.hardware_specification = self.__new_hardware_map_from_open_file(
+        hardware_specification = self.__new_hardware_map_from_open_file(
             open(directory + "/hardware.desc", "r")
         )
         # Setting up logger
@@ -179,11 +179,11 @@ class SimulationPanel(wx.Panel):
         logging_cfg.level = logging.INFO
         _configure_logging(logging_cfg)
 
-        monitor = Monitor(workflow_specification, self.hardware_specification)
+        self.monitor = Monitor(workflow_specification, hardware_specification)
 
         event_report_file = open(self.event_report_file_path_field.Value, "r")
         process_thread = threading.Thread(
-            target=monitor.run,
+            target=self.monitor.run,
             args=[event_report_file, self._pause_event, self._stop_event],
         )
 
@@ -198,8 +198,7 @@ class SimulationPanel(wx.Panel):
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
-        for component_name in self.hardware_specification:
-            self.hardware_specification[component_name].stop()
+        self.monitor.stop_hardware_simulation()
         self._stop_event.set()
 
     def on_pause(self, _event):
