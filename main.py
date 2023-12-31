@@ -215,6 +215,8 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
 
     def _run_verification(self, process_thread):
+        self._stop_event.clear()
+        self._pause_event.clear()
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
         process_thread.start()
