@@ -142,8 +142,7 @@ class SimulationPanel(wx.Panel):
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self._refresh_window_layout()
 
-    @staticmethod
-    def __new_hardware_map_from_open_file(hardware_file):
+    def __new_hardware_map_from_open_file(self, hardware_file):
         hardware_map = {}
         for line in hardware_file:
             line_ = line.split(",")
@@ -171,7 +170,7 @@ class SimulationPanel(wx.Panel):
         workflow_specification = WorkflowSpecification.new_from_open_file(
             open(directory + "/workflow.desc", "r")
         )
-        hardware_specification = SimulationPanel.__new_hardware_map_from_open_file(
+        hardware_specification = self.__new_hardware_map_from_open_file(
             open(directory + "/hardware.desc", "r")
         )
         # Setting up logger
@@ -199,6 +198,7 @@ class SimulationPanel(wx.Panel):
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
+
         self._stop_event.set()
 
     def on_pause(self, _event):
