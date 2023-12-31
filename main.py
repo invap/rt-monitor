@@ -227,6 +227,9 @@ class SimulationPanel(wx.Panel):
 
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
+        self._disable_multi_action_button()
+        process_thread.join()
+        self._enable_multi_action_button()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -296,7 +299,7 @@ class SimulationPanel(wx.Panel):
 
         self.multi_action_button = wx.Button(self, label="Start")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
-        self.multi_action_button.Disable()
+        self._disable_multi_action_button()
 
         self.stop_button = wx.Button(self, label="Stop")
         self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
@@ -319,30 +322,36 @@ class SimulationPanel(wx.Panel):
         specification_file_was_selected = specification_file_path.endswith(".zip")
 
         if report_file_was_selected and specification_file_was_selected:
-            self.multi_action_button.Enable()
+            self._enable_multi_action_button()
         else:
-            self.multi_action_button.Disable()
+            self._disable_multi_action_button()
 
     def _show_multi_action_button_as_start(self):
         self.multi_action_button.SetLabel("Start")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
-        self.multi_action_button.Enable()
+        self._enable_multi_action_button()
 
     def _show_multi_action_button_as_pause(self):
         self.multi_action_button.SetLabel("Pause")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_pause)
-        self.multi_action_button.Enable()
+        self._enable_multi_action_button()
 
     def _show_multi_action_button_as_play(self):
         self.multi_action_button.SetLabel("Play")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_play)
-        self.multi_action_button.Enable()
+        self._enable_multi_action_button()
 
     def _disable_stop_button(self):
         self.stop_button.Disable()
 
     def _enable_stop_button(self):
         self.stop_button.Enable()
+
+    def _disable_multi_action_button(self):
+        self.multi_action_button.Disable()
+
+    def _enable_multi_action_button(self):
+        self.multi_action_button.Enable()
 
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
