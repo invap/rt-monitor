@@ -145,23 +145,6 @@ class SimulationPanel(wx.Panel):
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self._refresh_window_layout()
 
-    def _new_hardware_map_from_open_file(self, hardware_file):
-        hardware_map = {}
-
-        for line in hardware_file:
-            split_line = line.split(",")
-
-            device_name = split_line[0]
-
-            component_class_path = split_line[1].strip()
-            split_component_class_path = component_class_path.rsplit(".", 1)
-            component_module = importlib.import_module(split_component_class_path[0])
-            component_class = getattr(component_module, split_component_class_path[1])
-
-            hardware_map[device_name] = component_class()
-
-        return hardware_map
-
     def on_start(self, _event):
         path_file = os.path.split(self.framework_specification_file_path_field.Value)
         file_ext = os.path.splitext(path_file[1])
@@ -373,6 +356,23 @@ class SimulationPanel(wx.Panel):
 
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
+
+    def _new_hardware_map_from_open_file(self, hardware_file):
+        hardware_map = {}
+
+        for line in hardware_file:
+            split_line = line.split(",")
+
+            device_name = split_line[0]
+
+            component_class_path = split_line[1].strip()
+            split_component_class_path = component_class_path.rsplit(".", 1)
+            component_module = importlib.import_module(split_component_class_path[0])
+            component_class = getattr(component_module, split_component_class_path[1])
+
+            hardware_map[device_name] = component_class()
+
+        return hardware_map
 
 
 if __name__ == "__main__":
