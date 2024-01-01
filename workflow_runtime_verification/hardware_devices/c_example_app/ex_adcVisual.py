@@ -9,11 +9,14 @@ class adcVisual(wx.Frame):
         self._render()
 
         self.timer = wx.CallLater(50, self.on_timer)
+        self.open = True
         self.Show()
 
     def close(self):
         self.timer.Stop()
-        self.Destroy()
+        if self.open:
+            self.Destroy()
+            self.open = False
 
     def on_timer(self):
         self.counter_display_number.SetLabel(self._counter_value())
