@@ -150,13 +150,16 @@ class SimulationPanel(wx.Panel):
 
         for line in hardware_file:
             split_line = line.split(",")
-            device_name = split_line[0]
-            component_class_path = split_line[1].strip()
 
-            mod_classname = component_class_path.rsplit(".", 1)
-            module = importlib.import_module(mod_classname[0])
-            my_class = getattr(module, mod_classname[1])
-            hardware_map[device_name] = my_class()
+            device_name = split_line[0]
+
+            component_class_path = split_line[1].strip()
+            split_component_class_path = component_class_path.rsplit(".", 1)
+            component_module = importlib.import_module(split_component_class_path[0])
+            component_class = getattr(component_module, split_component_class_path[1])
+
+            hardware_map[device_name] = component_class()
+
         return hardware_map
 
     def on_start(self, _event):
