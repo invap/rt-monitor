@@ -225,9 +225,7 @@ class SimulationPanel(wx.Panel):
         )
         process_thread.join()
         if self._stop_event.is_set():
-            logging.info(
-                "Verification stopped."
-            )
+            logging.info("Verification stopped.")
 
         self.close()
         self._enable_multi_action_button()
