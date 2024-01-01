@@ -162,11 +162,9 @@ class SimulationPanel(wx.Panel):
         hardware_specification = self._new_hardware_map_from_open_file(
             open(directory + "/hardware.desc", "r")
         )
-        # Setting up logger
-        logging_cfg = LoggingConf()
-        logging_cfg.log_dest = "STDOUT"
-        logging_cfg.level = logging.INFO
-        _configure_logging(logging_cfg)
+
+        verification = Verification()
+        verification.set_up()
 
         self.monitor = Monitor(workflow_specification, hardware_specification)
 
@@ -183,6 +181,7 @@ class SimulationPanel(wx.Panel):
 
     def on_stop(self, _event):
         self._disable_stop_button()
+        self.monitor.stop_hardware_simulation()
         logging.info(
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
@@ -371,6 +370,17 @@ class SimulationPanel(wx.Panel):
             hardware_map[device_name] = component_class()
 
         return hardware_map
+
+
+class Verification:
+    def set_up(self):
+        self._set_up_logging()
+
+    def _set_up_logging(self):
+        logging_cfg = LoggingConf()
+        logging_cfg.log_dest = "STDOUT"
+        logging_cfg.level = logging.INFO
+        _configure_logging(logging_cfg)
 
 
 if __name__ == "__main__":
