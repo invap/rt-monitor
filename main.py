@@ -145,18 +145,18 @@ class SimulationPanel(wx.Panel):
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self._refresh_window_layout()
 
-    def __new_hardware_map_from_open_file(self, hardware_file):
+    def _new_hardware_map_from_open_file(self, hardware_file):
         hardware_map = {}
+
         for line in hardware_file:
-            line_ = line.split(",")
-            # line_[0]: device name
-            # line_[1]: complete class name (including package, module, etc.)
-            classname_str = "".join(line_[1:])
-            pkg_mod_class_str = classname_str.strip()
-            mod_classname = pkg_mod_class_str.rsplit(".", 1)
+            split_line = line.split(",")
+            device_name = split_line[0]
+            component_class_path = split_line[1].strip()
+
+            mod_classname = component_class_path.rsplit(".", 1)
             module = importlib.import_module(mod_classname[0])
             my_class = getattr(module, mod_classname[1])
-            hardware_map[line_[0]] = my_class()
+            hardware_map[device_name] = my_class()
         return hardware_map
 
     def on_start(self, _event):
@@ -173,7 +173,7 @@ class SimulationPanel(wx.Panel):
         workflow_specification = WorkflowSpecification.new_from_open_file(
             open(directory + "/workflow.desc", "r")
         )
-        hardware_specification = self.__new_hardware_map_from_open_file(
+        hardware_specification = self._new_hardware_map_from_open_file(
             open(directory + "/hardware.desc", "r")
         )
         # Setting up logger

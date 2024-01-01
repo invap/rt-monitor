@@ -3,11 +3,21 @@ from collections.abc import Iterable
 
 import z3
 
-from workflow_runtime_verification.errors import UndeclaredVariable, \
-    UnboundVariables, AlreadyDeclaredVariable, NoValueAssignedToVariable, NoValue, \
-    AnalysisFailed, CheckpointDoesNotExist, TaskDoesNotExist, \
-    HardwareDeviceDoesNotExist, FunctionNotImplemented, FormulaError, EventError, \
-    AbortRun
+from workflow_runtime_verification.errors import (
+    UndeclaredVariable,
+    UnboundVariables,
+    AlreadyDeclaredVariable,
+    NoValueAssignedToVariable,
+    NoValue,
+    AnalysisFailed,
+    CheckpointDoesNotExist,
+    TaskDoesNotExist,
+    HardwareDeviceDoesNotExist,
+    FunctionNotImplemented,
+    FormulaError,
+    EventError,
+    AbortRun,
+)
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
