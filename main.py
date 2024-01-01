@@ -236,10 +236,16 @@ class SimulationPanel(wx.Panel):
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
+
         logging.info(
-            "You will be able to restart the verification when the last one is stopped."
+            "You will be able to restart the verification when the last one is finished."
         )
         process_thread.join()
+        if self._stop_event.is_set():
+            logging.info(
+                "Verification stopped."
+            )
+
         self.close()
         self._enable_multi_action_button()
 
