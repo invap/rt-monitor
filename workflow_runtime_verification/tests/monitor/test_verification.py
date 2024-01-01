@@ -1,6 +1,6 @@
 import unittest
 
-from workflow_runtime_verification.monitor import AbortRun
+from workflow_runtime_verification.errors import AbortRun
 from workflow_runtime_verification.reporting.event_decoder import InvalidEvent
 from workflow_runtime_verification.specification.workflow_node.checkpoint import (
     Checkpoint,

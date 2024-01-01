@@ -1,4 +1,5 @@
-from workflow_runtime_verification.monitor import Monitor, AbortRun
+from workflow_runtime_verification.errors import AbortRun
+from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
 )
