@@ -146,6 +146,9 @@ class SimulationPanel(wx.Panel):
         self._refresh_window_layout()
 
     def on_start(self, _event):
+        verification = Verification()
+        verification.run()
+
         specification_file_path = self.framework_specification_file_path_field.Value
         specification_directory = self._unpack_specification_file(specification_file_path)
 
@@ -155,9 +158,6 @@ class SimulationPanel(wx.Panel):
         hardware_specification = self._read_hardware_specification_from(
             specification_directory
         )
-
-        verification = Verification()
-        verification.run()
 
         self.monitor = Monitor(workflow_specification, hardware_specification)
 
