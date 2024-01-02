@@ -164,7 +164,7 @@ class SimulationPanel(wx.Panel):
         )
 
         verification = Verification()
-        verification.set_up()
+        verification.run()
 
         self.monitor = Monitor(workflow_specification, hardware_specification)
 
@@ -373,7 +373,10 @@ class SimulationPanel(wx.Panel):
 
 
 class Verification:
-    def set_up(self):
+    def run(self):
+        self._set_up()
+
+    def _set_up(self):
         self._set_up_logging()
 
     def _set_up_logging(self):
