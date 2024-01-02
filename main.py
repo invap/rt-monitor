@@ -223,7 +223,7 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_logging_configuration_components(self):
         logging_configuration_label_component = wx.StaticText(
-            self, label="Configure logging"
+            self, label="Configurar el registro de información en el log"
         )
         self.main_sizer.Add(
             logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
@@ -232,7 +232,7 @@ class SimulationPanel(wx.Panel):
         self._set_up_logging_verbosity_configuration_components()
 
     def _set_up_logging_verbosity_configuration_components(self):
-        label = wx.StaticText(self, label="Verbosity:")
+        label = wx.StaticText(self, label="Tipo de información a registrar:")
 
         selector = wx.Choice(self, choices=self._verbosity_options())
         selector.Bind(wx.EVT_CHOICE, self._select_verbosity)
@@ -324,9 +324,9 @@ class SimulationPanel(wx.Panel):
 
     def _text_to_verbosity_map(self):
         return {
-            "All": logging.INFO,
-            "Property analysis information": logging.INFO,
-            "Errors only": logging.WARNING,  # TODO: change sync info logs to warnings.
+            "Todo": logging.INFO,
+            "Información de análisis": logging.INFO,
+            "Errores y advertencias": logging.WARNING,
         }
 
     def _verbosity_options(self):
