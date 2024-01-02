@@ -248,11 +248,12 @@ class SimulationPanel(wx.Panel):
         logging_verbosity_selection_sizer.Add(
             label, 0, wx.TOP | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
+        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
         logging_verbosity_selection_sizer.Add(
-            selector, 0, wx.TOP | wx.LEFT, border=15
+            selector, 0, wx.TOP | wx.LEFT | wx.RIGHT, border=15
         )
 
-        self.main_sizer.Add(logging_verbosity_selection_sizer, 0)
+        self.main_sizer.Add(logging_verbosity_selection_sizer, 0, wx.EXPAND)
 
     def _set_up_logging_output_configuration_components(self):
         label = wx.StaticText(self, label="Dónde registrar la información:")
@@ -265,11 +266,12 @@ class SimulationPanel(wx.Panel):
         logging_output_selection_sizer.Add(
             label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
+        self._add_horizontal_stretching_space(logging_output_selection_sizer)
         logging_output_selection_sizer.Add(
             selector, 0, wx.ALL, border=15
         )
 
-        self.main_sizer.Add(logging_output_selection_sizer, 0)
+        self.main_sizer.Add(logging_output_selection_sizer, 0, wx.EXPAND)
 
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
@@ -365,6 +367,11 @@ class SimulationPanel(wx.Panel):
 
     def _logging_output_options(self):
         return ["Ventana", "Consola", "Archivo"]
+
+    def _add_horizontal_stretching_space(self, logging_output_selection_sizer):
+        logging_output_selection_sizer.Add(
+            (0, 0), 1, wx.EXPAND | wx.ALL
+        )
 
 
 if __name__ == "__main__":
