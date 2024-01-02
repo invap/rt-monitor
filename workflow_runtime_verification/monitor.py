@@ -29,6 +29,8 @@ class Monitor:
     TASK_FINISHED_SUFFIX = "_finished"
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
+    ANALYSIS_LOGGING_LEVEL = logging.INFO + 5
+
     def __init__(self, workflow_specification, hardware_dictionary):
         self._event_decoder = EventDecoder()
         self._hardware_dictionary = hardware_dictionary
@@ -52,16 +54,21 @@ class Monitor:
                 is_a_valid_report = decoded_event.process_with(self)
                 if not is_a_valid_report:
                     logging.info(
-                        f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]"
+                        f"The following event resulted in an invalid verification: "
+                        f"[ {decoded_event.serialized()} ]"
                     )
 
             if self._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
                 stop_event.clear()
             elif not is_a_valid_report:
-                logging.info(f"Verification completed UNSUCCESSFULLY.")
+                self.__class__._log_property_analysis(
+                    f"Verification completed UNSUCCESSFULLY."
+                )
             else:
-                logging.info(f"Verification completed SUCCESSFULLY.")
+                self.__class__._log_property_analysis(
+                    f"Verification completed SUCCESSFULLY."
+                )
 
             return is_a_valid_report
         except TaskDoesNotExist as e:
@@ -225,7 +232,7 @@ class Monitor:
     def _is_property_satisfied(
         cls, event_time, program_state, hardware_dictionary, logic_property
     ):
-        logging.info(f"Checking property {logic_property[2]}...")
+        cls._log_property_analysis(f"Checking property {logic_property[2]}...")
         try:
             declarations = cls._build_declarations(
                 program_state, hardware_dictionary, logic_property
@@ -239,9 +246,10 @@ class Monitor:
             temp_solver.from_string(spec)
             negation_is_sat = z3.sat == temp_solver.check()
             if not negation_is_sat:
-                logging.info(f"Property {logic_property[2]} PASSED")
+                message = f"Property {logic_property[2]} PASSED"
+                cls._log_property_analysis(message)
             else:
-                logging.info(f"Property {logic_property[2]} FAILED")
+                cls._log_property_analysis(f"Property {logic_property[2]} FAILED")
                 spec_filename = logic_property[2] + "@" + str(event_time) + ".smt2"
                 spec_file = open(spec_filename, "w")
                 spec_file.write(spec)
@@ -256,6 +264,10 @@ class Monitor:
                 f"Unbounded variables [ {e.getVars()} ] in formula [ {logic_property[2]} ]"
             )
             raise FormulaError(logic_property[1])
+
+    @classmethod
+    def _log_property_analysis(cls, message):
+        logging.log(cls.ANALYSIS_LOGGING_LEVEL, message)
 
     @classmethod
     def _are_all_properties_satisfied(

@@ -4,6 +4,7 @@ import threading
 import wx
 
 from verification import Verification
+from workflow_runtime_verification.monitor import Monitor
 
 
 class MainWindow(wx.Frame):
@@ -96,11 +97,15 @@ class SimulationPanel(wx.Panel):
         self._verification = Verification.new_for_workflow_in_file(specification_path)
 
         self._verification.run_for_report(
-            event_report_path, self._pause_event, self._stop_event, self
+            event_report_path,
+            self._logging_verbosity,
+            self._pause_event,
+            self._stop_event,
+            self,
         )
 
     def on_stop(self, _event):
-        logging.info(
+        logging.warning(
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
@@ -108,7 +113,7 @@ class SimulationPanel(wx.Panel):
 
     def on_pause(self, _event):
         self._pause_event.set()
-        logging.info(
+        logging.warning(
             "Verification will be paused when it finishes processing "
             "the current event."
         )
@@ -116,7 +121,7 @@ class SimulationPanel(wx.Panel):
 
     def on_play(self, _event):
         self._show_multi_action_button_as_pause()
-        logging.info("Verification resumed.")
+        logging.warning("Verification resumed.")
         self._pause_event.clear()
 
     def close(self):
@@ -133,7 +138,7 @@ class SimulationPanel(wx.Panel):
 
         while process_thread.is_alive():
             if self._stop_event.is_set():
-                logging.info(
+                logging.warning(
                     "You will be able to restart the verification when the last one is finished."
                 )
                 break
@@ -144,7 +149,7 @@ class SimulationPanel(wx.Panel):
 
         process_thread.join()
         if self._stop_event.is_set():
-            logging.info("Verification stopped.")
+            logging.warning("Verification stopped.")
 
         self.close()
         self._enable_multi_action_button()
@@ -166,6 +171,8 @@ class SimulationPanel(wx.Panel):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
         self._set_up_simulation_status_components()
+        self._add_dividing_line()
+        self._set_up_logging_configuration_components()
         self._add_dividing_line()
         self._set_up_action_components()
 
@@ -218,6 +225,33 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(
             self.simulation_status_text_label, 0, wx.EXPAND | wx.ALL, border=10
         )
+
+    def _set_up_logging_configuration_components(self):
+        logging_configuration_label_component = wx.StaticText(
+            self, label="Configurar el registro de información en el log"
+        )
+        self.main_sizer.Add(
+            logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
+        )
+
+        self._set_up_logging_verbosity_configuration_components()
+
+    def _set_up_logging_verbosity_configuration_components(self):
+        label = wx.StaticText(self, label="Tipo de información a registrar:")
+
+        selector = wx.Choice(self, choices=self._verbosity_options())
+        selector.Bind(wx.EVT_CHOICE, self._select_verbosity)
+        self._select_default_verbosity(selector)
+
+        logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        logging_verbosity_selection_sizer.Add(
+            label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=15
+        )
+        logging_verbosity_selection_sizer.Add(
+            selector, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
+        )
+
+        self.main_sizer.Add(logging_verbosity_selection_sizer, 0)
 
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
@@ -281,6 +315,28 @@ class SimulationPanel(wx.Panel):
 
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
+
+    def _select_default_verbosity(self, selector):
+        selector.SetSelection(0)
+        self._logging_verbosity = self._verbosity_from_text(selector.GetString(0))
+
+    def _select_verbosity(self, event):
+        selected_option = event.GetString()
+        self._logging_verbosity = self._verbosity_from_text(selected_option)
+
+    def _verbosity_from_text(self, selected_option):
+        return self._text_to_verbosity_map()[selected_option]
+
+    def _text_to_verbosity_map(self):
+        return {
+            "Todo": logging.INFO,
+            "Información de análisis": Monitor.ANALYSIS_LOGGING_LEVEL,
+            "Errores y advertencias": logging.WARNING,
+            "Errores": logging.ERROR,
+        }
+
+    def _verbosity_options(self):
+        return list(self._text_to_verbosity_map().keys())
 
 
 if __name__ == "__main__":
