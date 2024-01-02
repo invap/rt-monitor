@@ -146,8 +146,9 @@ class SimulationPanel(wx.Panel):
         self._refresh_window_layout()
 
     def on_start(self, _event):
+        file_path = self.framework_specification_file_path_field.Value
         split_file_path = os.path.split(
-            self.framework_specification_file_path_field.Value
+            file_path
         )
         file_directory = split_file_path[0]
         file_name = split_file_path[1]
@@ -160,7 +161,8 @@ class SimulationPanel(wx.Panel):
         except FileExistsError:
             shutil.rmtree(specification_directory)
             os.mkdir(specification_directory)
-        shutil.unpack_archive(file_directory + "/" + file_name, specification_directory)
+
+        shutil.unpack_archive(file_path, specification_directory)
 
         # Read variables dictionary, hardware specification and workflow specification from file
         workflow_specification = WorkflowSpecification.new_from_open_file(
