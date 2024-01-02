@@ -242,7 +242,7 @@ class SimulationPanel(wx.Panel):
 
         selector = wx.Choice(self, choices=self._logging_verbosity_options())
         selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
-        self._select_default_verbosity(selector)
+        self._select_default_logging_verbosity(selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         logging_verbosity_selection_sizer.Add(
@@ -320,7 +320,7 @@ class SimulationPanel(wx.Panel):
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
 
-    def _select_default_verbosity(self, selector):
+    def _select_default_logging_verbosity(self, selector):
         selector.SetSelection(0)
         self._logging_verbosity = self._logging_verbosity_from_text(selector.GetString(0))
 
