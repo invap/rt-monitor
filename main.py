@@ -410,11 +410,11 @@ class Verification:
 
     @classmethod
     def _read_hardware_specification_from(cls, specification_directory):
-        return cls._new_hardware_map_from_open_file(
-            open(
-                specification_directory + "/hardware.desc", "r"
-            )  # TODO: Refactor to os.path.join
-        )
+        file_name = "hardware.desc"
+        path = os.path.join(specification_directory, file_name)
+
+        file = open(path, "r")
+        return cls._new_hardware_map_from_open_file(file)
 
     @classmethod
     def _new_hardware_map_from_open_file(cls, hardware_file):
