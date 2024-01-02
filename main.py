@@ -240,7 +240,7 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Tipo de información a registrar:")
 
-        selector = wx.Choice(self, choices=self._logging_verbosity_options())
+        selector = wx.Choice(self, choices=self._logging_verbosity_options(), size=(200,35))
         selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
         self._select_default_logging_verbosity(selector)
 
@@ -257,7 +257,7 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_output_configuration_components(self):
         label = wx.StaticText(self, label="Dónde registrar la información:")
 
-        selector = wx.Choice(self, choices=self._logging_output_options())
+        selector = wx.Choice(self, choices=self._logging_output_options(), size=(200,35))
         selector.Bind(wx.EVT_CHOICE, self._select_logging_output)
         self._select_default_logging_output(selector)
 
