@@ -179,14 +179,19 @@ class SimulationPanel(wx.Panel):
         )
         file_directory = split_file_path[0]
         file_name = split_file_path[1]
+
         file_name_without_extension = os.path.splitext(file_name)[0]
-        specification_directory = os.path.join(file_directory,
-                                               file_name_without_extension)
+        specification_directory = os.path.join(
+            file_directory,
+            file_name_without_extension
+        )
+
         try:
             os.mkdir(specification_directory)
         except FileExistsError:
             shutil.rmtree(specification_directory)
             os.mkdir(specification_directory)
+
         shutil.unpack_archive(file_path, specification_directory)
         return specification_directory
 
