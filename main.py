@@ -240,16 +240,16 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Tipo de información a registrar:")
 
-        selector = wx.Choice(self, choices=self._logging_verbosity_options(), size=(200,35))
+        selector = wx.Choice(self, choices=self._logging_verbosity_options(), size=(200, 35))
         selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
         self._select_default_logging_verbosity(selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         logging_verbosity_selection_sizer.Add(
-            label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=15
+            label, 0, wx.TOP | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
         logging_verbosity_selection_sizer.Add(
-            selector, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
+            selector, 0, wx.TOP | wx.LEFT, border=15
         )
 
         self.main_sizer.Add(logging_verbosity_selection_sizer, 0)
@@ -263,10 +263,10 @@ class SimulationPanel(wx.Panel):
 
         logging_output_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         logging_output_selection_sizer.Add(
-            label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=15
+            label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
         logging_output_selection_sizer.Add(
-            selector, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
+            selector, 0, wx.ALL, border=15
         )
 
         self.main_sizer.Add(logging_output_selection_sizer, 0)
