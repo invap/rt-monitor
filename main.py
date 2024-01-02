@@ -342,6 +342,9 @@ class Verification:
             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
             encoding="utf-8",
         )
+        # log_dest = "FILE" : file destination
+        # log_dest = "VISUAL" : Window box destination
+        # log_dest = "STDOUT" : Standard output destination
         # match logging_cfg.log_dest:
         #     case "FILE":
         #         logging.basicConfig(
@@ -430,19 +433,6 @@ class Verification:
             hardware_map[device_name] = component_class()
 
         return hardware_map
-
-
-class LoggingConf:
-    def __init__(self, log_dest, level):
-        self.level = level
-        # Log destination
-        self.log_dest = log_dest
-        # log_dest = "FILE" : file destination
-        self.filename = ""
-        self.filemode = "w"
-        # log_dest = "VISUAL" : Window box destination
-        # log_dest = "STDOUT" : Standard output destination
-        self.stream = None
 
 
 if __name__ == "__main__":
