@@ -146,7 +146,8 @@ class SimulationPanel(wx.Panel):
         self._refresh_window_layout()
 
     def on_start(self, _event):
-        specification_directory = self._unpack_specification_file(self.framework_specification_file_path_field.Value)
+        specification_file_path = self.framework_specification_file_path_field.Value
+        specification_directory = self._unpack_specification_file(specification_file_path)
 
         # Read variables dictionary, hardware specification and workflow specification from file
         workflow_specification = WorkflowSpecification.new_from_open_file(
