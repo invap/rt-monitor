@@ -100,7 +100,7 @@ class SimulationPanel(wx.Panel):
         )
 
     def on_stop(self, _event):
-        logging.info(
+        logging.warning(
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
@@ -108,7 +108,7 @@ class SimulationPanel(wx.Panel):
 
     def on_pause(self, _event):
         self._pause_event.set()
-        logging.info(
+        logging.warning(
             "Verification will be paused when it finishes processing "
             "the current event."
         )
@@ -116,7 +116,7 @@ class SimulationPanel(wx.Panel):
 
     def on_play(self, _event):
         self._show_multi_action_button_as_pause()
-        logging.info("Verification resumed.")
+        logging.warning("Verification resumed.")
         self._pause_event.clear()
 
     def close(self):
@@ -133,7 +133,7 @@ class SimulationPanel(wx.Panel):
 
         while process_thread.is_alive():
             if self._stop_event.is_set():
-                logging.info(
+                logging.warning(
                     "You will be able to restart the verification when the last one is finished."
                 )
                 break
@@ -144,7 +144,7 @@ class SimulationPanel(wx.Panel):
 
         process_thread.join()
         if self._stop_event.is_set():
-            logging.info("Verification stopped.")
+            logging.warning("Verification stopped.")
 
         self.close()
         self._enable_multi_action_button()
@@ -327,6 +327,7 @@ class SimulationPanel(wx.Panel):
             "Todo": logging.INFO,
             "Información de análisis": logging.INFO,
             "Errores y advertencias": logging.WARNING,
+            "Errores": logging.ERROR,
         }
 
     def _verbosity_options(self):
