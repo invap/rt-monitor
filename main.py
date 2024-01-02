@@ -146,21 +146,28 @@ class SimulationPanel(wx.Panel):
         self._refresh_window_layout()
 
     def on_start(self, _event):
-        path_file = os.path.split(self.framework_specification_file_path_field.Value)
-        file_ext = os.path.splitext(path_file[1])
-        directory = path_file[0] + "/" + file_ext[0]
+        split_file_path = os.path.split(
+            self.framework_specification_file_path_field.Value
+        )
+        file_directory = split_file_path[0]
+        file_name = split_file_path[1]
+
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        specification_directory = file_directory + "/" + file_name_without_extension
+
         try:
-            os.mkdir(directory)
+            os.mkdir(specification_directory)
         except FileExistsError:
-            shutil.rmtree(directory)
-            os.mkdir(directory)
-        shutil.unpack_archive(path_file[0] + "/" + path_file[1], directory)
+            shutil.rmtree(specification_directory)
+            os.mkdir(specification_directory)
+        shutil.unpack_archive(file_directory + "/" + file_name, specification_directory)
+
         # Read variables dictionary, hardware specification and workflow specification from file
         workflow_specification = WorkflowSpecification.new_from_open_file(
-            open(directory + "/workflow.desc", "r")
+            open(specification_directory + "/workflow.desc", "r")
         )
         hardware_specification = self._new_hardware_map_from_open_file(
-            open(directory + "/hardware.desc", "r")
+            open(specification_directory + "/hardware.desc", "r")
         )
 
         verification = Verification()
