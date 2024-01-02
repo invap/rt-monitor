@@ -332,13 +332,12 @@ class Verification:
         self._set_up_logging()
 
     def _set_up_logging(self):
-        logging_cfg = LoggingConf("STDOUT", logging.INFO)
-        self._configure_logging(logging_cfg)
+        self._configure_logging()
 
-    def _configure_logging(self, logging_cfg):
+    def _configure_logging(self):
         logging.basicConfig(
             stream=sys.stdout,
-            level=logging_cfg.level,
+            level=logging.INFO,
             datefmt="%d/%m/%Y %H:%M:%S",
             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
             encoding="utf-8",
