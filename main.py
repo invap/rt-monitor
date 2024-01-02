@@ -146,23 +146,7 @@ class SimulationPanel(wx.Panel):
         self._refresh_window_layout()
 
     def on_start(self, _event):
-        file_path = self.framework_specification_file_path_field.Value
-        split_file_path = os.path.split(
-            file_path
-        )
-        file_directory = split_file_path[0]
-        file_name = split_file_path[1]
-
-        file_name_without_extension = os.path.splitext(file_name)[0]
-        specification_directory = os.path.join(file_directory, file_name_without_extension)
-
-        try:
-            os.mkdir(specification_directory)
-        except FileExistsError:
-            shutil.rmtree(specification_directory)
-            os.mkdir(specification_directory)
-
-        shutil.unpack_archive(file_path, specification_directory)
+        specification_directory = self._unpack_specification_file(self.framework_specification_file_path_field.Value)
 
         # Read variables dictionary, hardware specification and workflow specification from file
         workflow_specification = WorkflowSpecification.new_from_open_file(
@@ -187,6 +171,23 @@ class SimulationPanel(wx.Panel):
             target=self._run_verification, args=[process_thread]
         )
         verification_thread.start()
+
+    def _unpack_specification_file(self, file_path):
+        split_file_path = os.path.split(
+            file_path
+        )
+        file_directory = split_file_path[0]
+        file_name = split_file_path[1]
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        specification_directory = os.path.join(file_directory,
+                                               file_name_without_extension)
+        try:
+            os.mkdir(specification_directory)
+        except FileExistsError:
+            shutil.rmtree(specification_directory)
+            os.mkdir(specification_directory)
+        shutil.unpack_archive(file_path, specification_directory)
+        return specification_directory
 
     def on_stop(self, _event):
         self._disable_stop_button()
