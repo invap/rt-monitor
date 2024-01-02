@@ -335,42 +335,48 @@ class Verification:
         logging_cfg = LoggingConf("STDOUT", logging.INFO)
         self._configure_logging(logging_cfg)
 
-
     def _configure_logging(self, logging_cfg):
-        match logging_cfg.log_dest:
-            case "FILE":
-                logging.basicConfig(
-                    filename=logging_cfg.filename + ".log",
-                    filemode="w",
-                    level=logging_cfg.level,
-                    datefmt="%d/%m/%Y %H:%M:%S",
-                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                    encoding="utf-8",
-                )
-            case "VISUAL":
-                logging.basicConfig(
-                    stream=sys.stdout,
-                    level=logging_cfg.level,
-                    datefmt="%d/%m/%Y %H:%M:%S",
-                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                    encoding="utf-8",
-                )
-            case "STDOUT":
-                logging.basicConfig(
-                    stream=sys.stdout,
-                    level=logging_cfg.level,
-                    datefmt="%d/%m/%Y %H:%M:%S",
-                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                    encoding="utf-8",
-                )
-            case _:
-                logging.basicConfig(
-                    stream=sys.stdout,
-                    level=logging_cfg.level,
-                    datefmt="%d/%m/%Y %H:%M:%S",
-                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                    encoding="utf-8",
-                )
+        logging.basicConfig(
+            stream=sys.stdout,
+            level=logging_cfg.level,
+            datefmt="%d/%m/%Y %H:%M:%S",
+            format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+            encoding="utf-8",
+        )
+        # match logging_cfg.log_dest:
+        #     case "FILE":
+        #         logging.basicConfig(
+        #             filename=logging_cfg.filename + ".log",
+        #             filemode="w",
+        #             level=logging_cfg.level,
+        #             datefmt="%d/%m/%Y %H:%M:%S",
+        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+        #             encoding="utf-8",
+        #         )
+        #     case "VISUAL":
+        #         logging.basicConfig(
+        #             stream=sys.stdout,
+        #             level=logging_cfg.level,
+        #             datefmt="%d/%m/%Y %H:%M:%S",
+        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+        #             encoding="utf-8",
+        #         )
+        #     case "STDOUT":
+        #         logging.basicConfig(
+        #             stream=sys.stdout,
+        #             level=logging_cfg.level,
+        #             datefmt="%d/%m/%Y %H:%M:%S",
+        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+        #             encoding="utf-8",
+        #         )
+        #     case _:
+        #         logging.basicConfig(
+        #             stream=sys.stdout,
+        #             level=logging_cfg.level,
+        #             datefmt="%d/%m/%Y %H:%M:%S",
+        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+        #             encoding="utf-8",
+        #         )
 
     @classmethod
     def _unpack_specification_file(cls, file_path):
