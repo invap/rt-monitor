@@ -57,6 +57,7 @@ class Monitor:
 
             if self._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
+                stop_event.clear()
             elif not is_a_valid_report:
                 logging.info(f"Verification completed UNSUCCESSFULLY.")
             else:

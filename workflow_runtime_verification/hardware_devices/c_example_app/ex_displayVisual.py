@@ -21,12 +21,17 @@ class ex_displayVisual(wx.Frame):
         self.Show()
 
     def close(self):
+        if not self.open:
+            return
+
         self.timer.Stop()
-        if self.open:
-            self.Destroy()
-            self.open = False
+        self.Destroy()
+        self.open = False
 
     def on_timer(self):
+        if not self.open:
+            return
+
         self.Refresh()
         self.Update()
         self.timer.Restart(50)

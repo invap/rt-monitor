@@ -205,13 +205,11 @@ class SimulationPanel(wx.Panel):
         return specification_directory
 
     def on_stop(self, _event):
-        self._disable_stop_button()
-        self.monitor.stop_hardware_simulation()
         logging.info(
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
-        self._stop_event.set()
+        self._stop_verification()
 
     def on_pause(self, _event):
         self._pause_event.set()
@@ -227,7 +225,9 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
 
     def close(self):
-        self.on_stop(None)
+        if self._stop_event.is_set():
+            return
+        self._stop_verification()
 
     def _run_verification(self, process_thread):
         self._stop_event.clear()
@@ -253,6 +253,11 @@ class SimulationPanel(wx.Panel):
 
         self.close()
         self._enable_multi_action_button()
+
+    def _stop_verification(self):
+        self._disable_stop_button()
+        self.monitor.stop_hardware_simulation()
+        self._stop_event.set()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
