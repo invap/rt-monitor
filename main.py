@@ -235,12 +235,13 @@ class SimulationPanel(wx.Panel):
         )
 
         self._set_up_logging_verbosity_configuration_components()
+        self._set_up_logging_output_configuration_components()
 
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Tipo de información a registrar:")
 
-        selector = wx.Choice(self, choices=self._verbosity_options())
-        selector.Bind(wx.EVT_CHOICE, self._select_verbosity)
+        selector = wx.Choice(self, choices=self._logging_verbosity_options())
+        selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
         self._select_default_verbosity(selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -252,6 +253,9 @@ class SimulationPanel(wx.Panel):
         )
 
         self.main_sizer.Add(logging_verbosity_selection_sizer, 0)
+
+    def _set_up_logging_output_configuration_components(self):
+        pass
 
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
@@ -318,16 +322,16 @@ class SimulationPanel(wx.Panel):
 
     def _select_default_verbosity(self, selector):
         selector.SetSelection(0)
-        self._logging_verbosity = self._verbosity_from_text(selector.GetString(0))
+        self._logging_verbosity = self._logging_verbosity_from_text(selector.GetString(0))
 
-    def _select_verbosity(self, event):
+    def _select_logging_verbosity(self, event):
         selected_option = event.GetString()
-        self._logging_verbosity = self._verbosity_from_text(selected_option)
+        self._logging_verbosity = self._logging_verbosity_from_text(selected_option)
 
-    def _verbosity_from_text(self, selected_option):
-        return self._text_to_verbosity_map()[selected_option]
+    def _logging_verbosity_from_text(self, selected_option):
+        return self._text_to_logging_verbosity_map()[selected_option]
 
-    def _text_to_verbosity_map(self):
+    def _text_to_logging_verbosity_map(self):
         return {
             "Todo": logging.INFO,
             "Información de análisis": Monitor.ANALYSIS_LOGGING_LEVEL,
@@ -335,8 +339,8 @@ class SimulationPanel(wx.Panel):
             "Errores": logging.ERROR,
         }
 
-    def _verbosity_options(self):
-        return list(self._text_to_verbosity_map().keys())
+    def _logging_verbosity_options(self):
+        return list(self._text_to_logging_verbosity_map().keys())
 
 
 if __name__ == "__main__":
