@@ -225,6 +225,23 @@ class SimulationPanel(wx.Panel):
         logging_configuration_label_component = wx.StaticText(self, label="Configure logging")
         self.main_sizer.Add(logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15)
 
+        self._set_up_logging_verbosity_configuration_components()
+
+    def _set_up_logging_verbosity_configuration_components(self):
+        label = wx.StaticText(self, label="Verbosity:")
+
+        verbosity_choices = ["All", "Property analysis information", "Errors only"]
+        selector = wx.Choice(self, choices=verbosity_choices)
+        selector.SetSelection(0)
+
+        logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        logging_verbosity_selection_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=15)
+        logging_verbosity_selection_sizer.Add(
+            selector, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
+        )
+
+        self.main_sizer.Add(logging_verbosity_selection_sizer, 0)
+
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
         self._stop_event = threading.Event()
