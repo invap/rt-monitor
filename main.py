@@ -105,6 +105,7 @@ class SimulationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
+        self._verification = None
         self._render()
 
     def select_report(self, event):
@@ -146,63 +147,14 @@ class SimulationPanel(wx.Panel):
         self._refresh_window_layout()
 
     def on_start(self, _event):
-        verification = Verification()
-        verification.run()
+        specification_path = self.framework_specification_file_path_field.Value
+        event_report_path = self.event_report_file_path_field.Value
 
-        specification_file_path = self.framework_specification_file_path_field.Value
-        specification_directory = self._unpack_specification_file(specification_file_path)
+        self._verification = Verification.new_for_workflow_in_file(specification_path)
 
-        workflow_specification = self._read_workflow_specification_from(
-            specification_directory
+        self._verification.run_for_report(
+            event_report_path, self._pause_event, self._stop_event, self
         )
-        hardware_specification = self._read_hardware_specification_from(
-            specification_directory
-        )
-
-        self.monitor = Monitor(workflow_specification, hardware_specification)
-
-        event_report_file = open(self.event_report_file_path_field.Value, "r")
-        process_thread = threading.Thread(
-            target=self.monitor.run,
-            args=[event_report_file, self._pause_event, self._stop_event],
-        )
-
-        verification_thread = threading.Thread(
-            target=self._run_verification, args=[process_thread]
-        )
-        verification_thread.start()
-
-    def _read_hardware_specification_from(self, specification_directory):
-        return self._new_hardware_map_from_open_file(
-            open(specification_directory + "/hardware.desc", "r")
-        )
-
-    def _read_workflow_specification_from(self, specification_directory):
-        return WorkflowSpecification.new_from_open_file(
-            open(specification_directory + "/workflow.desc", "r")
-        )
-
-    def _unpack_specification_file(self, file_path):
-        split_file_path = os.path.split(
-            file_path
-        )
-        file_directory = split_file_path[0]
-        file_name = split_file_path[1]
-
-        file_name_without_extension = os.path.splitext(file_name)[0]
-        specification_directory = os.path.join(
-            file_directory,
-            file_name_without_extension
-        )
-
-        try:
-            os.mkdir(specification_directory)
-        except FileExistsError:
-            shutil.rmtree(specification_directory)
-            os.mkdir(specification_directory)
-
-        shutil.unpack_archive(file_path, specification_directory)
-        return specification_directory
 
     def on_stop(self, _event):
         logging.info(
@@ -229,7 +181,7 @@ class SimulationPanel(wx.Panel):
             return
         self._stop_verification()
 
-    def _run_verification(self, process_thread):
+    def run_verification(self, process_thread):
         self._stop_event.clear()
         self._pause_event.clear()
         self._enable_stop_button()
@@ -256,7 +208,10 @@ class SimulationPanel(wx.Panel):
 
     def _stop_verification(self):
         self._disable_stop_button()
-        self.monitor.stop_hardware_simulation()
+
+        if self._verification is not None:
+            self._verification.stop_hardware_simulation()
+
         self._stop_event.set()
 
     def _render(self):
@@ -384,7 +339,89 @@ class SimulationPanel(wx.Panel):
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
 
-    def _new_hardware_map_from_open_file(self, hardware_file):
+
+class Verification:
+    @classmethod
+    def new_for_workflow_in_file(cls, specification_path):
+        specification_directory = cls._unpack_specification_file(specification_path)
+
+        workflow_specification = cls._read_workflow_specification_from(
+            specification_directory
+        )
+        hardware_specification = cls._read_hardware_specification_from(
+            specification_directory
+        )
+
+        return cls(workflow_specification, hardware_specification)
+
+    def __init__(self, workflow_specification, hardware_specification):
+        super().__init__()
+        self._monitor = Monitor(workflow_specification, hardware_specification)
+
+    def run_for_report(self, event_report_path, pause_event, stop_event, simulation_panel):
+        self._set_up()
+
+        event_report_file = open(event_report_path, "r")
+
+        monitor_thread = threading.Thread(
+            target=self._monitor.run,
+            args=[event_report_file, pause_event, stop_event],
+        )
+
+        application_thread = threading.Thread(
+            target=simulation_panel.run_verification, args=[monitor_thread]
+        )
+        application_thread.start()
+
+    def stop_hardware_simulation(self):
+        self._monitor.stop_hardware_simulation()
+
+    def _set_up(self):
+        self._set_up_logging()
+
+    def _set_up_logging(self):
+        logging_cfg = LoggingConf()
+        logging_cfg.log_dest = "STDOUT"
+        logging_cfg.level = logging.INFO
+        _configure_logging(logging_cfg)
+
+    @classmethod
+    def _unpack_specification_file(cls, file_path):
+        split_file_path = os.path.split(
+            file_path
+        )
+        file_directory = split_file_path[0]
+        file_name = split_file_path[1]
+
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        specification_directory = os.path.join(
+            file_directory,
+            file_name_without_extension
+        )
+
+        try:
+            os.mkdir(specification_directory)
+        except FileExistsError:
+            shutil.rmtree(specification_directory)
+            os.mkdir(specification_directory)
+
+        shutil.unpack_archive(file_path, specification_directory)
+        return specification_directory
+
+    @classmethod
+    def _read_workflow_specification_from(cls, specification_directory):
+        return WorkflowSpecification.new_from_open_file(
+            open(specification_directory + "/workflow.desc", "r")  # TODO: Refactor to os.path.join
+        )
+
+    @classmethod
+    def _read_hardware_specification_from(cls, specification_directory):
+        return cls._new_hardware_map_from_open_file(
+            open(specification_directory + "/hardware.desc", "r")  # TODO: Refactor to os.path.join
+        )
+
+    @classmethod
+    def _new_hardware_map_from_open_file(cls, hardware_file):
         hardware_map = {}
 
         for line in hardware_file:
@@ -400,20 +437,6 @@ class SimulationPanel(wx.Panel):
             hardware_map[device_name] = component_class()
 
         return hardware_map
-
-
-class Verification:
-    def run(self):
-        self._set_up()
-
-    def _set_up(self):
-        self._set_up_logging()
-
-    def _set_up_logging(self):
-        logging_cfg = LoggingConf()
-        logging_cfg.log_dest = "STDOUT"
-        logging_cfg.level = logging.INFO
-        _configure_logging(logging_cfg)
 
 
 if __name__ == "__main__":
