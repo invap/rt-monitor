@@ -245,10 +245,10 @@ class SimulationPanel(wx.Panel):
         self._select_default_logging_verbosity(selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
         logging_verbosity_selection_sizer.Add(
             label, 0, wx.TOP | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
-        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
         logging_verbosity_selection_sizer.Add(
             selector, 0, wx.TOP | wx.LEFT | wx.RIGHT, border=15
         )
@@ -263,10 +263,10 @@ class SimulationPanel(wx.Panel):
         self._select_default_logging_output(selector)
 
         logging_output_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._add_horizontal_stretching_space(logging_output_selection_sizer)
         logging_output_selection_sizer.Add(
             label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
-        self._add_horizontal_stretching_space(logging_output_selection_sizer)
         logging_output_selection_sizer.Add(
             selector, 0, wx.ALL, border=15
         )
