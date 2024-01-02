@@ -29,6 +29,8 @@ class Monitor:
     TASK_FINISHED_SUFFIX = "_finished"
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
+    ANALYSIS_LOGGING_LEVEL = logging.INFO + 5
+
     def __init__(self, workflow_specification, hardware_dictionary):
         self._event_decoder = EventDecoder()
         self._hardware_dictionary = hardware_dictionary
@@ -51,17 +53,21 @@ class Monitor:
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
                 if not is_a_valid_report:
-                    logging.info(
-                        f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]"
-                    )
+                    logging.info(f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]")
 
             if self._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
                 stop_event.clear()
             elif not is_a_valid_report:
-                logging.info(f"Verification completed UNSUCCESSFULLY.")
+                logging.log(
+                    self.__class__.ANALYSIS_LOGGING_LEVEL,
+                    f"Verification completed UNSUCCESSFULLY.",
+                )
             else:
-                logging.info(f"Verification completed SUCCESSFULLY.")
+                logging.log(
+                    self.__class__.ANALYSIS_LOGGING_LEVEL,
+                    f"Verification completed SUCCESSFULLY.",
+                )
 
             return is_a_valid_report
         except TaskDoesNotExist as e:
@@ -225,7 +231,9 @@ class Monitor:
     def _is_property_satisfied(
         cls, event_time, program_state, hardware_dictionary, logic_property
     ):
-        logging.info(f"Checking property {logic_property[2]}...")
+        logging.log(
+            cls.ANALYSIS_LOGGING_LEVEL, f"Checking property {logic_property[2]}..."
+        )
         try:
             declarations = cls._build_declarations(
                 program_state, hardware_dictionary, logic_property
@@ -239,9 +247,13 @@ class Monitor:
             temp_solver.from_string(spec)
             negation_is_sat = z3.sat == temp_solver.check()
             if not negation_is_sat:
-                logging.info(f"Property {logic_property[2]} PASSED")
+                logging.log(
+                    cls.ANALYSIS_LOGGING_LEVEL, f"Property {logic_property[2]} PASSED"
+                )
             else:
-                logging.info(f"Property {logic_property[2]} FAILED")
+                logging.log(
+                    cls.ANALYSIS_LOGGING_LEVEL, f"Property {logic_property[2]} FAILED"
+                )
                 spec_filename = logic_property[2] + "@" + str(event_time) + ".smt2"
                 spec_file = open(spec_filename, "w")
                 spec_file.write(spec)

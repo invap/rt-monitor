@@ -4,6 +4,7 @@ import threading
 import wx
 
 from verification import Verification
+from workflow_runtime_verification.monitor import Monitor
 
 
 class MainWindow(wx.Frame):
@@ -96,7 +97,11 @@ class SimulationPanel(wx.Panel):
         self._verification = Verification.new_for_workflow_in_file(specification_path)
 
         self._verification.run_for_report(
-            event_report_path, self._logging_verbosity, self._pause_event, self._stop_event, self
+            event_report_path,
+            self._logging_verbosity,
+            self._pause_event,
+            self._stop_event,
+            self,
         )
 
     def on_stop(self, _event):
@@ -325,7 +330,7 @@ class SimulationPanel(wx.Panel):
     def _text_to_verbosity_map(self):
         return {
             "Todo": logging.INFO,
-            "Información de análisis": logging.INFO,
+            "Información de análisis": Monitor.ANALYSIS_LOGGING_LEVEL,
             "Errores y advertencias": logging.WARNING,
             "Errores": logging.ERROR,
         }

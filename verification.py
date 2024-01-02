@@ -32,7 +32,12 @@ class Verification:
         self._set_up()
 
     def run_for_report(
-        self, event_report_path, logging_level, pause_event, stop_event, simulation_panel
+        self,
+        event_report_path,
+        logging_level,
+        pause_event,
+        stop_event,
+        simulation_panel,
     ):
         self._configure_logging_level(logging_level)
 
@@ -55,9 +60,7 @@ class Verification:
         self._set_up_logging()
 
     def _set_up_logging(self):
-        self._configure_logging()
-
-    def _configure_logging(self):
+        logging.addLevelName(Monitor.ANALYSIS_LOGGING_LEVEL, "PROPERTY_ANALYSIS")
         logging.basicConfig(
             stream=sys.stdout,
             level=self._default_logging_level(),
