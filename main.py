@@ -167,6 +167,8 @@ class SimulationPanel(wx.Panel):
         self._set_up_workflow_selection_components()
         self._set_up_simulation_status_components()
         self._add_dividing_line()
+        self._set_up_logging_configuration_components()
+        self._add_dividing_line()
         self._set_up_action_components()
 
     def _add_dividing_line(self):
@@ -218,6 +220,10 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(
             self.simulation_status_text_label, 0, wx.EXPAND | wx.ALL, border=10
         )
+
+    def _set_up_logging_configuration_components(self):
+        logging_configuration_label_component = wx.StaticText(self, label="Configure logging")
+        self.main_sizer.Add(logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15)
 
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
