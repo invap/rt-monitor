@@ -402,11 +402,11 @@ class Verification:
 
     @classmethod
     def _read_workflow_specification_from(cls, specification_directory):
-        return WorkflowSpecification.new_from_open_file(
-            open(
-                specification_directory + "/workflow.desc", "r"
-            )  # TODO: Refactor to os.path.join
-        )
+        file_name = "workflow.desc"
+        path = os.path.join(specification_directory, file_name)
+
+        file = open(path, "r")
+        return WorkflowSpecification.new_from_open_file(file)
 
     @classmethod
     def _read_hardware_specification_from(cls, specification_directory):
