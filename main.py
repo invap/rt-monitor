@@ -149,12 +149,11 @@ class SimulationPanel(wx.Panel):
         specification_file_path = self.framework_specification_file_path_field.Value
         specification_directory = self._unpack_specification_file(specification_file_path)
 
-        # Read variables dictionary, hardware specification and workflow specification from file
-        workflow_specification = WorkflowSpecification.new_from_open_file(
-            open(specification_directory + "/workflow.desc", "r")
+        workflow_specification = self._read_workflow_specification_from(
+            specification_directory
         )
-        hardware_specification = self._new_hardware_map_from_open_file(
-            open(specification_directory + "/hardware.desc", "r")
+        hardware_specification = self._read_hardware_specification_from(
+            specification_directory
         )
 
         verification = Verification()
@@ -172,6 +171,16 @@ class SimulationPanel(wx.Panel):
             target=self._run_verification, args=[process_thread]
         )
         verification_thread.start()
+
+    def _read_hardware_specification_from(self, specification_directory):
+        return self._new_hardware_map_from_open_file(
+            open(specification_directory + "/hardware.desc", "r")
+        )
+
+    def _read_workflow_specification_from(self, specification_directory):
+        return WorkflowSpecification.new_from_open_file(
+            open(specification_directory + "/workflow.desc", "r")
+        )
 
     def _unpack_specification_file(self, file_path):
         split_file_path = os.path.split(
