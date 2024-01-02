@@ -222,8 +222,12 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_logging_configuration_components(self):
-        logging_configuration_label_component = wx.StaticText(self, label="Configure logging")
-        self.main_sizer.Add(logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15)
+        logging_configuration_label_component = wx.StaticText(
+            self, label="Configure logging"
+        )
+        self.main_sizer.Add(
+            logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
+        )
 
         self._set_up_logging_verbosity_configuration_components()
 
@@ -235,7 +239,9 @@ class SimulationPanel(wx.Panel):
         selector.SetSelection(0)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        logging_verbosity_selection_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=15)
+        logging_verbosity_selection_sizer.Add(
+            label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=15
+        )
         logging_verbosity_selection_sizer.Add(
             selector, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
         )
