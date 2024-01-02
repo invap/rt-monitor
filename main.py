@@ -1,16 +1,9 @@
-import importlib
 import logging
-import os
-import shutil
-import sys
 import threading
 
 import wx
 
-from workflow_runtime_verification.monitor import Monitor
-from workflow_runtime_verification.specification.workflow_specification import (
-    WorkflowSpecification,
-)
+from verification import Verification
 
 
 class MainWindow(wx.Frame):
@@ -50,61 +43,12 @@ class ControlPanel(wx.Notebook):
         self.simulation_panel.close()
 
 
-class LoggingConf:
-    def __init__(self):
-        self.level = None
-        # Log destination
-        self.log_dest = None
-        # log_dest = "FILE" : file destination
-        self.filename = ""
-        self.filemode = "w"
-        # log_dest = "VISUAL" : Window box destination
-        # log_dest = "STDOUT" : Standard output destination
-        self.stream = None
-
-
-def _configure_logging(logging_cfg):
-    match logging_cfg.log_dest:
-        case "FILE":
-            logging.basicConfig(
-                filename=logging_cfg.filename + ".log",
-                filemode="w",
-                level=logging_cfg.level,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-        case "VISUAL":
-            logging.basicConfig(
-                stream=sys.stdout,
-                level=logging_cfg.level,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-        case "STDOUT":
-            logging.basicConfig(
-                stream=sys.stdout,
-                level=logging_cfg.level,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-        case _:
-            logging.basicConfig(
-                stream=sys.stdout,
-                level=logging.INFO,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-
-
 # noinspection PyPropertyAccess
 class SimulationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
+        self._verification = None
         self._render()
 
     def select_report(self, event):
@@ -145,63 +89,22 @@ class SimulationPanel(wx.Panel):
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self._refresh_window_layout()
 
-    def __new_hardware_map_from_open_file(self, hardware_file):
-        hardware_map = {}
-        for line in hardware_file:
-            line_ = line.split(",")
-            # line_[0]: device name
-            # line_[1]: complete class name (including package, module, etc.)
-            classname_str = "".join(line_[1:])
-            pkg_mod_class_str = classname_str.strip()
-            mod_classname = pkg_mod_class_str.rsplit(".", 1)
-            module = importlib.import_module(mod_classname[0])
-            my_class = getattr(module, mod_classname[1])
-            hardware_map[line_[0]] = my_class()
-        return hardware_map
-
     def on_start(self, _event):
-        path_file = os.path.split(self.framework_specification_file_path_field.Value)
-        file_ext = os.path.splitext(path_file[1])
-        directory = path_file[0] + "/" + file_ext[0]
-        try:
-            os.mkdir(directory)
-        except FileExistsError:
-            shutil.rmtree(directory)
-            os.mkdir(directory)
-        shutil.unpack_archive(path_file[0] + "/" + path_file[1], directory)
-        # Read variables dictionary, hardware specification and workflow specification from file
-        workflow_specification = WorkflowSpecification.new_from_open_file(
-            open(directory + "/workflow.desc", "r")
-        )
-        hardware_specification = self.__new_hardware_map_from_open_file(
-            open(directory + "/hardware.desc", "r")
-        )
-        # Setting up logger
-        logging_cfg = LoggingConf()
-        logging_cfg.log_dest = "STDOUT"
-        logging_cfg.level = logging.INFO
-        _configure_logging(logging_cfg)
+        specification_path = self.framework_specification_file_path_field.Value
+        event_report_path = self.event_report_file_path_field.Value
 
-        self.monitor = Monitor(workflow_specification, hardware_specification)
+        self._verification = Verification.new_for_workflow_in_file(specification_path)
 
-        event_report_file = open(self.event_report_file_path_field.Value, "r")
-        process_thread = threading.Thread(
-            target=self.monitor.run,
-            args=[event_report_file, self._pause_event, self._stop_event],
+        self._verification.run_for_report(
+            event_report_path, self._pause_event, self._stop_event, self
         )
-
-        verification_thread = threading.Thread(
-            target=self._run_verification, args=[process_thread]
-        )
-        verification_thread.start()
 
     def on_stop(self, _event):
-        self._disable_stop_button()
         logging.info(
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
-        self._stop_event.set()
+        self._stop_verification()
 
     def on_pause(self, _event):
         self._pause_event.set()
@@ -217,9 +120,11 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
 
     def close(self):
-        self.on_stop(None)
+        if self._stop_event.is_set():
+            return
+        self._stop_verification()
 
-    def _run_verification(self, process_thread):
+    def run_verification(self, process_thread):
         self._stop_event.clear()
         self._pause_event.clear()
         self._enable_stop_button()
@@ -228,17 +133,29 @@ class SimulationPanel(wx.Panel):
 
         while process_thread.is_alive():
             if self._stop_event.is_set():
+                logging.info(
+                    "You will be able to restart the verification when the last one is finished."
+                )
                 break
 
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
-        logging.info(
-            "You will be able to restart the verification when the last one is stopped."
-        )
+
         process_thread.join()
+        if self._stop_event.is_set():
+            logging.info("Verification stopped.")
+
         self.close()
         self._enable_multi_action_button()
+
+    def _stop_verification(self):
+        self._disable_stop_button()
+
+        if self._verification is not None:
+            self._verification.stop_hardware_simulation()
+
+        self._stop_event.set()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)

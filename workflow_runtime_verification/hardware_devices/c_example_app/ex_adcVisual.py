@@ -9,13 +9,21 @@ class adcVisual(wx.Frame):
         self._render()
 
         self.timer = wx.CallLater(50, self.on_timer)
+        self.open = True
         self.Show()
 
     def close(self):
+        if not self.open:
+            return
+
         self.timer.Stop()
         self.Destroy()
+        self.open = False
 
     def on_timer(self):
+        if not self.open:
+            return
+
         self.counter_display_number.SetLabel(self._counter_value())
         self.measured_value_display.SetLabel(self._measured_value())
         self.measured_binary_value_display.SetLabel(self._measured_binary_value())
