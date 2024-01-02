@@ -53,7 +53,10 @@ class Monitor:
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
                 if not is_a_valid_report:
-                    logging.info(f"The following event resulted in an invalid verification: [ {decoded_event.serialized()} ]")
+                    logging.info(
+                        f"The following event resulted in an invalid verification: "
+                        f"[ {decoded_event.serialized()} ]"
+                    )
 
             if self._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
