@@ -50,56 +50,6 @@ class ControlPanel(wx.Notebook):
         self.simulation_panel.close()
 
 
-class LoggingConf:
-    def __init__(self):
-        self.level = None
-        # Log destination
-        self.log_dest = None
-        # log_dest = "FILE" : file destination
-        self.filename = ""
-        self.filemode = "w"
-        # log_dest = "VISUAL" : Window box destination
-        # log_dest = "STDOUT" : Standard output destination
-        self.stream = None
-
-
-def _configure_logging(logging_cfg):
-    match logging_cfg.log_dest:
-        case "FILE":
-            logging.basicConfig(
-                filename=logging_cfg.filename + ".log",
-                filemode="w",
-                level=logging_cfg.level,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-        case "VISUAL":
-            logging.basicConfig(
-                stream=sys.stdout,
-                level=logging_cfg.level,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-        case "STDOUT":
-            logging.basicConfig(
-                stream=sys.stdout,
-                level=logging_cfg.level,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-        case _:
-            logging.basicConfig(
-                stream=sys.stdout,
-                level=logging.INFO,
-                datefmt="%d/%m/%Y %H:%M:%S",
-                format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-                encoding="utf-8",
-            )
-
-
 # noinspection PyPropertyAccess
 class SimulationPanel(wx.Panel):
     def __init__(self, parent):
@@ -190,15 +140,15 @@ class SimulationPanel(wx.Panel):
 
         while process_thread.is_alive():
             if self._stop_event.is_set():
+                logging.info(
+                    "You will be able to restart the verification when the last one is finished."
+                )
                 break
 
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
 
-        logging.info(
-            "You will be able to restart the verification when the last one is finished."
-        )
         process_thread.join()
         if self._stop_event.is_set():
             logging.info("Verification stopped.")
@@ -358,7 +308,9 @@ class Verification:
         super().__init__()
         self._monitor = Monitor(workflow_specification, hardware_specification)
 
-    def run_for_report(self, event_report_path, pause_event, stop_event, simulation_panel):
+    def run_for_report(
+        self, event_report_path, pause_event, stop_event, simulation_panel
+    ):
         self._set_up()
 
         event_report_file = open(event_report_path, "r")
@@ -380,23 +332,55 @@ class Verification:
         self._set_up_logging()
 
     def _set_up_logging(self):
-        logging_cfg = LoggingConf()
-        logging_cfg.log_dest = "STDOUT"
-        logging_cfg.level = logging.INFO
-        _configure_logging(logging_cfg)
+        logging_cfg = LoggingConf("STDOUT", logging.INFO)
+        self._configure_logging(logging_cfg)
+
+
+    def _configure_logging(self, logging_cfg):
+        match logging_cfg.log_dest:
+            case "FILE":
+                logging.basicConfig(
+                    filename=logging_cfg.filename + ".log",
+                    filemode="w",
+                    level=logging_cfg.level,
+                    datefmt="%d/%m/%Y %H:%M:%S",
+                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                    encoding="utf-8",
+                )
+            case "VISUAL":
+                logging.basicConfig(
+                    stream=sys.stdout,
+                    level=logging_cfg.level,
+                    datefmt="%d/%m/%Y %H:%M:%S",
+                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                    encoding="utf-8",
+                )
+            case "STDOUT":
+                logging.basicConfig(
+                    stream=sys.stdout,
+                    level=logging_cfg.level,
+                    datefmt="%d/%m/%Y %H:%M:%S",
+                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                    encoding="utf-8",
+                )
+            case _:
+                logging.basicConfig(
+                    stream=sys.stdout,
+                    level=logging_cfg.level,
+                    datefmt="%d/%m/%Y %H:%M:%S",
+                    format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+                    encoding="utf-8",
+                )
 
     @classmethod
     def _unpack_specification_file(cls, file_path):
-        split_file_path = os.path.split(
-            file_path
-        )
+        split_file_path = os.path.split(file_path)
         file_directory = split_file_path[0]
         file_name = split_file_path[1]
 
         file_name_without_extension = os.path.splitext(file_name)[0]
         specification_directory = os.path.join(
-            file_directory,
-            file_name_without_extension
+            file_directory, file_name_without_extension
         )
 
         try:
@@ -411,13 +395,17 @@ class Verification:
     @classmethod
     def _read_workflow_specification_from(cls, specification_directory):
         return WorkflowSpecification.new_from_open_file(
-            open(specification_directory + "/workflow.desc", "r")  # TODO: Refactor to os.path.join
+            open(
+                specification_directory + "/workflow.desc", "r"
+            )  # TODO: Refactor to os.path.join
         )
 
     @classmethod
     def _read_hardware_specification_from(cls, specification_directory):
         return cls._new_hardware_map_from_open_file(
-            open(specification_directory + "/hardware.desc", "r")  # TODO: Refactor to os.path.join
+            open(
+                specification_directory + "/hardware.desc", "r"
+            )  # TODO: Refactor to os.path.join
         )
 
     @classmethod
@@ -437,6 +425,19 @@ class Verification:
             hardware_map[device_name] = component_class()
 
         return hardware_map
+
+
+class LoggingConf:
+    def __init__(self, log_dest, level):
+        self.level = level
+        # Log destination
+        self.log_dest = log_dest
+        # log_dest = "FILE" : file destination
+        self.filename = ""
+        self.filemode = "w"
+        # log_dest = "VISUAL" : Window box destination
+        # log_dest = "STDOUT" : Standard output destination
+        self.stream = None
 
 
 if __name__ == "__main__":
