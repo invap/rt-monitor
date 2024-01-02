@@ -96,7 +96,7 @@ class SimulationPanel(wx.Panel):
         self._verification = Verification.new_for_workflow_in_file(specification_path)
 
         self._verification.run_for_report(
-            event_report_path, self._pause_event, self._stop_event, self
+            event_report_path, self._logging_verbosity, self._pause_event, self._stop_event, self
         )
 
     def on_stop(self, _event):
@@ -234,9 +234,9 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Verbosity:")
 
-        verbosity_choices = ["All", "Property analysis information", "Errors only"]
-        selector = wx.Choice(self, choices=verbosity_choices)
-        selector.SetSelection(0)
+        selector = wx.Choice(self, choices=self._verbosity_options())
+        selector.Bind(wx.EVT_CHOICE, self._select_verbosity)
+        self._select_default_verbosity(selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         logging_verbosity_selection_sizer.Add(
@@ -310,6 +310,27 @@ class SimulationPanel(wx.Panel):
 
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
+
+    def _select_default_verbosity(self, selector):
+        selector.SetSelection(0)
+        self._logging_verbosity = self._verbosity_from_text(selector.GetString(0))
+
+    def _select_verbosity(self, event):
+        selected_option = event.GetString()
+        self._logging_verbosity = self._verbosity_from_text(selected_option)
+
+    def _verbosity_from_text(self, selected_option):
+        return self._text_to_verbosity_map()[selected_option]
+
+    def _text_to_verbosity_map(self):
+        return {
+            "All": logging.INFO,
+            "Property analysis information": logging.INFO,
+            "Errors only": logging.WARNING,  # TODO: change sync info logs to warnings.
+        }
+
+    def _verbosity_options(self):
+        return list(self._text_to_verbosity_map().keys())
 
 
 if __name__ == "__main__":

@@ -27,12 +27,14 @@ class Verification:
 
     def __init__(self, workflow_specification, hardware_specification):
         super().__init__()
+
         self._monitor = Monitor(workflow_specification, hardware_specification)
+        self._set_up()
 
     def run_for_report(
-        self, event_report_path, pause_event, stop_event, simulation_panel
+        self, event_report_path, logging_level, pause_event, stop_event, simulation_panel
     ):
-        self._set_up()
+        self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
 
@@ -58,7 +60,7 @@ class Verification:
     def _configure_logging(self):
         logging.basicConfig(
             stream=sys.stdout,
-            level=logging.INFO,
+            level=self._default_logging_level(),
             datefmt="%d/%m/%Y %H:%M:%S",
             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
             encoding="utf-8",
@@ -100,6 +102,12 @@ class Verification:
         #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
         #             encoding="utf-8",
         #         )
+
+    def _configure_logging_level(self, logging_level):
+        logging.getLogger().setLevel(logging_level)
+
+    def _default_logging_level(self):
+        return logging.INFO
 
     @classmethod
     def _unpack_specification_file(cls, file_path):
