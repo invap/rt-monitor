@@ -73,7 +73,9 @@ class Verification:
     def _configure_logging_destination(self, logging_destination, window_log_handler):
         logging.getLogger().handlers.clear()
 
-        formatter = logging.Formatter(self._logging_format(), datefmt=self._date_logging_format())
+        formatter = logging.Formatter(
+            self._logging_format(), datefmt=self._date_logging_format()
+        )
 
         match logging_destination:
             case LoggingDestination.CONSOLE:

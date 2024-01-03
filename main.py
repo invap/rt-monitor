@@ -255,7 +255,9 @@ class SimulationPanel(wx.Panel):
         self._logging_verbosity_selector = wx.Choice(
             self, choices=self._logging_verbosity_options(), size=(200, 35)
         )
-        self._logging_verbosity_selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
+        self._logging_verbosity_selector.Bind(
+            wx.EVT_CHOICE, self._select_logging_verbosity
+        )
         self._select_default_logging_verbosity(self._logging_verbosity_selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -275,7 +277,9 @@ class SimulationPanel(wx.Panel):
         self._logging_destination_selector = wx.Choice(
             self, choices=self._logging_destination_options(), size=(200, 35)
         )
-        self._logging_destination_selector.Bind(wx.EVT_CHOICE, self._select_logging_destination)
+        self._logging_destination_selector.Bind(
+            wx.EVT_CHOICE, self._select_logging_destination
+        )
         self._select_default_logging_destination(self._logging_destination_selector)
 
         logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -283,7 +287,9 @@ class SimulationPanel(wx.Panel):
         logging_destination_selection_sizer.Add(
             label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
-        logging_destination_selection_sizer.Add(self._logging_destination_selector, 0, wx.ALL, border=15)
+        logging_destination_selection_sizer.Add(
+            self._logging_destination_selector, 0, wx.ALL, border=15
+        )
 
         self.main_sizer.Add(logging_destination_selection_sizer, 0, wx.EXPAND)
 
@@ -435,7 +441,7 @@ class WindowLogHandler(logging.Handler):
 
     def emit(self, record):
         log_message = self.format(record)
-        wx.CallAfter(self.window_log_box.AppendText, log_message + '\n')
+        wx.CallAfter(self.window_log_box.AppendText, log_message + "\n")
 
 
 if __name__ == "__main__":
