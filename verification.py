@@ -5,7 +5,7 @@ import shutil
 import sys
 import threading
 
-from logging_level import LoggingLevel
+from logging_level import LoggingLevel, LoggingDestination
 from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
@@ -74,14 +74,17 @@ class Verification:
 
         formatter = logging.Formatter(self._logging_format(), datefmt=self._date_logging_format())
 
-        if logging_output == "Consola":
+        if logging_output == LoggingDestination.CONSOLE:
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(formatter)
             logging.getLogger().addHandler(handler)
-        elif logging_output == "Archivo":
+        elif logging_output == LoggingDestination.FILE:
             handler = logging.FileHandler("log.txt", encoding="utf-8")
             handler.setFormatter(formatter)
             logging.getLogger().addHandler(handler)
+        else:
+            # Add window logging as a default case.
+            raise ValueError("Invalid logging output")
 
     def _configure_logging_level(self, logging_level):
         logging.getLogger().setLevel(logging_level)

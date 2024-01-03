@@ -3,7 +3,7 @@ import threading
 
 import wx
 
-from logging_level import LoggingLevel
+from logging_level import LoggingLevel, LoggingDestination
 from verification import Verification
 
 
@@ -371,7 +371,7 @@ class SimulationPanel(wx.Panel):
         self._logging_output = event.GetString()
 
     def _logging_output_options(self):
-        return ["Ventana", "Consola", "Archivo"]
+        return LoggingDestination.all()
 
     def _add_horizontal_stretching_space(self, logging_output_selection_sizer):
         logging_output_selection_sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
