@@ -35,13 +35,13 @@ class Verification:
     def run_for_report(
         self,
         event_report_path,
-        logging_output,
+        logging_destination,
         logging_level,
         pause_event,
         stop_event,
         simulation_panel,
     ):
-        self._configure_logging_output(logging_output)
+        self._configure_logging_destination(logging_destination)
         self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
@@ -69,22 +69,22 @@ class Verification:
             encoding="utf-8",
         )
 
-    def _configure_logging_output(self, logging_output):
+    def _configure_logging_destination(self, logging_destination):
         logging.getLogger().handlers.clear()
 
         formatter = logging.Formatter(self._logging_format(), datefmt=self._date_logging_format())
 
-        if logging_output == LoggingDestination.CONSOLE:
+        if logging_destination == LoggingDestination.CONSOLE:
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(formatter)
             logging.getLogger().addHandler(handler)
-        elif logging_output == LoggingDestination.FILE:
+        elif logging_destination == LoggingDestination.FILE:
             handler = logging.FileHandler("log.txt", encoding="utf-8")
             handler.setFormatter(formatter)
             logging.getLogger().addHandler(handler)
         else:
             # Add window logging as a default case.
-            raise ValueError("Invalid logging output")
+            raise ValueError("Invalid logging destination")
 
     def _configure_logging_level(self, logging_level):
         logging.getLogger().setLevel(logging_level)
