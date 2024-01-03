@@ -5,6 +5,7 @@ import shutil
 import sys
 import threading
 
+from logging_level import LoggingLevel
 from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
@@ -60,7 +61,7 @@ class Verification:
         self._set_up_logging()
 
     def _set_up_logging(self):
-        logging.addLevelName(Monitor.ANALYSIS_LOGGING_LEVEL, "PROPERTY_ANALYSIS")
+        logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
         logging.basicConfig(
             stream=sys.stdout,
             level=self._default_logging_level(),
@@ -110,7 +111,7 @@ class Verification:
         logging.getLogger().setLevel(logging_level)
 
     def _default_logging_level(self):
-        return logging.INFO
+        return LoggingLevel.INFO
 
     @classmethod
     def _unpack_specification_file(cls, file_path):

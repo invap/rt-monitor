@@ -3,8 +3,8 @@ import threading
 
 import wx
 
+from logging_level import LoggingLevel
 from verification import Verification
-from workflow_runtime_verification.monitor import Monitor
 
 
 class MainWindow(wx.Frame):
@@ -240,7 +240,9 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Tipo de información a registrar:")
 
-        selector = wx.Choice(self, choices=self._logging_verbosity_options(), size=(200, 35))
+        selector = wx.Choice(
+            self, choices=self._logging_verbosity_options(), size=(200, 35)
+        )
         selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
         self._select_default_logging_verbosity(selector)
 
@@ -258,7 +260,9 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_output_configuration_components(self):
         label = wx.StaticText(self, label="Dónde registrar la información:")
 
-        selector = wx.Choice(self, choices=self._logging_output_options(), size=(200,35))
+        selector = wx.Choice(
+            self, choices=self._logging_output_options(), size=(200, 35)
+        )
         selector.Bind(wx.EVT_CHOICE, self._select_logging_output)
         self._select_default_logging_output(selector)
 
@@ -267,9 +271,7 @@ class SimulationPanel(wx.Panel):
         logging_output_selection_sizer.Add(
             label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
-        logging_output_selection_sizer.Add(
-            selector, 0, wx.ALL, border=15
-        )
+        logging_output_selection_sizer.Add(selector, 0, wx.ALL, border=15)
 
         self.main_sizer.Add(logging_output_selection_sizer, 0, wx.EXPAND)
 
@@ -338,7 +340,9 @@ class SimulationPanel(wx.Panel):
 
     def _select_default_logging_verbosity(self, selector):
         selector.SetSelection(0)
-        self._logging_verbosity = self._logging_verbosity_from_text(selector.GetString(0))
+        self._logging_verbosity = self._logging_verbosity_from_text(
+            selector.GetString(0)
+        )
 
     def _select_logging_verbosity(self, event):
         selected_option = event.GetString()
@@ -349,10 +353,10 @@ class SimulationPanel(wx.Panel):
 
     def _text_to_logging_verbosity_map(self):
         return {
-            "Todo": logging.INFO,
-            "Información de análisis": Monitor.ANALYSIS_LOGGING_LEVEL,
-            "Errores y advertencias": logging.WARNING,
-            "Errores": logging.ERROR,
+            "Todo": LoggingLevel.INFO,
+            "Información de análisis": LoggingLevel.PROPERTY_ANALYSIS,
+            "Errores y advertencias": LoggingLevel.WARNING,
+            "Errores": LoggingLevel.ERROR,
         }
 
     def _logging_verbosity_options(self):
@@ -369,9 +373,7 @@ class SimulationPanel(wx.Panel):
         return ["Ventana", "Consola", "Archivo"]
 
     def _add_horizontal_stretching_space(self, logging_output_selection_sizer):
-        logging_output_selection_sizer.Add(
-            (0, 0), 1, wx.EXPAND | wx.ALL
-        )
+        logging_output_selection_sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
 
 if __name__ == "__main__":
