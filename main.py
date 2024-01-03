@@ -140,7 +140,8 @@ class SimulationPanel(wx.Panel):
         while process_thread.is_alive():
             if self._stop_event.is_set():
                 logging.warning(
-                    "You will be able to restart the verification when the last one is finished."
+                    "You will be able to restart the verification when "
+                    "the last one is finished."
                 )
                 break
 
