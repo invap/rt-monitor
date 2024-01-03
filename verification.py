@@ -37,11 +37,12 @@ class Verification:
         event_report_path,
         logging_destination,
         logging_level,
+        window_log_handler,
         pause_event,
         stop_event,
         simulation_panel,
     ):
-        self._configure_logging_destination(logging_destination)
+        self._configure_logging_destination(logging_destination, window_log_handler)
         self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
@@ -69,7 +70,7 @@ class Verification:
             encoding="utf-8",
         )
 
-    def _configure_logging_destination(self, logging_destination):
+    def _configure_logging_destination(self, logging_destination, window_log_handler):
         logging.getLogger().handlers.clear()
 
         formatter = logging.Formatter(self._logging_format(), datefmt=self._date_logging_format())
@@ -80,8 +81,7 @@ class Verification:
             case LoggingDestination.FILE:
                 handler = logging.FileHandler("log.txt", encoding="utf-8")
             case _:
-                # Add window logging as a default case.
-                raise ValueError("Invalid logging destination")
+                handler = window_log_handler
 
         handler.setFormatter(formatter)
         logging.getLogger().addHandler(handler)
