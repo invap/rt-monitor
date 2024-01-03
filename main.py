@@ -98,6 +98,7 @@ class SimulationPanel(wx.Panel):
 
         self._verification.run_for_report(
             event_report_path,
+            self._logging_output,
             self._logging_verbosity,
             self._pause_event,
             self._stop_event,

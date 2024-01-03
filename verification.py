@@ -35,11 +35,13 @@ class Verification:
     def run_for_report(
         self,
         event_report_path,
+        logging_output,
         logging_level,
         pause_event,
         stop_event,
         simulation_panel,
     ):
+        self._configure_logging_output(logging_output)
         self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
@@ -62,22 +64,36 @@ class Verification:
         logging.basicConfig(
             stream=sys.stdout,
             level=self._default_logging_level(),
-            datefmt="%d/%m/%Y %H:%M:%S",
-            format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+            datefmt=self._date_logging_format(),
+            format=self._logging_format(),
             encoding="utf-8",
         )
 
-        # match logging_cfg.log_dest:
-        #     case "FILE":
-        #         logging.basicConfig(
-        #             filename=logging_cfg.filename + ".log",
-        #             filemode="w",
+    def _configure_logging_output(self, logging_output):
+        logging.getLogger().handlers.clear()
+
+        formatter = logging.Formatter(self._logging_format(), datefmt=self._date_logging_format())
+
+        if logging_output == "Consola":
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(formatter)
+            logging.getLogger().addHandler(handler)
+        elif logging_output == "Archivo":
+            handler = logging.FileHandler("log.txt", encoding="utf-8")
+            handler.setFormatter(formatter)
+            logging.getLogger().addHandler(handler)
 
     def _configure_logging_level(self, logging_level):
         logging.getLogger().setLevel(logging_level)
 
     def _default_logging_level(self):
         return LoggingLevel.INFO
+
+    def _date_logging_format(self):
+        return "%d/%m/%Y %H:%M:%S"
+
+    def _logging_format(self):
+        return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
 
     @classmethod
     def _unpack_specification_file(cls, file_path):
