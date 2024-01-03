@@ -135,6 +135,7 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
+        self._disable_logging_configuration_components()
 
         process_thread.start()
         while process_thread.is_alive():
@@ -148,6 +149,7 @@ class SimulationPanel(wx.Panel):
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
+        self._enable_logging_configuration_components()
 
         process_thread.join()
         if self._stop_event.is_set():
@@ -242,11 +244,11 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Tipo de información a registrar:")
 
-        selector = wx.Choice(
+        self._logging_verbosity_selector = wx.Choice(
             self, choices=self._logging_verbosity_options(), size=(200, 35)
         )
-        selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
-        self._select_default_logging_verbosity(selector)
+        self._logging_verbosity_selector.Bind(wx.EVT_CHOICE, self._select_logging_verbosity)
+        self._select_default_logging_verbosity(self._logging_verbosity_selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
@@ -254,7 +256,7 @@ class SimulationPanel(wx.Panel):
             label, 0, wx.TOP | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
         logging_verbosity_selection_sizer.Add(
-            selector, 0, wx.TOP | wx.LEFT | wx.RIGHT, border=15
+            self._logging_verbosity_selector, 0, wx.TOP | wx.LEFT | wx.RIGHT, border=15
         )
 
         self.main_sizer.Add(logging_verbosity_selection_sizer, 0, wx.EXPAND)
@@ -262,18 +264,18 @@ class SimulationPanel(wx.Panel):
     def _set_up_logging_destination_configuration_components(self):
         label = wx.StaticText(self, label="Dónde registrar la información:")
 
-        selector = wx.Choice(
+        self._logging_destination_selector = wx.Choice(
             self, choices=self._logging_destination_options(), size=(200, 35)
         )
-        selector.Bind(wx.EVT_CHOICE, self._select_logging_destination)
-        self._select_default_logging_destination(selector)
+        self._logging_destination_selector.Bind(wx.EVT_CHOICE, self._select_logging_destination)
+        self._select_default_logging_destination(self._logging_destination_selector)
 
         logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._add_horizontal_stretching_space(logging_destination_selection_sizer)
         logging_destination_selection_sizer.Add(
             label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
-        logging_destination_selection_sizer.Add(selector, 0, wx.ALL, border=15)
+        logging_destination_selection_sizer.Add(self._logging_destination_selector, 0, wx.ALL, border=15)
 
         self.main_sizer.Add(logging_destination_selection_sizer, 0, wx.EXPAND)
 
@@ -336,6 +338,14 @@ class SimulationPanel(wx.Panel):
 
     def _enable_multi_action_button(self):
         self.multi_action_button.Enable()
+
+    def _disable_logging_configuration_components(self):
+        self._logging_verbosity_selector.Disable()
+        self._logging_destination_selector.Disable()
+
+    def _enable_logging_configuration_components(self):
+        self._logging_verbosity_selector.Enable()
+        self._logging_destination_selector.Enable()
 
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
