@@ -74,17 +74,18 @@ class Verification:
 
         formatter = logging.Formatter(self._logging_format(), datefmt=self._date_logging_format())
 
-        if logging_destination == LoggingDestination.CONSOLE:
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setFormatter(formatter)
-            logging.getLogger().addHandler(handler)
-        elif logging_destination == LoggingDestination.FILE:
-            handler = logging.FileHandler("log.txt", encoding="utf-8")
-            handler.setFormatter(formatter)
-            logging.getLogger().addHandler(handler)
-        else:
-            # Add window logging as a default case.
-            raise ValueError("Invalid logging destination")
+        match logging_destination:
+            case LoggingDestination.CONSOLE:
+                handler = logging.StreamHandler(sys.stdout)
+                handler.setFormatter(formatter)
+                logging.getLogger().addHandler(handler)
+            case LoggingDestination.FILE:
+                handler = logging.FileHandler("log.txt", encoding="utf-8")
+                handler.setFormatter(formatter)
+                logging.getLogger().addHandler(handler)
+            case _:
+                # Add window logging as a default case.
+                raise ValueError("Invalid logging destination")
 
     def _configure_logging_level(self, logging_level):
         logging.getLogger().setLevel(logging_level)
