@@ -142,6 +142,9 @@ class SimulationPanel(wx.Panel):
         self._show_multi_action_button_as_pause()
         self._disable_logging_configuration_components()
 
+        if self._logging_destination == LoggingDestination.WINDOW:
+            self.Parent.ChangeSelection(1)
+
         process_thread.start()
         while process_thread.is_alive():
             if self._stop_event.is_set():

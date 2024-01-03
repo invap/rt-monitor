@@ -11,7 +11,7 @@ class ex_displayVisual(wx.Frame):
 
         self.display = display
 
-        self.visual_lcd = wx.Window(self, style=wx.STAY_ON_TOP)
+        self.visual_lcd = wx.Window(self)
         self.SetClientSize((self.display.height, self.display.width))
         self.visual_lcd.Bind(wx.EVT_PAINT, self.on_paint)
 
