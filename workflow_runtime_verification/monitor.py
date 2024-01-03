@@ -3,6 +3,7 @@ from collections.abc import Iterable
 
 import z3
 
+from logging_configuration import LoggingLevel
 from workflow_runtime_verification.errors import (
     UndeclaredVariable,
     UnboundVariables,
@@ -28,8 +29,6 @@ class Monitor:
     TASK_STARTED_SUFFIX = "_started"
     TASK_FINISHED_SUFFIX = "_finished"
     CHECKPOINT_REACHED_SUFFIX = "_reached"
-
-    ANALYSIS_LOGGING_LEVEL = logging.INFO + 5
 
     def __init__(self, workflow_specification, hardware_dictionary):
         self._event_decoder = EventDecoder()
@@ -267,7 +266,7 @@ class Monitor:
 
     @classmethod
     def _log_property_analysis(cls, message):
-        logging.log(cls.ANALYSIS_LOGGING_LEVEL, message)
+        logging.log(LoggingLevel.PROPERTY_ANALYSIS, message)
 
     @classmethod
     def _are_all_properties_satisfied(

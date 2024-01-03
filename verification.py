@@ -5,6 +5,7 @@ import shutil
 import sys
 import threading
 
+from logging_configuration import LoggingLevel, LoggingDestination
 from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
@@ -29,16 +30,19 @@ class Verification:
         super().__init__()
 
         self._monitor = Monitor(workflow_specification, hardware_specification)
-        self._set_up()
+        self._set_up_logging()
 
     def run_for_report(
         self,
         event_report_path,
+        logging_destination,
         logging_level,
+        window_log_handler,
         pause_event,
         stop_event,
         simulation_panel,
     ):
+        self._configure_logging_destination(logging_destination, window_log_handler)
         self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
@@ -56,61 +60,45 @@ class Verification:
     def stop_hardware_simulation(self):
         self._monitor.stop_hardware_simulation()
 
-    def _set_up(self):
-        self._set_up_logging()
-
     def _set_up_logging(self):
-        logging.addLevelName(Monitor.ANALYSIS_LOGGING_LEVEL, "PROPERTY_ANALYSIS")
+        logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
         logging.basicConfig(
             stream=sys.stdout,
             level=self._default_logging_level(),
-            datefmt="%d/%m/%Y %H:%M:%S",
-            format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
+            datefmt=self._date_logging_format(),
+            format=self._logging_format(),
             encoding="utf-8",
         )
-        # log_dest = "FILE" : file destination
-        # log_dest = "VISUAL" : Window box destination
-        # log_dest = "STDOUT" : Standard output destination
-        # match logging_cfg.log_dest:
-        #     case "FILE":
-        #         logging.basicConfig(
-        #             filename=logging_cfg.filename + ".log",
-        #             filemode="w",
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
-        #     case "VISUAL":
-        #         logging.basicConfig(
-        #             stream=sys.stdout,
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
-        #     case "STDOUT":
-        #         logging.basicConfig(
-        #             stream=sys.stdout,
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
-        #     case _:
-        #         logging.basicConfig(
-        #             stream=sys.stdout,
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
+
+    def _configure_logging_destination(self, logging_destination, window_log_handler):
+        logging.getLogger().handlers.clear()
+
+        formatter = logging.Formatter(
+            self._logging_format(), datefmt=self._date_logging_format()
+        )
+
+        match logging_destination:
+            case LoggingDestination.CONSOLE:
+                handler = logging.StreamHandler(sys.stdout)
+            case LoggingDestination.FILE:
+                handler = logging.FileHandler("log.txt", encoding="utf-8")
+            case _:
+                handler = window_log_handler
+
+        handler.setFormatter(formatter)
+        logging.getLogger().addHandler(handler)
 
     def _configure_logging_level(self, logging_level):
         logging.getLogger().setLevel(logging_level)
 
     def _default_logging_level(self):
-        return logging.INFO
+        return LoggingLevel.INFO
+
+    def _date_logging_format(self):
+        return "%d/%m/%Y %H:%M:%S"
+
+    def _logging_format(self):
+        return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
 
     @classmethod
     def _unpack_specification_file(cls, file_path):
