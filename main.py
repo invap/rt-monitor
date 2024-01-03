@@ -135,8 +135,8 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
-        process_thread.start()
 
+        process_thread.start()
         while process_thread.is_alive():
             if self._stop_event.is_set():
                 logging.warning(
