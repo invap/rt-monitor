@@ -30,7 +30,7 @@ class Verification:
         super().__init__()
 
         self._monitor = Monitor(workflow_specification, hardware_specification)
-        self._set_up()
+        self._set_up_logging()
 
     def run_for_report(
         self,
@@ -57,9 +57,6 @@ class Verification:
     def stop_hardware_simulation(self):
         self._monitor.stop_hardware_simulation()
 
-    def _set_up(self):
-        self._set_up_logging()
-
     def _set_up_logging(self):
         logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
         logging.basicConfig(
@@ -69,43 +66,12 @@ class Verification:
             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
             encoding="utf-8",
         )
-        # log_dest = "FILE" : file destination
-        # log_dest = "VISUAL" : Window box destination
-        # log_dest = "STDOUT" : Standard output destination
+
         # match logging_cfg.log_dest:
         #     case "FILE":
         #         logging.basicConfig(
         #             filename=logging_cfg.filename + ".log",
         #             filemode="w",
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
-        #     case "VISUAL":
-        #         logging.basicConfig(
-        #             stream=sys.stdout,
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
-        #     case "STDOUT":
-        #         logging.basicConfig(
-        #             stream=sys.stdout,
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
-        #     case _:
-        #         logging.basicConfig(
-        #             stream=sys.stdout,
-        #             level=logging_cfg.level,
-        #             datefmt="%d/%m/%Y %H:%M:%S",
-        #             format="%(asctime)s : [%(name)s:%(levelname)s] - %(message)s",
-        #             encoding="utf-8",
-        #         )
 
     def _configure_logging_level(self, logging_level):
         logging.getLogger().setLevel(logging_level)
