@@ -37,8 +37,11 @@ class ControlPanel(wx.Notebook):
         super().__init__(parent=parent)
 
         self.simulation_panel = SimulationPanel(parent=self)
+        self.log_panel = LogPanel(parent=self)
         self.simulation_panel.SetFocus()
+
         self.AddPage(self.simulation_panel, "Run-time monitor setup")
+        self.AddPage(self.log_panel, "Log")
 
     def close(self):
         self.simulation_panel.close()
@@ -386,6 +389,10 @@ class SimulationPanel(wx.Panel):
 
     def _add_horizontal_stretching_space(self, sizer):
         sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
+
+
+class LogPanel(wx.Panel):
+    pass
 
 
 if __name__ == "__main__":
