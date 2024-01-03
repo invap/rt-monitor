@@ -422,6 +422,8 @@ class LogPanel(wx.Panel):
         self._log_text_box.SetBackgroundColour(self._black())
         self._log_text_box.SetForegroundColour(self._silver())
 
+        self._log_text_box.MaxLines = 1000
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self._log_text_box, 1, wx.EXPAND | wx.ALL, border=15)
 
