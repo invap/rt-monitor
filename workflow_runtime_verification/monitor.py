@@ -3,7 +3,7 @@ from collections.abc import Iterable
 
 import z3
 
-from logging_level import LoggingLevel
+from logging_configuration import LoggingLevel
 from workflow_runtime_verification.errors import (
     UndeclaredVariable,
     UnboundVariables,

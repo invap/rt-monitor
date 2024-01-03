@@ -3,7 +3,7 @@ import threading
 
 import wx
 
-from logging_level import LoggingLevel, LoggingDestination
+from logging_configuration import LoggingLevel, LoggingDestination
 from verification import Verification
 
 

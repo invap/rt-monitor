@@ -5,7 +5,7 @@ import shutil
 import sys
 import threading
 
-from logging_level import LoggingLevel, LoggingDestination
+from logging_configuration import LoggingLevel, LoggingDestination
 from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
