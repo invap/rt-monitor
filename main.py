@@ -407,7 +407,7 @@ class LogPanel(wx.Panel):
         )
 
         font = wx.Font(
-            18, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
+            9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
         )
         self._log_text_box.SetFont(font)
         self._log_text_box.SetBackgroundColour(self._black())
