@@ -37,11 +37,11 @@ class ControlPanel(wx.Notebook):
         super().__init__(parent=parent)
 
         self.simulation_panel = SimulationPanel(parent=self)
-        self.log_panel = LogPanel(parent=self)
+        self.log_panel = LoggingConfigurationPanel(parent=self)
         self.simulation_panel.SetFocus()
 
-        self.AddPage(self.simulation_panel, "Run-time monitor setup")
-        self.AddPage(self.log_panel, "Log")
+        self.AddPage(self.simulation_panel, "Setup")
+        self.AddPage(self.log_panel, "Logging configuration")
 
     def close(self):
         self.simulation_panel.close()
@@ -398,7 +398,7 @@ class SimulationPanel(wx.Panel):
         sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
 
-class LogPanel(wx.Panel):
+class LoggingConfigurationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
         self._set_up_components()
