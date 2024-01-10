@@ -147,7 +147,7 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
-        #self._disable_logging_configuration_components()  # TODO: Disable tab
+        # self._disable_logging_configuration_components()  # TODO: Disable tab
 
         process_thread.start()
         while process_thread.is_alive():
@@ -161,7 +161,7 @@ class SimulationPanel(wx.Panel):
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
-        #self._enable_logging_configuration_components()  # TODO: Enable tab
+        # self._enable_logging_configuration_components()  # TODO: Enable tab
 
         process_thread.join()
         if self._stop_event.is_set():
@@ -370,7 +370,9 @@ class LoggingConfigurationPanel(wx.Panel):
     def _select_default_logging_verbosity(self, selector):
         default_selection_index = 0
         selector.SetSelection(default_selection_index)
-        self._logging_verbosity = self._logging_verbosity_from_text(selector.GetString(default_selection_index))
+        self._logging_verbosity = self._logging_verbosity_from_text(
+            selector.GetString(default_selection_index)
+        )
 
     def _select_logging_verbosity(self, event):
         selected_option = event.GetString()
