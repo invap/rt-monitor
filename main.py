@@ -53,6 +53,7 @@ class SimulationPanel(wx.Panel):
         super().__init__(parent=parent)
 
         self._verification = None
+        self._amount_of_events = 0
         self._render()
 
     def select_report(self, event):
@@ -87,9 +88,9 @@ class SimulationPanel(wx.Panel):
         dialog.Destroy()
 
     def update_report_properties(self):
-        with open(self.event_report_file_path_field.Value, "r") as f:
-            self.total_events_count = sum(1 for _ in f)
-            f.close()
+        with open(self.event_report_file_path_field.Value, "r") as file:
+            self._amount_of_events = len(file.readlines())
+            file.close()
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self._refresh_window_layout()
 
@@ -115,7 +116,10 @@ class SimulationPanel(wx.Panel):
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
+
         self._stop_verification()
+        if self._verification is not None:
+            self._verification.stop_hardware_simulation()
 
     def on_pause(self, _event):
         self._pause_event.set()
@@ -168,9 +172,6 @@ class SimulationPanel(wx.Panel):
 
     def _stop_verification(self):
         self._disable_stop_button()
-
-        if self._verification is not None:
-            self._verification.stop_hardware_simulation()
 
         self._stop_event.set()
 
@@ -230,7 +231,6 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(folder_selection_sizer, 0)
 
     def _set_up_simulation_status_components(self):
-        self.total_events_count = 0
         self.simulation_status_text_label = wx.StaticText(
             self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE
         )
@@ -312,7 +312,7 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _simulation_status_label(self):
-        return f"Cantidad de eventos a verificar: {self.total_events_count}\n"
+        return f"Cantidad de eventos a verificar: {self._amount_of_events}\n"
 
     def _update_start_button(self):
         report_file_path = self.event_report_file_path_field.Value
