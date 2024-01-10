@@ -87,9 +87,9 @@ class SimulationPanel(wx.Panel):
         dialog.Destroy()
 
     def update_report_properties(self):
-        with open(self.event_report_file_path_field.Value, "r") as f:
-            self.total_events_count = sum(1 for _ in f)
-            f.close()
+        with open(self.event_report_file_path_field.Value, "r") as file:
+            self.total_events_count = len(file.readlines())
+            file.close()
         self.simulation_status_text_label.SetLabel(self._simulation_status_label())
         self._refresh_window_layout()
 
