@@ -350,13 +350,13 @@ class LoggingConfigurationPanel(wx.Panel):
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
         logging_verbosity_selection_sizer.Add(
-            label, 0, wx.TOP | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
+            label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
         logging_verbosity_selection_sizer.Add(
-            self._logging_verbosity_selector, 0, wx.TOP | wx.LEFT | wx.RIGHT, border=15
+            self._logging_verbosity_selector, 0, wx.LEFT | wx.RIGHT, border=15
         )
 
-        self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.EXPAND)
+        self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.CENTER)
 
     def _set_up_logging_destination_configuration_components(self):
         label = wx.StaticText(self, label="Dónde registrar la información:")
@@ -372,13 +372,13 @@ class LoggingConfigurationPanel(wx.Panel):
         logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._add_horizontal_stretching_space(logging_destination_selection_sizer)
         logging_destination_selection_sizer.Add(
-            label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
+            label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
         )
         logging_destination_selection_sizer.Add(
-            self._logging_destination_selector, 0, wx.ALL, border=15
+            self._logging_destination_selector, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
         )
 
-        self.sizer.Add(logging_destination_selection_sizer, 0, wx.EXPAND)
+        self.sizer.Add(logging_destination_selection_sizer, 0, wx.CENTER)
 
     def _select_default_logging_verbosity(self, selector):
         default_selection_index = 0
