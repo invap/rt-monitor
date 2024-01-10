@@ -37,20 +37,20 @@ class ControlPanel(wx.Notebook):
         super().__init__(parent=parent)
 
         self.simulation_panel = SimulationPanel(parent=self)
-        self.log_panel = LoggingConfigurationPanel(parent=self)
+        self.logging_configuration_panel = LoggingConfigurationPanel(parent=self)
         self.simulation_panel.SetFocus()
 
         self.AddPage(self.simulation_panel, "Simulación")
-        self.AddPage(self.log_panel, "Configuración del log")
+        self.AddPage(self.logging_configuration_panel, "Configuración del log")
 
     def close(self):
         self.simulation_panel.close()
 
-    def set_logging_destination(self, destination):
-        self.simulation_panel.set_logging_destination(destination)
+    def logging_destination(self):
+        return self.logging_configuration_panel.logging_destination()
 
-    def set_logging_verbosity(self, verbosity):
-        self.simulation_panel.set_logging_verbosity(verbosity)
+    def logging_verbosity(self):
+        return self.logging_configuration_panel.logging_verbosity()
 
 
 # noinspection PyPropertyAccess
@@ -107,8 +107,8 @@ class SimulationPanel(wx.Panel):
         self._verification = Verification.new_for_workflow_in_file(specification_path)
         self._verification.run_for_report(
             event_report_path,
-            self._logging_destination,
-            self._logging_verbosity,
+            self.Parent.logging_destination(),
+            self.Parent.logging_verbosity(),
             self._pause_event,
             self._stop_event,
             self,
@@ -169,12 +169,6 @@ class SimulationPanel(wx.Panel):
 
         self.close()
         self._enable_multi_action_button()
-
-    def set_logging_destination(self, destination):
-        self._logging_destination = destination
-
-    def set_logging_verbosity(self, verbosity):
-        self._logging_verbosity = verbosity
 
     def _stop_verification(self):
         self._disable_stop_button()
@@ -376,14 +370,11 @@ class LoggingConfigurationPanel(wx.Panel):
     def _select_default_logging_verbosity(self, selector):
         default_selection_index = 0
         selector.SetSelection(default_selection_index)
-        self._set_logging_verbosity(self._logging_verbosity_from_text(selector.GetString(default_selection_index)))
+        self._logging_verbosity = self._logging_verbosity_from_text(selector.GetString(default_selection_index))
 
     def _select_logging_verbosity(self, event):
         selected_option = event.GetString()
-        self._set_logging_verbosity(self._logging_verbosity_from_text(selected_option))
-
-    def _set_logging_verbosity(self, verbosity):
-        self.Parent.set_logging_verbosity(verbosity)
+        self._logging_verbosity = self._logging_verbosity_from_text(selected_option)
 
     def _logging_verbosity_from_text(self, selected_option):
         return self._text_to_logging_verbosity_map()[selected_option]
@@ -402,27 +393,22 @@ class LoggingConfigurationPanel(wx.Panel):
     def _select_default_logging_destination(self, selector):
         default_selection_index = 0
         selector.SetSelection(default_selection_index)
-        self._set_logging_destination(selector.GetString(default_selection_index))
+        self._logging_destination = selector.GetString(default_selection_index)
 
     def _select_logging_destination(self, event):
-        self._set_logging_destination(event.GetString())
-
-    def _set_logging_destination(self, destination):
-        self.Parent.set_logging_destination(destination)
+        self._logging_destination = event.GetString()
 
     def _logging_destination_options(self):
         return LoggingDestination.all()
 
-    def _disable_logging_configuration_components(self):
-        self._logging_verbosity_selector.Disable()
-        self._logging_destination_selector.Disable()
-
-    def _enable_logging_configuration_components(self):
-        self._logging_verbosity_selector.Enable()
-        self._logging_destination_selector.Enable()
-
     def _add_horizontal_stretching_space(self, sizer):
         sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
+
+    def logging_destination(self):
+        return self._logging_destination
+
+    def logging_verbosity(self):
+        return self._logging_verbosity
 
 
 if __name__ == "__main__":
