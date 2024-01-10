@@ -173,14 +173,12 @@ class SimulationPanel(wx.Panel):
     def update_amount_of_processed_events(self):
         self._amount_of_processed_events += 1
         self.amount_of_processed_events_text_label.SetLabel(self._amount_of_processed_events_label())
-        self._refresh_window_layout()
 
     def _update_amount_of_events_to_verify(self):
         with open(self.event_report_file_path_field.Value, "r") as file:
             self._amount_of_events_to_verify = len(file.readlines())
             file.close()
         self.amount_of_events_to_verify_text_label.SetLabel(self._amount_of_events_to_verify_label())
-        self._refresh_window_layout()
 
     def _stop_verification(self):
         self._disable_stop_button()
@@ -246,20 +244,20 @@ class SimulationPanel(wx.Panel):
             self, label="Estado de la simulación"
         )
         self.amount_of_events_to_verify_text_label = wx.StaticText(
-            self, label=self._amount_of_events_to_verify_label(), style=wx.ALIGN_CENTRE
+            self, label=self._amount_of_events_to_verify_label()
         )
         self.amount_of_processed_events_text_label = wx.StaticText(
-            self, label=self._amount_of_processed_events_label(), style=wx.ALIGN_CENTRE
+            self, label=self._amount_of_processed_events_label()
         )
 
         self.main_sizer.Add(
             simulation_status_label, 0, wx.TOP | wx.LEFT, border=15
         )
         self.main_sizer.Add(
-            self.amount_of_events_to_verify_text_label, 0, wx.EXPAND | wx.TOP, border=20
+            self.amount_of_events_to_verify_text_label, 0, wx.EXPAND | wx.TOP | wx.LEFT, border=25
         )
         self.main_sizer.Add(
-            self.amount_of_processed_events_text_label, 0, wx.EXPAND
+            self.amount_of_processed_events_text_label, 0, wx.EXPAND | wx.LEFT, border=25
         )
 
     def _set_up_action_components(self):
@@ -324,9 +322,6 @@ class SimulationPanel(wx.Panel):
 
     def _enable_multi_action_button(self):
         wx.CallAfter(self.multi_action_button.Enable)
-
-    def _refresh_window_layout(self):
-        self.main_sizer.Layout()
 
     def _disable_logging_configuration_components(self):
         self.Parent.disable_logging_configuration_components()
