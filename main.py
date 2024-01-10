@@ -375,7 +375,10 @@ class LoggingConfigurationPanel(wx.Panel):
             label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
         )
         logging_destination_selection_sizer.Add(
-            self._logging_destination_selector, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.RIGHT, border=15
+            self._logging_destination_selector,
+            0,
+            wx.LEFT | wx.TOP | wx.BOTTOM | wx.RIGHT,
+            border=15,
         )
 
         self.sizer.Add(logging_destination_selection_sizer, 0, wx.CENTER)
