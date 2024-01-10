@@ -304,16 +304,17 @@ class SimulationPanel(wx.Panel):
         self._elapsed_time_label = wx.StaticText(
             self, label=self._elapsed_time_label_text()
         )
-        self.main_sizer.Add(
-            self._elapsed_time_label, 0, wx.LEFT | wx.TOP, border=25
-        )
+        self.main_sizer.Add(self._elapsed_time_label, 0, wx.LEFT | wx.TOP, border=25)
 
     def _set_up_estimated_remaining_time(self):
         self._estimated_remaining_time_label = wx.StaticText(
             self, label=self._estimated_remaining_time_label_text()
         )
         self.main_sizer.Add(
-            self._estimated_remaining_time_label, 0, wx.LEFT | wx.TOP | wx.BOTTOM, border=25
+            self._estimated_remaining_time_label,
+            0,
+            wx.LEFT | wx.TOP | wx.BOTTOM,
+            border=25,
         )
 
     def _set_up_action_components(self):
@@ -399,7 +400,9 @@ class SimulationPanel(wx.Panel):
         self._last_updated_time = current_time
 
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
-        self._estimated_remaining_time_label.SetLabel(self._estimated_remaining_time_label_text())
+        self._estimated_remaining_time_label.SetLabel(
+            self._estimated_remaining_time_label_text()
+        )
 
     def _current_time(self):
         return wx.DateTime.Now()
