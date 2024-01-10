@@ -143,7 +143,7 @@ class SimulationPanel(wx.Panel):
         self._disable_logging_configuration_components()
 
         if self._logging_destination == LoggingDestination.WINDOW:
-            self.Parent.ChangeSelection(1)
+            self.Parent.ChangeSelection(0)
 
         process_thread.start()
         while process_thread.is_alive():
@@ -389,8 +389,9 @@ class SimulationPanel(wx.Panel):
         return list(self._text_to_logging_verbosity_map().keys())
 
     def _select_default_logging_destination(self, selector):
-        selector.SetSelection(0)
-        self._logging_destination = selector.GetString(0)
+        default_selection_index = 0
+        selector.SetSelection(default_selection_index)
+        self._logging_destination = selector.GetString(default_selection_index)
 
     def _select_logging_destination(self, event):
         self._logging_destination = event.GetString()
