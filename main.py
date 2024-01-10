@@ -141,6 +141,7 @@ class SimulationPanel(wx.Panel):
         if self._stop_event.is_set():
             return
         self._stop_verification()
+        self._timer.Stop()
 
     def run_verification(self, process_thread):
         self._stop_event.clear()
@@ -247,27 +248,19 @@ class SimulationPanel(wx.Panel):
 
     def _set_up_simulation_status_components(self):
         simulation_status_label = wx.StaticText(self, label="Estado de la simulación")
+        self.main_sizer.Add(simulation_status_label, 0, wx.TOP | wx.LEFT, border=15)
+
+        self._set_up_event_status_components()
+        self._set_up_progress_bar()
+        self._set_up_timer()
+
+    def _set_up_event_status_components(self):
         self.amount_of_events_to_verify_text_label = wx.StaticText(
             self, label=self._amount_of_events_to_verify_label()
         )
         self.amount_of_processed_events_text_label = wx.StaticText(
             self, label=self._amount_of_processed_events_label()
         )
-
-        self._percentage_of_processed_events_text = wx.StaticText(
-            self, label=self._percentage_of_processed_events_label()
-        )
-        self._progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
-        progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
-        progress_bar_sizer.Add(
-            self._percentage_of_processed_events_text,
-            0,
-            wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
-            border=10,
-        )
-
-        self.main_sizer.Add(simulation_status_label, 0, wx.TOP | wx.LEFT, border=15)
         self.main_sizer.Add(
             self.amount_of_events_to_verify_text_label,
             0,
@@ -280,8 +273,34 @@ class SimulationPanel(wx.Panel):
             wx.EXPAND | wx.LEFT,
             border=25,
         )
+
+    def _set_up_progress_bar(self):
+        self._percentage_of_processed_events_text = wx.StaticText(
+            self, label=self._percentage_of_processed_events_label()
+        )
+        self._progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
+        progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
+        progress_bar_sizer.Add(
+            self._percentage_of_processed_events_text,
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
+            border=10,
+            )
         self.main_sizer.Add(
-            progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=25
+            progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=25
+        )
+
+    def _set_up_timer(self):
+        self._elapsed_seconds = 0
+        self._timer = wx.Timer(self)
+
+        self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
+        self._start_timer()
+
+        self._elapsed_time_label = wx.StaticText(self, label=self._elapsed_time_label_text())
+        self.main_sizer.Add(
+            self._elapsed_time_label, 0, wx.LEFT | wx.TOP | wx.BOTTOM, border=25
         )
 
     def _set_up_action_components(self):
@@ -317,6 +336,32 @@ class SimulationPanel(wx.Panel):
             ) * 100
 
         return f"{int(percentage)}%"
+
+    def _elapsed_time_label_text(self):
+        hours = self._elapsed_seconds // 3600
+        minutes = (self._elapsed_seconds % 3600) // 60
+        seconds = self._elapsed_seconds % 60
+
+        return f"Tiempo transcurrido: {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def _start_timer(self):
+        self._start_time = wx.DateTime.Now()
+        self._timer.Start(1000)
+
+    def _update_timer(self, _event):
+        if self._start_time is not None:
+            self._update_elapsed_time()
+
+    def _stop_timer(self, _event):
+        if self._start_time is not None:
+            self._timer.Stop()
+            self._update_elapsed_time()
+
+    def _update_elapsed_time(self):
+        current_time = wx.DateTime.Now()
+        self._elapsed_seconds = (current_time - self._start_time).GetSeconds()
+
+        self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
 
     def _update_start_button(self):
         report_file_path = self.event_report_file_path_field.Value
