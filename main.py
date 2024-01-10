@@ -113,6 +113,7 @@ class SimulationPanel(wx.Panel):
             self._stop_event,
             self,
         )
+        self._start_timer()
 
     def on_stop(self, _event):
         logging.warning(
@@ -141,7 +142,6 @@ class SimulationPanel(wx.Panel):
         if self._stop_event.is_set():
             return
         self._stop_verification()
-        self._timer.Stop()
 
     def run_verification(self, process_thread):
         self._stop_event.clear()
@@ -189,6 +189,7 @@ class SimulationPanel(wx.Panel):
 
     def _stop_verification(self):
         self._disable_stop_button()
+        self._timer.Stop()
 
         self._stop_event.set()
 
@@ -296,7 +297,6 @@ class SimulationPanel(wx.Panel):
         self._timer = wx.Timer(self)
 
         self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
-        self._start_timer()
 
         self._elapsed_time_label = wx.StaticText(self, label=self._elapsed_time_label_text())
         self.main_sizer.Add(
