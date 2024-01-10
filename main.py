@@ -143,7 +143,7 @@ class SimulationPanel(wx.Panel):
         self._disable_logging_configuration_components()
 
         if self._logging_destination == LoggingDestination.WINDOW:
-            self.Parent.ChangeSelection(1)
+            self.Parent.ChangeSelection(0)
 
         process_thread.start()
         while process_thread.is_alive():
@@ -342,16 +342,16 @@ class SimulationPanel(wx.Panel):
         self._enable_multi_action_button()
 
     def _disable_stop_button(self):
-        self.stop_button.Disable()
+        wx.CallAfter(self.stop_button.Disable)
 
     def _enable_stop_button(self):
-        self.stop_button.Enable()
+        wx.CallAfter(self.stop_button.Enable)
 
     def _disable_multi_action_button(self):
-        self.multi_action_button.Disable()
+        wx.CallAfter(self.multi_action_button.Disable)
 
     def _enable_multi_action_button(self):
-        self.multi_action_button.Enable()
+        wx.CallAfter(self.multi_action_button.Enable)
 
     def _disable_logging_configuration_components(self):
         self._logging_verbosity_selector.Disable()
@@ -365,9 +365,10 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Layout()
 
     def _select_default_logging_verbosity(self, selector):
-        selector.SetSelection(0)
+        default_selection_index = 0
+        selector.SetSelection(default_selection_index)
         self._logging_verbosity = self._logging_verbosity_from_text(
-            selector.GetString(0)
+            selector.GetString(default_selection_index)
         )
 
     def _select_logging_verbosity(self, event):
@@ -389,8 +390,9 @@ class SimulationPanel(wx.Panel):
         return list(self._text_to_logging_verbosity_map().keys())
 
     def _select_default_logging_destination(self, selector):
-        selector.SetSelection(0)
-        self._logging_destination = selector.GetString(0)
+        default_selection_index = 0
+        selector.SetSelection(default_selection_index)
+        self._logging_destination = selector.GetString(default_selection_index)
 
     def _select_logging_destination(self, event):
         self._logging_destination = event.GetString()

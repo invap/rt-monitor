@@ -16,4 +16,4 @@ class LoggingDestination(StrEnum):
 
     @classmethod
     def all(cls):
-        return [cls.WINDOW, cls.CONSOLE, cls.FILE]
+        return [cls.CONSOLE, cls.FILE, cls.WINDOW]
