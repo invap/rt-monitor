@@ -125,18 +125,20 @@ class SimulationPanel(wx.Panel):
         if self._verification is not None:
             self._verification.stop_hardware_simulation()
 
-    def on_pause(self, _event):
+    def on_pause(self, event):
         self._pause_event.set()
         logging.warning(
             "Verification will be paused when it finishes processing "
             "the current event."
         )
         self._show_multi_action_button_as_play()
+        self._stop_timer(event)
 
     def on_play(self, _event):
         self._show_multi_action_button_as_pause()
         logging.warning("Verification resumed.")
         self._pause_event.clear()
+        self._resume_timer()
 
     def close(self):
         if self._stop_event.is_set():
@@ -345,23 +347,31 @@ class SimulationPanel(wx.Panel):
         return f"Tiempo transcurrido: {hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def _start_timer(self):
-        self._start_time = wx.DateTime.Now()
+        self._last_updated_time = self._current_time()
+        self._timer.Start(1000)
+
+    def _resume_timer(self):
+        self._last_updated_time = self._current_time()
         self._timer.Start(1000)
 
     def _update_timer(self, _event):
-        if self._start_time is not None:
+        if self._last_updated_time is not None:
             self._update_elapsed_time()
 
     def _stop_timer(self, _event):
-        if self._start_time is not None:
+        if self._last_updated_time is not None:
             self._timer.Stop()
             self._update_elapsed_time()
 
     def _update_elapsed_time(self):
-        current_time = wx.DateTime.Now()
-        self._elapsed_seconds = (current_time - self._start_time).GetSeconds()
+        current_time = self._current_time()
+        self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
+        self._last_updated_time = current_time
 
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
+
+    def _current_time(self):
+        return wx.DateTime.Now()
 
     def _update_start_button(self):
         report_file_path = self.event_report_file_path_field.Value
