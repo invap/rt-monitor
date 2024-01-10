@@ -147,7 +147,7 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
-        # self._disable_logging_configuration_components()  # TODO: Disable tab
+        self._disable_logging_configuration_components()  # TODO: Disable tab
 
         process_thread.start()
         while process_thread.is_alive():
@@ -161,7 +161,7 @@ class SimulationPanel(wx.Panel):
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
-        # self._enable_logging_configuration_components()  # TODO: Enable tab
+        self._enable_logging_configuration_components()  # TODO: Enable tab
 
         process_thread.join()
         if self._stop_event.is_set():
@@ -298,6 +298,12 @@ class SimulationPanel(wx.Panel):
 
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
+
+    def _disable_logging_configuration_components(self):
+        pass
+
+    def _enable_logging_configuration_components(self):
+        pass
 
 
 class LoggingConfigurationPanel(wx.Panel):
