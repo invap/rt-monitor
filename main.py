@@ -65,7 +65,8 @@ class SimulationPanel(wx.Panel):
         super().__init__(parent=parent)
 
         self._verification = None
-        self._amount_of_events = 0
+        self._amount_of_events_to_verify = 0
+        self._amount_of_processed_events = 0
         self._render()
 
     def select_report(self, event):
@@ -80,7 +81,7 @@ class SimulationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
-            self.update_report_properties()
+            self._update_amount_of_events_to_verify()
             self._update_start_button()
         dialog.Destroy()
 
@@ -98,13 +99,6 @@ class SimulationPanel(wx.Panel):
             self.framework_specification_file_path_field.SetValue(dialog.GetPath())
             self._update_start_button()
         dialog.Destroy()
-
-    def update_report_properties(self):
-        with open(self.event_report_file_path_field.Value, "r") as file:
-            self._amount_of_events = len(file.readlines())
-            file.close()
-        self.simulation_status_text_label.SetLabel(self._simulation_status_label())
-        self._refresh_window_layout()
 
     def on_start(self, _event):
         specification_path = self.framework_specification_file_path_field.Value
@@ -176,6 +170,18 @@ class SimulationPanel(wx.Panel):
         self.close()
         self._enable_multi_action_button()
 
+    def update_amount_of_processed_events(self):
+        self._amount_of_processed_events += 1
+        self.amount_of_processed_events_text_label.SetLabel(self._amount_of_processed_events_label())
+        self._refresh_window_layout()
+
+    def _update_amount_of_events_to_verify(self):
+        with open(self.event_report_file_path_field.Value, "r") as file:
+            self._amount_of_events_to_verify = len(file.readlines())
+            file.close()
+        self.amount_of_events_to_verify_text_label.SetLabel(self._amount_of_events_to_verify_label())
+        self._refresh_window_layout()
+
     def _stop_verification(self):
         self._disable_stop_button()
 
@@ -189,6 +195,7 @@ class SimulationPanel(wx.Panel):
     def _set_up_components(self):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
+        self._add_dividing_line()
         self._set_up_simulation_status_components()
         self._add_dividing_line()
         self._set_up_action_components()
@@ -235,11 +242,24 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(folder_selection_sizer, 0)
 
     def _set_up_simulation_status_components(self):
-        self.simulation_status_text_label = wx.StaticText(
-            self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE
+        simulation_status_label = wx.StaticText(
+            self, label="Estado de la simulación"
+        )
+        self.amount_of_events_to_verify_text_label = wx.StaticText(
+            self, label=self._amount_of_events_to_verify_label(), style=wx.ALIGN_CENTRE
+        )
+        self.amount_of_processed_events_text_label = wx.StaticText(
+            self, label=self._amount_of_processed_events_label(), style=wx.ALIGN_CENTRE
+        )
+
+        self.main_sizer.Add(
+            simulation_status_label, 0, wx.TOP | wx.LEFT, border=15
         )
         self.main_sizer.Add(
-            self.simulation_status_text_label, 0, wx.EXPAND | wx.ALL, border=10
+            self.amount_of_events_to_verify_text_label, 0, wx.EXPAND | wx.TOP, border=20
+        )
+        self.main_sizer.Add(
+            self.amount_of_processed_events_text_label, 0, wx.EXPAND
         )
 
     def _set_up_action_components(self):
@@ -260,8 +280,11 @@ class SimulationPanel(wx.Panel):
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
-    def _simulation_status_label(self):
-        return f"Cantidad de eventos a verificar: {self._amount_of_events}\n"
+    def _amount_of_events_to_verify_label(self):
+        return f"Eventos a verificar: {self._amount_of_events_to_verify}\n"
+
+    def _amount_of_processed_events_label(self):
+        return f"Eventos procesados: {self._amount_of_processed_events}\n"
 
     def _update_start_button(self):
         report_file_path = self.event_report_file_path_field.Value

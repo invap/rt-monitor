@@ -37,7 +37,7 @@ class Monitor:
         self._workflow_state = set()
         self._execution_state = {}
 
-    def run(self, event_report_file, pause_event=None, stop_event=None):
+    def run(self, event_report_file, pause_event=None, stop_event=None, event_processed_callback=None):
         try:
             is_a_valid_report = True
             for line in event_report_file:
@@ -51,6 +51,10 @@ class Monitor:
                 decoded_event = self._event_decoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
+
+                if event_processed_callback is not None:
+                    event_processed_callback()
+
                 if not is_a_valid_report:
                     logging.info(
                         f"The following event resulted in an invalid verification: "
