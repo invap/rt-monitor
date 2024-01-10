@@ -37,12 +37,11 @@ class Verification:
         event_report_path,
         logging_destination,
         logging_level,
-        window_log_handler,
         pause_event,
         stop_event,
         simulation_panel,
     ):
-        self._configure_logging_destination(logging_destination, window_log_handler)
+        self._configure_logging_destination(logging_destination)
         self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
@@ -70,7 +69,7 @@ class Verification:
             encoding="utf-8",
         )
 
-    def _configure_logging_destination(self, logging_destination, window_log_handler):
+    def _configure_logging_destination(self, logging_destination):
         logging.getLogger().handlers.clear()
 
         formatter = logging.Formatter(
@@ -78,12 +77,10 @@ class Verification:
         )
 
         match logging_destination:
-            case LoggingDestination.CONSOLE:
-                handler = logging.StreamHandler(sys.stdout)
             case LoggingDestination.FILE:
                 handler = logging.FileHandler("log.txt", encoding="utf-8")
             case _:
-                handler = window_log_handler
+                handler = logging.StreamHandler(sys.stdout)
 
         handler.setFormatter(formatter)
         logging.getLogger().addHandler(handler)

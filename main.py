@@ -37,14 +37,26 @@ class ControlPanel(wx.Notebook):
         super().__init__(parent=parent)
 
         self.simulation_panel = SimulationPanel(parent=self)
-        self.log_panel = LogPanel(parent=self)
+        self.logging_configuration_panel = LoggingConfigurationPanel(parent=self)
         self.simulation_panel.SetFocus()
 
-        self.AddPage(self.simulation_panel, "Run-time monitor setup")
-        self.AddPage(self.log_panel, "Log")
+        self.AddPage(self.simulation_panel, "Simulación")
+        self.AddPage(self.logging_configuration_panel, "Configuración del log")
 
     def close(self):
         self.simulation_panel.close()
+
+    def logging_destination(self):
+        return self.logging_configuration_panel.logging_destination()
+
+    def logging_verbosity(self):
+        return self.logging_configuration_panel.logging_verbosity()
+
+    def disable_logging_configuration_components(self):
+        self.logging_configuration_panel.Disable()
+
+    def enable_logging_configuration_components(self):
+        self.logging_configuration_panel.Enable()
 
 
 # noinspection PyPropertyAccess
@@ -98,14 +110,11 @@ class SimulationPanel(wx.Panel):
         specification_path = self.framework_specification_file_path_field.Value
         event_report_path = self.event_report_file_path_field.Value
 
-        window_log_handler = self.Parent.log_panel.build_log_handler()
-
         self._verification = Verification.new_for_workflow_in_file(specification_path)
         self._verification.run_for_report(
             event_report_path,
-            self._logging_destination,
-            self._logging_verbosity,
-            window_log_handler,
+            self.Parent.logging_destination(),
+            self.Parent.logging_verbosity(),
             self._pause_event,
             self._stop_event,
             self,
@@ -146,9 +155,6 @@ class SimulationPanel(wx.Panel):
         self._show_multi_action_button_as_pause()
         self._disable_logging_configuration_components()
 
-        if self._logging_destination == LoggingDestination.WINDOW:
-            self.Parent.ChangeSelection(0)
-
         process_thread.start()
         while process_thread.is_alive():
             if self._stop_event.is_set():
@@ -184,8 +190,6 @@ class SimulationPanel(wx.Panel):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
         self._set_up_simulation_status_components()
-        self._add_dividing_line()
-        self._set_up_logging_configuration_components()
         self._add_dividing_line()
         self._set_up_action_components()
 
@@ -237,61 +241,6 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(
             self.simulation_status_text_label, 0, wx.EXPAND | wx.ALL, border=10
         )
-
-    def _set_up_logging_configuration_components(self):
-        logging_configuration_label_component = wx.StaticText(
-            self, label="Configurar el registro de información en el log"
-        )
-        self.main_sizer.Add(
-            logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
-        )
-
-        self._set_up_logging_verbosity_configuration_components()
-        self._set_up_logging_destination_configuration_components()
-
-    def _set_up_logging_verbosity_configuration_components(self):
-        label = wx.StaticText(self, label="Tipo de información a registrar:")
-
-        self._logging_verbosity_selector = wx.Choice(
-            self, choices=self._logging_verbosity_options(), size=(200, 35)
-        )
-        self._logging_verbosity_selector.Bind(
-            wx.EVT_CHOICE, self._select_logging_verbosity
-        )
-        self._select_default_logging_verbosity(self._logging_verbosity_selector)
-
-        logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
-        logging_verbosity_selection_sizer.Add(
-            label, 0, wx.TOP | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
-        )
-        logging_verbosity_selection_sizer.Add(
-            self._logging_verbosity_selector, 0, wx.TOP | wx.LEFT | wx.RIGHT, border=15
-        )
-
-        self.main_sizer.Add(logging_verbosity_selection_sizer, 0, wx.EXPAND)
-
-    def _set_up_logging_destination_configuration_components(self):
-        label = wx.StaticText(self, label="Dónde registrar la información:")
-
-        self._logging_destination_selector = wx.Choice(
-            self, choices=self._logging_destination_options(), size=(200, 35)
-        )
-        self._logging_destination_selector.Bind(
-            wx.EVT_CHOICE, self._select_logging_destination
-        )
-        self._select_default_logging_destination(self._logging_destination_selector)
-
-        logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._add_horizontal_stretching_space(logging_destination_selection_sizer)
-        logging_destination_selection_sizer.Add(
-            label, 0, wx.TOP | wx.BOTTOM | wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
-        )
-        logging_destination_selection_sizer.Add(
-            self._logging_destination_selector, 0, wx.ALL, border=15
-        )
-
-        self.main_sizer.Add(logging_destination_selection_sizer, 0, wx.EXPAND)
 
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
@@ -353,16 +302,86 @@ class SimulationPanel(wx.Panel):
     def _enable_multi_action_button(self):
         wx.CallAfter(self.multi_action_button.Enable)
 
-    def _disable_logging_configuration_components(self):
-        self._logging_verbosity_selector.Disable()
-        self._logging_destination_selector.Disable()
-
-    def _enable_logging_configuration_components(self):
-        self._logging_verbosity_selector.Enable()
-        self._logging_destination_selector.Enable()
-
     def _refresh_window_layout(self):
         self.main_sizer.Layout()
+
+    def _disable_logging_configuration_components(self):
+        self.Parent.disable_logging_configuration_components()
+
+    def _enable_logging_configuration_components(self):
+        self.Parent.enable_logging_configuration_components()
+
+
+class LoggingConfigurationPanel(wx.Panel):
+    def __init__(self, parent):
+        super().__init__(parent=parent)
+        self._set_up_components()
+
+    def _set_up_components(self):
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self._set_up_logging_configuration_components()
+
+        self.SetSizer(self.sizer)
+
+    def _set_up_logging_configuration_components(self):
+        logging_configuration_label_component = wx.StaticText(
+            self, label="Configurar el registro de información en el log"
+        )
+        self.sizer.Add(
+            logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
+        )
+        self.sizer.AddStretchSpacer()
+        self._set_up_logging_verbosity_configuration_components()
+        self._set_up_logging_destination_configuration_components()
+        self.sizer.AddStretchSpacer()
+
+    def _set_up_logging_verbosity_configuration_components(self):
+        label = wx.StaticText(self, label="Tipo de información a registrar:")
+
+        self._logging_verbosity_selector = wx.Choice(
+            self, choices=self._logging_verbosity_options(), size=(200, 35)
+        )
+        self._logging_verbosity_selector.Bind(
+            wx.EVT_CHOICE, self._select_logging_verbosity
+        )
+        self._select_default_logging_verbosity(self._logging_verbosity_selector)
+
+        logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
+        logging_verbosity_selection_sizer.Add(
+            label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
+        )
+        logging_verbosity_selection_sizer.Add(
+            self._logging_verbosity_selector, 0, wx.LEFT | wx.RIGHT, border=15
+        )
+
+        self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.CENTER)
+
+    def _set_up_logging_destination_configuration_components(self):
+        label = wx.StaticText(self, label="Dónde registrar la información:")
+
+        self._logging_destination_selector = wx.Choice(
+            self, choices=self._logging_destination_options(), size=(200, 35)
+        )
+        self._logging_destination_selector.Bind(
+            wx.EVT_CHOICE, self._select_logging_destination
+        )
+        self._select_default_logging_destination(self._logging_destination_selector)
+
+        logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._add_horizontal_stretching_space(logging_destination_selection_sizer)
+        logging_destination_selection_sizer.Add(
+            label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
+        )
+        logging_destination_selection_sizer.Add(
+            self._logging_destination_selector,
+            0,
+            wx.LEFT | wx.TOP | wx.BOTTOM | wx.RIGHT,
+            border=15,
+        )
+
+        self.sizer.Add(logging_destination_selection_sizer, 0, wx.CENTER)
 
     def _select_default_logging_verbosity(self, selector):
         default_selection_index = 0
@@ -403,49 +422,11 @@ class SimulationPanel(wx.Panel):
     def _add_horizontal_stretching_space(self, sizer):
         sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
+    def logging_destination(self):
+        return self._logging_destination
 
-class LogPanel(wx.Panel):
-    def __init__(self, parent):
-        super().__init__(parent=parent)
-        self._set_up_components()
-
-    def build_log_handler(self):
-        return WindowLogHandler(self._log_text_box)
-
-    def _set_up_components(self):
-        self._log_text_box = wx.TextCtrl(
-            self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2
-        )
-
-        font = wx.Font(
-            9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
-        )
-        self._log_text_box.SetFont(font)
-        self._log_text_box.SetBackgroundColour(self._black())
-        self._log_text_box.SetForegroundColour(self._silver())
-
-        self._log_text_box.MaxLines = 1000
-
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self._log_text_box, 1, wx.EXPAND | wx.ALL, border=15)
-
-        self.SetSizer(sizer)
-
-    def _silver(self):
-        return wx.Colour(128, 128, 128)
-
-    def _black(self):
-        return wx.Colour(0, 0, 0)
-
-
-class WindowLogHandler(logging.Handler):
-    def __init__(self, window_log_box):
-        super().__init__()
-        self.window_log_box = window_log_box
-
-    def emit(self, record):
-        log_message = self.format(record)
-        wx.CallAfter(self.window_log_box.AppendText, log_message + "\n")
+    def logging_verbosity(self):
+        return self._logging_verbosity
 
 
 if __name__ == "__main__":

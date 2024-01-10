@@ -10,10 +10,9 @@ class LoggingLevel(IntEnum):
 
 
 class LoggingDestination(StrEnum):
-    WINDOW = "Ventana"
     CONSOLE = "Consola"
     FILE = "Archivo"
 
     @classmethod
     def all(cls):
-        return [cls.CONSOLE, cls.FILE, cls.WINDOW]
+        return [cls.CONSOLE, cls.FILE]
