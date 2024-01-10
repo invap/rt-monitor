@@ -331,9 +331,10 @@ class LoggingConfigurationPanel(wx.Panel):
         self.sizer.Add(
             logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
         )
-
+        self.sizer.AddStretchSpacer()
         self._set_up_logging_verbosity_configuration_components()
         self._set_up_logging_destination_configuration_components()
+        self.sizer.AddStretchSpacer()
 
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Tipo de información a registrar:")
