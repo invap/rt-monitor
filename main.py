@@ -52,6 +52,12 @@ class ControlPanel(wx.Notebook):
     def logging_verbosity(self):
         return self.logging_configuration_panel.logging_verbosity()
 
+    def disable_logging_configuration_components(self):
+        self.logging_configuration_panel.Disable()
+
+    def enable_logging_configuration_components(self):
+        self.logging_configuration_panel.Enable()
+
 
 # noinspection PyPropertyAccess
 class SimulationPanel(wx.Panel):
@@ -147,7 +153,7 @@ class SimulationPanel(wx.Panel):
         self._pause_event.clear()
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
-        self._disable_logging_configuration_components()  # TODO: Disable tab
+        self._disable_logging_configuration_components()
 
         process_thread.start()
         while process_thread.is_alive():
@@ -161,7 +167,7 @@ class SimulationPanel(wx.Panel):
         self._disable_stop_button()
         self._show_multi_action_button_as_start()
         self._disable_multi_action_button()
-        self._enable_logging_configuration_components()  # TODO: Enable tab
+        self._enable_logging_configuration_components()
 
         process_thread.join()
         if self._stop_event.is_set():
@@ -300,10 +306,10 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Layout()
 
     def _disable_logging_configuration_components(self):
-        pass
+        self.Parent.disable_logging_configuration_components()
 
     def _enable_logging_configuration_components(self):
-        pass
+        self.Parent.enable_logging_configuration_components()
 
 
 class LoggingConfigurationPanel(wx.Panel):
