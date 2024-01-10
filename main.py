@@ -115,7 +115,10 @@ class SimulationPanel(wx.Panel):
             "Verification is gracefully stopping in the background. "
             "It will stop when it finishes processing the current event."
         )
+
         self._stop_verification()
+        if self._verification is not None:
+            self._verification.stop_hardware_simulation()
 
     def on_pause(self, _event):
         self._pause_event.set()
@@ -168,9 +171,6 @@ class SimulationPanel(wx.Panel):
 
     def _stop_verification(self):
         self._disable_stop_button()
-
-        if self._verification is not None:
-            self._verification.stop_hardware_simulation()
 
         self._stop_event.set()
 
