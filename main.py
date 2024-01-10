@@ -173,12 +173,14 @@ class SimulationPanel(wx.Panel):
     def update_amount_of_processed_events(self):
         self._amount_of_processed_events += 1
         self.amount_of_processed_events_text_label.SetLabel(self._amount_of_processed_events_label())
+        self._progress_bar.SetValue(self._amount_of_processed_events)
 
     def _update_amount_of_events_to_verify(self):
         with open(self.event_report_file_path_field.Value, "r") as file:
             self._amount_of_events_to_verify = len(file.readlines())
             file.close()
         self.amount_of_events_to_verify_text_label.SetLabel(self._amount_of_events_to_verify_label())
+        self._progress_bar.SetRange(self._amount_of_events_to_verify)
 
     def _stop_verification(self):
         self._disable_stop_button()
@@ -250,6 +252,14 @@ class SimulationPanel(wx.Panel):
             self, label=self._amount_of_processed_events_label()
         )
 
+        self._percentage_of_processed_events_text = wx.StaticText(self, label=self._percentage_of_processed_events_label())
+        self._progress_bar = wx.Gauge(
+            self, range=self._amount_of_events_to_verify
+        )
+        progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
+        progress_bar_sizer.Add(self._percentage_of_processed_events_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border=10)
+
         self.main_sizer.Add(
             simulation_status_label, 0, wx.TOP | wx.LEFT, border=15
         )
@@ -258,6 +268,9 @@ class SimulationPanel(wx.Panel):
         )
         self.main_sizer.Add(
             self.amount_of_processed_events_text_label, 0, wx.EXPAND | wx.LEFT, border=25
+        )
+        self.main_sizer.Add(
+            progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=25
         )
 
     def _set_up_action_components(self):
@@ -283,6 +296,14 @@ class SimulationPanel(wx.Panel):
 
     def _amount_of_processed_events_label(self):
         return f"Eventos procesados: {self._amount_of_processed_events}\n"
+
+    def _percentage_of_processed_events_label(self):
+        if self._amount_of_events_to_verify == 0:
+            percentage = 0
+        else:
+            percentage = (self._amount_of_processed_events / self._amount_of_events_to_verify) * 100
+
+        return f"{int(percentage)}%"
 
     def _update_start_button(self):
         report_file_path = self.event_report_file_path_field.Value
