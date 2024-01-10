@@ -404,29 +404,9 @@ class LogPanel(wx.Panel):
         self._set_up_components()
 
     def _set_up_components(self):
-        self._log_text_box = wx.TextCtrl(
-            self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2
-        )
-
-        font = wx.Font(
-            9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
-        )
-        self._log_text_box.SetFont(font)
-        self._log_text_box.SetBackgroundColour(self._black())
-        self._log_text_box.SetForegroundColour(self._silver())
-
-        self._log_text_box.MaxLines = 1000
-
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self._log_text_box, 1, wx.EXPAND | wx.ALL, border=15)
 
         self.SetSizer(sizer)
-
-    def _silver(self):
-        return wx.Colour(128, 128, 128)
-
-    def _black(self):
-        return wx.Colour(0, 0, 0)
 
 
 if __name__ == "__main__":
