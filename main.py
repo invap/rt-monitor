@@ -255,7 +255,8 @@ class SimulationPanel(wx.Panel):
 
         self._set_up_event_status_components()
         self._set_up_progress_bar()
-        self._set_up_timer()
+        self._set_up_elapsed_time()
+        self._set_up_estimated_remaining_time()
 
     def _set_up_event_status_components(self):
         self.amount_of_events_to_verify_text_label = wx.StaticText(
@@ -294,7 +295,7 @@ class SimulationPanel(wx.Panel):
             progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=25
         )
 
-    def _set_up_timer(self):
+    def _set_up_elapsed_time(self):
         self._elapsed_seconds = 0
         self._timer = wx.Timer(self)
 
@@ -304,7 +305,15 @@ class SimulationPanel(wx.Panel):
             self, label=self._elapsed_time_label_text()
         )
         self.main_sizer.Add(
-            self._elapsed_time_label, 0, wx.LEFT | wx.TOP | wx.BOTTOM, border=25
+            self._elapsed_time_label, 0, wx.LEFT | wx.TOP, border=25
+        )
+
+    def _set_up_estimated_remaining_time(self):
+        self._estimated_remaining_time_label = wx.StaticText(
+            self, label=self._estimated_remaining_time_label_text()
+        )
+        self.main_sizer.Add(
+            self._estimated_remaining_time_label, 0, wx.LEFT | wx.TOP | wx.BOTTOM, border=25
         )
 
     def _set_up_action_components(self):
@@ -348,6 +357,25 @@ class SimulationPanel(wx.Panel):
 
         return f"Tiempo transcurrido: {hours:02d}:{minutes:02d}:{seconds:02d}"
 
+    def _estimated_remaining_time_label_text(self):
+        if (
+            self._amount_of_events_to_verify == 0
+            or self._amount_of_processed_events == 0
+        ):
+            estimated_remaining_seconds = 0
+        else:
+            seconds_per_event = self._elapsed_seconds / self._amount_of_processed_events
+            remaining_events = (
+                self._amount_of_events_to_verify - self._amount_of_processed_events
+            )
+            estimated_remaining_seconds = int(seconds_per_event * remaining_events)
+
+        hours = estimated_remaining_seconds // 3600
+        minutes = (estimated_remaining_seconds % 3600) // 60
+        seconds = estimated_remaining_seconds % 60
+
+        return f"Tiempo restante estimado: {hours:02d}:{minutes:02d}:{seconds:02d}"
+
     def _start_timer(self):
         self._last_updated_time = self._current_time()
         self._timer.Start(1000)
@@ -358,19 +386,20 @@ class SimulationPanel(wx.Panel):
 
     def _update_timer(self, _event):
         if self._last_updated_time is not None:
-            self._update_elapsed_time()
+            self._update_timers()
 
     def _stop_timer(self, _event):
         if self._last_updated_time is not None:
             self._timer.Stop()
-            self._update_elapsed_time()
+            self._update_timers()
 
-    def _update_elapsed_time(self):
+    def _update_timers(self):
         current_time = self._current_time()
         self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
         self._last_updated_time = current_time
 
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
+        self._estimated_remaining_time_label.SetLabel(self._estimated_remaining_time_label_text())
 
     def _current_time(self):
         return wx.DateTime.Now()
