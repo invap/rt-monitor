@@ -37,7 +37,13 @@ class Monitor:
         self._workflow_state = set()
         self._execution_state = {}
 
-    def run(self, event_report_file, pause_event=None, stop_event=None, event_processed_callback=None):
+    def run(
+        self,
+        event_report_file,
+        pause_event=None,
+        stop_event=None,
+        event_processed_callback=None,
+    ):
         try:
             is_a_valid_report = True
             for line in event_report_file:
