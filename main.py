@@ -98,14 +98,11 @@ class SimulationPanel(wx.Panel):
         specification_path = self.framework_specification_file_path_field.Value
         event_report_path = self.event_report_file_path_field.Value
 
-        window_log_handler = self.Parent.log_panel.build_log_handler()
-
         self._verification = Verification.new_for_workflow_in_file(specification_path)
         self._verification.run_for_report(
             event_report_path,
             self._logging_destination,
             self._logging_verbosity,
-            window_log_handler,
             self._pause_event,
             self._stop_event,
             self,
@@ -145,9 +142,6 @@ class SimulationPanel(wx.Panel):
         self._enable_stop_button()
         self._show_multi_action_button_as_pause()
         self._disable_logging_configuration_components()
-
-        if self._logging_destination == LoggingDestination.WINDOW:
-            self.Parent.ChangeSelection(0)
 
         process_thread.start()
         while process_thread.is_alive():
@@ -409,9 +403,6 @@ class LogPanel(wx.Panel):
         super().__init__(parent=parent)
         self._set_up_components()
 
-    def build_log_handler(self):
-        return WindowLogHandler(self._log_text_box)
-
     def _set_up_components(self):
         self._log_text_box = wx.TextCtrl(
             self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2
@@ -436,16 +427,6 @@ class LogPanel(wx.Panel):
 
     def _black(self):
         return wx.Colour(0, 0, 0)
-
-
-class WindowLogHandler(logging.Handler):
-    def __init__(self, window_log_box):
-        super().__init__()
-        self.window_log_box = window_log_box
-
-    def emit(self, record):
-        log_message = self.format(record)
-        wx.CallAfter(self.window_log_box.AppendText, log_message + "\n")
 
 
 if __name__ == "__main__":
