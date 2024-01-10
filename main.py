@@ -365,9 +365,10 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Layout()
 
     def _select_default_logging_verbosity(self, selector):
-        selector.SetSelection(0)
+        default_selection_index = 0
+        selector.SetSelection(default_selection_index)
         self._logging_verbosity = self._logging_verbosity_from_text(
-            selector.GetString(0)
+            selector.GetString(default_selection_index)
         )
 
     def _select_logging_verbosity(self, event):
