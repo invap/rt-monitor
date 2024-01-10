@@ -342,16 +342,16 @@ class SimulationPanel(wx.Panel):
         self._enable_multi_action_button()
 
     def _disable_stop_button(self):
-        self.stop_button.Disable()
+        wx.CallAfter(self.stop_button.Disable)
 
     def _enable_stop_button(self):
-        self.stop_button.Enable()
+        wx.CallAfter(self.stop_button.Enable)
 
     def _disable_multi_action_button(self):
-        self.multi_action_button.Disable()
+        wx.CallAfter(self.multi_action_button.Disable)
 
     def _enable_multi_action_button(self):
-        self.multi_action_button.Enable()
+        wx.CallAfter(self.multi_action_button.Enable)
 
     def _disable_logging_configuration_components(self):
         self._logging_verbosity_selector.Disable()
