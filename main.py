@@ -371,7 +371,6 @@ class LoggingConfigurationPanel(wx.Panel):
         self._select_default_logging_verbosity(self._logging_verbosity_selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
         logging_verbosity_selection_sizer.Add(
             label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
@@ -393,7 +392,6 @@ class LoggingConfigurationPanel(wx.Panel):
         self._select_default_logging_destination(self._logging_destination_selector)
 
         logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._add_horizontal_stretching_space(logging_destination_selection_sizer)
         logging_destination_selection_sizer.Add(
             label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
         )
