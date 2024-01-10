@@ -289,7 +289,7 @@ class SimulationPanel(wx.Panel):
             0,
             wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
             border=10,
-            )
+        )
         self.main_sizer.Add(
             progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=25
         )
@@ -300,7 +300,9 @@ class SimulationPanel(wx.Panel):
 
         self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
 
-        self._elapsed_time_label = wx.StaticText(self, label=self._elapsed_time_label_text())
+        self._elapsed_time_label = wx.StaticText(
+            self, label=self._elapsed_time_label_text()
+        )
         self.main_sizer.Add(
             self._elapsed_time_label, 0, wx.LEFT | wx.TOP | wx.BOTTOM, border=25
         )
