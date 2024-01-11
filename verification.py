@@ -46,9 +46,11 @@ class Verification:
 
         event_report_file = open(event_report_path, "r")
 
+        event_processed_callback = simulation_panel.update_amount_of_processed_events
+
         monitor_thread = threading.Thread(
             target=self._monitor.run,
-            args=[event_report_file, pause_event, stop_event],
+            args=[event_report_file, pause_event, stop_event, event_processed_callback],
         )
 
         application_thread = threading.Thread(

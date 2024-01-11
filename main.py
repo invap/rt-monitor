@@ -65,7 +65,8 @@ class SimulationPanel(wx.Panel):
         super().__init__(parent=parent)
 
         self._verification = None
-        self._amount_of_events = 0
+        self._amount_of_events_to_verify = 0
+        self._amount_of_processed_events = 0
         self._render()
 
     def select_report(self, event):
@@ -80,7 +81,7 @@ class SimulationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
-            self.update_report_properties()
+            self._update_amount_of_events_to_verify()
             self._update_start_button()
         dialog.Destroy()
 
@@ -99,13 +100,6 @@ class SimulationPanel(wx.Panel):
             self._update_start_button()
         dialog.Destroy()
 
-    def update_report_properties(self):
-        with open(self.event_report_file_path_field.Value, "r") as file:
-            self._amount_of_events = len(file.readlines())
-            file.close()
-        self.simulation_status_text_label.SetLabel(self._simulation_status_label())
-        self._refresh_window_layout()
-
     def on_start(self, _event):
         specification_path = self.framework_specification_file_path_field.Value
         event_report_path = self.event_report_file_path_field.Value
@@ -119,6 +113,7 @@ class SimulationPanel(wx.Panel):
             self._stop_event,
             self,
         )
+        self._start_timer()
 
     def on_stop(self, _event):
         logging.warning(
@@ -130,18 +125,20 @@ class SimulationPanel(wx.Panel):
         if self._verification is not None:
             self._verification.stop_hardware_simulation()
 
-    def on_pause(self, _event):
+    def on_pause(self, event):
         self._pause_event.set()
         logging.warning(
             "Verification will be paused when it finishes processing "
             "the current event."
         )
         self._show_multi_action_button_as_play()
+        self._stop_timer(event)
 
     def on_play(self, _event):
         self._show_multi_action_button_as_pause()
         logging.warning("Verification resumed.")
         self._pause_event.clear()
+        self._resume_timer()
 
     def close(self):
         if self._stop_event.is_set():
@@ -176,8 +173,25 @@ class SimulationPanel(wx.Panel):
         self.close()
         self._enable_multi_action_button()
 
+    def update_amount_of_processed_events(self):
+        self._amount_of_processed_events += 1
+        self.amount_of_processed_events_text_label.SetLabel(
+            self._amount_of_processed_events_label()
+        )
+        self._progress_bar.SetValue(self._amount_of_processed_events)
+
+    def _update_amount_of_events_to_verify(self):
+        with open(self.event_report_file_path_field.Value, "r") as file:
+            self._amount_of_events_to_verify = len(file.readlines())
+            file.close()
+        self.amount_of_events_to_verify_text_label.SetLabel(
+            self._amount_of_events_to_verify_label()
+        )
+        self._progress_bar.SetRange(self._amount_of_events_to_verify)
+
     def _stop_verification(self):
         self._disable_stop_button()
+        self._timer.Stop()
 
         self._stop_event.set()
 
@@ -189,6 +203,7 @@ class SimulationPanel(wx.Panel):
     def _set_up_components(self):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
+        self._add_dividing_line()
         self._set_up_simulation_status_components()
         self._add_dividing_line()
         self._set_up_action_components()
@@ -235,11 +250,81 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(folder_selection_sizer, 0)
 
     def _set_up_simulation_status_components(self):
-        self.simulation_status_text_label = wx.StaticText(
-            self, label=self._simulation_status_label(), style=wx.ALIGN_CENTRE
+        simulation_status_label = wx.StaticText(self, label="Estado de la simulación")
+        self.main_sizer.Add(simulation_status_label, 0, wx.TOP | wx.LEFT, border=15)
+
+        upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self._set_up_events_to_verify(upper_sizer)
+        self._add_horizontal_stretching_space(upper_sizer)
+        self._set_up_elapsed_time(upper_sizer)
+
+        self._set_up_verified_events(lower_sizer)
+        self._add_horizontal_stretching_space(lower_sizer)
+        self._set_up_estimated_remaining_time(lower_sizer)
+
+        self.main_sizer.Add(upper_sizer, 0, wx.EXPAND)
+        self.main_sizer.Add(lower_sizer, 0, wx.EXPAND)
+
+        self._set_up_progress_bar()
+
+    def _set_up_events_to_verify(self, sizer):
+        self.amount_of_events_to_verify_text_label = wx.StaticText(
+            self, label=self._amount_of_events_to_verify_label()
+        )
+        sizer.Add(
+            self.amount_of_events_to_verify_text_label,
+            0,
+            wx.EXPAND | wx.TOP | wx.LEFT,
+            border=25,
+        )
+
+    def _set_up_verified_events(self, sizer):
+        self.amount_of_processed_events_text_label = wx.StaticText(
+            self, label=self._amount_of_processed_events_label()
+        )
+        sizer.Add(
+            self.amount_of_processed_events_text_label,
+            0,
+            wx.EXPAND | wx.LEFT,
+            border=25,
+        )
+
+    def _set_up_progress_bar(self):
+        self._percentage_of_processed_events_text = wx.StaticText(
+            self, label=self._percentage_of_processed_events_label()
+        )
+        self._progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
+        progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
+        progress_bar_sizer.Add(
+            self._percentage_of_processed_events_text,
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
+            border=10,
         )
         self.main_sizer.Add(
-            self.simulation_status_text_label, 0, wx.EXPAND | wx.ALL, border=10
+            progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=25
+        )
+
+    def _set_up_elapsed_time(self, sizer):
+        self._elapsed_seconds = 0
+        self._timer = wx.Timer(self)
+
+        self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
+
+        self._elapsed_time_label = wx.StaticText(
+            self, label=self._elapsed_time_label_text()
+        )
+        sizer.Add(self._elapsed_time_label, 0, wx.RIGHT | wx.TOP, border=25)
+
+    def _set_up_estimated_remaining_time(self, sizer):
+        self._estimated_remaining_time_label = wx.StaticText(
+            self, label=self._estimated_remaining_time_label_text()
+        )
+        sizer.Add(
+            self._estimated_remaining_time_label, 0, wx.RIGHT | wx.BOTTOM, border=25
         )
 
     def _set_up_action_components(self):
@@ -260,8 +345,77 @@ class SimulationPanel(wx.Panel):
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
-    def _simulation_status_label(self):
-        return f"Cantidad de eventos a verificar: {self._amount_of_events}\n"
+    def _amount_of_events_to_verify_label(self):
+        return f"Eventos a verificar: {self._amount_of_events_to_verify}\n"
+
+    def _amount_of_processed_events_label(self):
+        return f"Eventos procesados: {self._amount_of_processed_events}\n"
+
+    def _percentage_of_processed_events_label(self):
+        if self._amount_of_events_to_verify == 0:
+            percentage = 0
+        else:
+            percentage = (
+                self._amount_of_processed_events / self._amount_of_events_to_verify
+            ) * 100
+
+        return f"{int(percentage)}%"
+
+    def _elapsed_time_label_text(self):
+        hours = self._elapsed_seconds // 3600
+        minutes = (self._elapsed_seconds % 3600) // 60
+        seconds = self._elapsed_seconds % 60
+
+        return f"Tiempo transcurrido: {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def _estimated_remaining_time_label_text(self):
+        if (
+            self._amount_of_events_to_verify == 0
+            or self._amount_of_processed_events == 0
+        ):
+            estimated_remaining_seconds = 0
+        else:
+            seconds_per_event = self._elapsed_seconds / self._amount_of_processed_events
+            remaining_events = (
+                self._amount_of_events_to_verify - self._amount_of_processed_events
+            )
+            estimated_remaining_seconds = int(seconds_per_event * remaining_events)
+
+        hours = estimated_remaining_seconds // 3600
+        minutes = (estimated_remaining_seconds % 3600) // 60
+        seconds = estimated_remaining_seconds % 60
+
+        return f"Tiempo restante estimado: {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def _start_timer(self):
+        self._last_updated_time = self._current_time()
+        self._timer.Start(1000)
+
+    def _resume_timer(self):
+        self._last_updated_time = self._current_time()
+        self._timer.Start(1000)
+
+    def _update_timer(self, _event):
+        if self._last_updated_time is not None:
+            self._update_timers()
+
+    def _stop_timer(self, _event):
+        if self._last_updated_time is not None:
+            self._timer.Stop()
+            self._update_timers()
+
+    def _update_timers(self):
+        current_time = self._current_time()
+        self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
+        self._last_updated_time = current_time
+
+        self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
+        self._estimated_remaining_time_label.SetLabel(
+            self._estimated_remaining_time_label_text()
+        )
+
+    def _current_time(self):
+        return wx.DateTime.Now()
 
     def _update_start_button(self):
         report_file_path = self.event_report_file_path_field.Value
@@ -302,14 +456,14 @@ class SimulationPanel(wx.Panel):
     def _enable_multi_action_button(self):
         wx.CallAfter(self.multi_action_button.Enable)
 
-    def _refresh_window_layout(self):
-        self.main_sizer.Layout()
-
     def _disable_logging_configuration_components(self):
         self.Parent.disable_logging_configuration_components()
 
     def _enable_logging_configuration_components(self):
         self.Parent.enable_logging_configuration_components()
+
+    def _add_horizontal_stretching_space(self, sizer):
+        sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
 
 class LoggingConfigurationPanel(wx.Panel):
@@ -348,7 +502,6 @@ class LoggingConfigurationPanel(wx.Panel):
         self._select_default_logging_verbosity(self._logging_verbosity_selector)
 
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._add_horizontal_stretching_space(logging_verbosity_selection_sizer)
         logging_verbosity_selection_sizer.Add(
             label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
         )
@@ -370,7 +523,6 @@ class LoggingConfigurationPanel(wx.Panel):
         self._select_default_logging_destination(self._logging_destination_selector)
 
         logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._add_horizontal_stretching_space(logging_destination_selection_sizer)
         logging_destination_selection_sizer.Add(
             label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
         )
@@ -418,9 +570,6 @@ class LoggingConfigurationPanel(wx.Panel):
 
     def _logging_destination_options(self):
         return LoggingDestination.all()
-
-    def _add_horizontal_stretching_space(self, sizer):
-        sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
     def logging_destination(self):
         return self._logging_destination
