@@ -253,25 +253,38 @@ class SimulationPanel(wx.Panel):
         simulation_status_label = wx.StaticText(self, label="Estado de la simulación")
         self.main_sizer.Add(simulation_status_label, 0, wx.TOP | wx.LEFT, border=15)
 
-        self._set_up_event_status_components()
-        self._set_up_progress_bar()
-        self._set_up_elapsed_time()
-        self._set_up_estimated_remaining_time()
+        upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-    def _set_up_event_status_components(self):
+        self._set_up_events_to_verify(upper_sizer)
+        self._add_horizontal_stretching_space(upper_sizer)
+        self._set_up_elapsed_time(upper_sizer)
+
+        self._set_up_verified_events(lower_sizer)
+        self._add_horizontal_stretching_space(lower_sizer)
+        self._set_up_estimated_remaining_time(lower_sizer)
+
+        self.main_sizer.Add(upper_sizer, 0, wx.EXPAND)
+        self.main_sizer.Add(lower_sizer, 0, wx.EXPAND)
+
+        self._set_up_progress_bar()
+
+    def _set_up_events_to_verify(self, sizer):
         self.amount_of_events_to_verify_text_label = wx.StaticText(
             self, label=self._amount_of_events_to_verify_label()
         )
-        self.amount_of_processed_events_text_label = wx.StaticText(
-            self, label=self._amount_of_processed_events_label()
-        )
-        self.main_sizer.Add(
+        sizer.Add(
             self.amount_of_events_to_verify_text_label,
             0,
             wx.EXPAND | wx.TOP | wx.LEFT,
             border=25,
         )
-        self.main_sizer.Add(
+
+    def _set_up_verified_events(self, sizer):
+        self.amount_of_processed_events_text_label = wx.StaticText(
+            self, label=self._amount_of_processed_events_label()
+        )
+        sizer.Add(
             self.amount_of_processed_events_text_label,
             0,
             wx.EXPAND | wx.LEFT,
@@ -292,10 +305,10 @@ class SimulationPanel(wx.Panel):
             border=10,
         )
         self.main_sizer.Add(
-            progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=25
+            progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=25
         )
 
-    def _set_up_elapsed_time(self):
+    def _set_up_elapsed_time(self, sizer):
         self._elapsed_seconds = 0
         self._timer = wx.Timer(self)
 
@@ -304,17 +317,14 @@ class SimulationPanel(wx.Panel):
         self._elapsed_time_label = wx.StaticText(
             self, label=self._elapsed_time_label_text()
         )
-        self.main_sizer.Add(self._elapsed_time_label, 0, wx.LEFT | wx.TOP, border=25)
+        sizer.Add(self._elapsed_time_label, 0, wx.RIGHT | wx.TOP, border=25)
 
-    def _set_up_estimated_remaining_time(self):
+    def _set_up_estimated_remaining_time(self, sizer):
         self._estimated_remaining_time_label = wx.StaticText(
             self, label=self._estimated_remaining_time_label_text()
         )
-        self.main_sizer.Add(
-            self._estimated_remaining_time_label,
-            0,
-            wx.LEFT | wx.TOP | wx.BOTTOM,
-            border=25,
+        sizer.Add(
+            self._estimated_remaining_time_label, 0, wx.RIGHT | wx.BOTTOM, border=25
         )
 
     def _set_up_action_components(self):
@@ -452,6 +462,9 @@ class SimulationPanel(wx.Panel):
     def _enable_logging_configuration_components(self):
         self.Parent.enable_logging_configuration_components()
 
+    def _add_horizontal_stretching_space(self, sizer):
+        sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
+
 
 class LoggingConfigurationPanel(wx.Panel):
     def __init__(self, parent):
@@ -557,9 +570,6 @@ class LoggingConfigurationPanel(wx.Panel):
 
     def _logging_destination_options(self):
         return LoggingDestination.all()
-
-    def _add_horizontal_stretching_space(self, sizer):
-        sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
     def logging_destination(self):
         return self._logging_destination
