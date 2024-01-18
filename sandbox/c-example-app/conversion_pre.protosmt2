@@ -1,3 +1,0 @@
-main_realvalue
-(and (<= 0 main_realvalue) (< main_realvalue 4096))
-
