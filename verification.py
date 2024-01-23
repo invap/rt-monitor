@@ -39,14 +39,14 @@ class Verification:
         logging_level,
         pause_event,
         stop_event,
-        simulation_panel,
+        monitoring_panel,
     ):
         self._configure_logging_destination(logging_destination)
         self._configure_logging_level(logging_level)
 
         event_report_file = open(event_report_path, "r")
 
-        event_processed_callback = simulation_panel.update_amount_of_processed_events
+        event_processed_callback = monitoring_panel.update_amount_of_processed_events
 
         monitor_thread = threading.Thread(
             target=self._monitor.run,
@@ -54,12 +54,12 @@ class Verification:
         )
 
         application_thread = threading.Thread(
-            target=simulation_panel.run_verification, args=[monitor_thread]
+            target=monitoring_panel.run_verification, args=[monitor_thread]
         )
         application_thread.start()
 
-    def stop_hardware_simulation(self):
-        self._monitor.stop_hardware_simulation()
+    def stop_hardware_monitoring(self):
+        self._monitor.stop_hardware_monitoring()
 
     def _set_up_logging(self):
         logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
@@ -80,7 +80,7 @@ class Verification:
 
         match logging_destination:
             case LoggingDestination.FILE:
-                handler = logging.FileHandler("log.txt", encoding="utf-8")
+                handler = logging.FileHandler("sandbox/rt-monitor-example-app/log.txt", encoding="utf-8")
             case _:
                 handler = logging.StreamHandler(sys.stdout)
 

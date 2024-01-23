@@ -36,15 +36,15 @@ class ControlPanel(wx.Notebook):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        self.simulation_panel = SimulationPanel(parent=self)
+        self.monitoring_panel = MonitoringPanel(parent=self)
         self.logging_configuration_panel = LoggingConfigurationPanel(parent=self)
-        self.simulation_panel.SetFocus()
+        self.monitoring_panel.SetFocus()
 
-        self.AddPage(self.simulation_panel, "Simulación")
-        self.AddPage(self.logging_configuration_panel, "Configuración del log")
+        self.AddPage(self.monitoring_panel, "Monitoring")
+        self.AddPage(self.logging_configuration_panel, "Log configuration")
 
     def close(self):
-        self.simulation_panel.close()
+        self.monitoring_panel.close()
 
     def logging_destination(self):
         return self.logging_configuration_panel.logging_destination()
@@ -60,7 +60,7 @@ class ControlPanel(wx.Notebook):
 
 
 # noinspection PyPropertyAccess
-class SimulationPanel(wx.Panel):
+class MonitoringPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
@@ -73,7 +73,7 @@ class SimulationPanel(wx.Panel):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Seleccionar reporte a verificar",
+            "Select event report file",
             "",
             "",
             "All files (*.*)|*.*",
@@ -89,7 +89,7 @@ class SimulationPanel(wx.Panel):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Seleccionar archivo con la especificación del framework (.zip):",
+            "Select analysis framework file (.zip):",
             "",
             "",
             "All files (*.*)|*.*",
@@ -117,13 +117,13 @@ class SimulationPanel(wx.Panel):
 
     def on_stop(self, _event):
         logging.warning(
-            "Verification is gracefully stopping in the background. "
+            "Verification is gracefully stopping in background. "
             "It will stop when it finishes processing the current event."
         )
 
         self._stop_verification()
         if self._verification is not None:
-            self._verification.stop_hardware_simulation()
+            self._verification.stop_hardware_monitoring()
 
     def on_pause(self, event):
         self._pause_event.set()
@@ -157,7 +157,7 @@ class SimulationPanel(wx.Panel):
             if self._stop_event.is_set():
                 logging.warning(
                     "You will be able to restart the verification when "
-                    "the last one is finished."
+                    "the last one finishes."
                 )
                 break
 
@@ -204,7 +204,7 @@ class SimulationPanel(wx.Panel):
         self._set_up_log_file_selection_components()
         self._set_up_workflow_selection_components()
         self._add_dividing_line()
-        self._set_up_simulation_status_components()
+        self._set_up_monitoring_status_components()
         self._add_dividing_line()
         self._set_up_action_components()
 
@@ -212,7 +212,7 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
     def _set_up_log_file_selection_components(self):
-        action_label = "Seleccionar archivo de reporte de eventos (.txt):"
+        action_label = "Select event report file (.txt):"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
@@ -223,7 +223,7 @@ class SimulationPanel(wx.Panel):
         )
 
     def _set_up_workflow_selection_components(self):
-        action_label = "Seleccionar archivo de especificación del framework:"
+        action_label = "Select analysis framework file (.zip):"
         action = self.select_specification
         self.framework_specification_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
@@ -249,18 +249,18 @@ class SimulationPanel(wx.Panel):
 
         self.main_sizer.Add(folder_selection_sizer, 0)
 
-    def _set_up_simulation_status_components(self):
-        simulation_status_label = wx.StaticText(self, label="Estado de la simulación")
-        self.main_sizer.Add(simulation_status_label, 0, wx.TOP | wx.LEFT, border=15)
+    def _set_up_monitoring_status_components(self):
+        monitoring_status_label = wx.StaticText(self, label="Monitoring state")
+        self.main_sizer.Add(monitoring_status_label, 0, wx.TOP | wx.LEFT, border=15)
 
         upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
         lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self._set_up_events_to_verify(upper_sizer)
+        self._set_up_events_to_process(upper_sizer)
         self._add_horizontal_stretching_space(upper_sizer)
         self._set_up_elapsed_time(upper_sizer)
 
-        self._set_up_verified_events(lower_sizer)
+        self._set_up_processed_events(lower_sizer)
         self._add_horizontal_stretching_space(lower_sizer)
         self._set_up_estimated_remaining_time(lower_sizer)
 
@@ -269,7 +269,7 @@ class SimulationPanel(wx.Panel):
 
         self._set_up_progress_bar()
 
-    def _set_up_events_to_verify(self, sizer):
+    def _set_up_events_to_process(self, sizer):
         self.amount_of_events_to_verify_text_label = wx.StaticText(
             self, label=self._amount_of_events_to_verify_label()
         )
@@ -280,7 +280,7 @@ class SimulationPanel(wx.Panel):
             border=25,
         )
 
-    def _set_up_verified_events(self, sizer):
+    def _set_up_processed_events(self, sizer):
         self.amount_of_processed_events_text_label = wx.StaticText(
             self, label=self._amount_of_processed_events_label()
         )
@@ -346,10 +346,10 @@ class SimulationPanel(wx.Panel):
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _amount_of_events_to_verify_label(self):
-        return f"Eventos a verificar: {self._amount_of_events_to_verify}\n"
+        return f"Events to process: {self._amount_of_events_to_verify}\n"
 
     def _amount_of_processed_events_label(self):
-        return f"Eventos procesados: {self._amount_of_processed_events}\n"
+        return f"Processed events: {self._amount_of_processed_events}\n"
 
     def _percentage_of_processed_events_label(self):
         if self._amount_of_events_to_verify == 0:
@@ -366,7 +366,7 @@ class SimulationPanel(wx.Panel):
         minutes = (self._elapsed_seconds % 3600) // 60
         seconds = self._elapsed_seconds % 60
 
-        return f"Tiempo transcurrido: {hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"Elapsed time of analysis: {hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def _estimated_remaining_time_label_text(self):
         if (
@@ -385,7 +385,7 @@ class SimulationPanel(wx.Panel):
         minutes = (estimated_remaining_seconds % 3600) // 60
         seconds = estimated_remaining_seconds % 60
 
-        return f"Tiempo restante estimado: {hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"Estimated time to completion: {hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def _start_timer(self):
         self._last_updated_time = self._current_time()
@@ -480,7 +480,7 @@ class LoggingConfigurationPanel(wx.Panel):
 
     def _set_up_logging_configuration_components(self):
         logging_configuration_label_component = wx.StaticText(
-            self, label="Configurar el registro de información en el log"
+            self, label="Log configuration"
         )
         self.sizer.Add(
             logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
@@ -491,7 +491,7 @@ class LoggingConfigurationPanel(wx.Panel):
         self.sizer.AddStretchSpacer()
 
     def _set_up_logging_verbosity_configuration_components(self):
-        label = wx.StaticText(self, label="Tipo de información a registrar:")
+        label = wx.StaticText(self, label="Type of log entries to register:")
 
         self._logging_verbosity_selector = wx.Choice(
             self, choices=self._logging_verbosity_options(), size=(200, 35)
@@ -512,7 +512,7 @@ class LoggingConfigurationPanel(wx.Panel):
         self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.CENTER)
 
     def _set_up_logging_destination_configuration_components(self):
-        label = wx.StaticText(self, label="Dónde registrar la información:")
+        label = wx.StaticText(self, label="Log destination:")
 
         self._logging_destination_selector = wx.Choice(
             self, choices=self._logging_destination_options(), size=(200, 35)
@@ -551,10 +551,10 @@ class LoggingConfigurationPanel(wx.Panel):
 
     def _text_to_logging_verbosity_map(self):
         return {
-            "Todo": LoggingLevel.INFO,
-            "Información de análisis": LoggingLevel.PROPERTY_ANALYSIS,
-            "Errores y advertencias": LoggingLevel.WARNING,
-            "Errores": LoggingLevel.ERROR,
+            "All entries": LoggingLevel.INFO,
+            "Analysis related entries": LoggingLevel.PROPERTY_ANALYSIS,
+            "Error and warning entries": LoggingLevel.WARNING,
+            "Error entries": LoggingLevel.ERROR,
         }
 
     def _logging_verbosity_options(self):

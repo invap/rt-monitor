@@ -10,8 +10,8 @@ class LoggingLevel(IntEnum):
 
 
 class LoggingDestination(StrEnum):
-    CONSOLE = "Consola"
-    FILE = "Archivo"
+    CONSOLE = "Standard output"
+    FILE = "File (log.txt)"
 
     @classmethod
     def all(cls):

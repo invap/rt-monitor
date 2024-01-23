@@ -5,7 +5,7 @@ from enum import Enum
 import numpy as np
 
 from workflow_runtime_verification.errors import FunctionNotImplemented
-from workflow_runtime_verification.hardware_devices.c_example_app import (
+from workflow_runtime_verification.hardware_devices.rt_monitor_example_app import (
     ex_displayVisual,
 )
 
@@ -148,7 +148,7 @@ class display:
         # - Default Font Matrix Map 6_8
         self.__font_matrix = Font6_8()
         # create the visualization features associated
-        self.__visualDisplay = ex_displayVisual.ex_displayVisual(
+        self.__visualDisplay = ex_displayVisual.displayVisual(
             parent=self, display=self
         )
         self.__visualDisplay.Show()

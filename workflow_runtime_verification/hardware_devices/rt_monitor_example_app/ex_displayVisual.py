@@ -1,11 +1,11 @@
 import wx
 
 
-class ex_displayVisual(wx.Frame):
+class displayVisual(wx.Frame):
     def __init__(self, parent, display):
         super().__init__(
             None,
-            title="SSD1963",
+            title="Display",
             style=wx.CAPTION | wx.RESIZE_BORDER,
         )
 

@@ -3,8 +3,8 @@ import inspect
 import numpy as np
 
 from workflow_runtime_verification.errors import NoValue, FunctionNotImplemented
-from workflow_runtime_verification.hardware_devices.c_example_app.ex_adcVisual import (
-    adcVisual,
+from workflow_runtime_verification.hardware_devices.rt_monitor_example_app import (
+    ex_adcVisual,
 )
 
 
@@ -19,7 +19,7 @@ class adc:
         self.__total_values_read = 0
         self.__current_value = 0
         # create the visualization features associated
-        self.__visualADC = adcVisual(parent=self, adc_component=self)
+        self.__visualADC = ex_adcVisual.adcVisual(parent=self, adc_component=self)
         self.__visualADC.Show()
 
     def stop(self):
