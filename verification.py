@@ -80,7 +80,9 @@ class Verification:
 
         match logging_destination:
             case LoggingDestination.FILE:
-                handler = logging.FileHandler("sandbox/rt-monitor-example-app/log.txt", encoding="utf-8")
+                handler = logging.FileHandler(
+                    "sandbox/rt-monitor-example-app/log.txt", encoding="utf-8"
+                )
             case _:
                 handler = logging.StreamHandler(sys.stdout)
 

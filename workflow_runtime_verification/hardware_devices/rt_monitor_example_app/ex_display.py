@@ -148,9 +148,7 @@ class display:
         # - Default Font Matrix Map 6_8
         self.__font_matrix = Font6_8()
         # create the visualization features associated
-        self.__visualDisplay = ex_displayVisual.displayVisual(
-            parent=self, display=self
-        )
+        self.__visualDisplay = ex_displayVisual.displayVisual(parent=self, display=self)
         self.__visualDisplay.Show()
 
     def stop(self):
