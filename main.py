@@ -292,14 +292,14 @@ class MonitoringPanel(wx.Panel):
         )
 
     def _set_up_progress_bar(self):
-        self._percentage_of_processed_events_text = wx.StaticText(
-            self, label=self._percentage_of_processed_events_label()
+        self._percentage_of_processed_events_label = wx.StaticText(
+            self, label=self._percentage_of_processed_events_label_text()
         )
         self._progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
         progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
         progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
         progress_bar_sizer.Add(
-            self._percentage_of_processed_events_text,
+            self._percentage_of_processed_events_label,
             0,
             wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
             border=10,
@@ -351,7 +351,7 @@ class MonitoringPanel(wx.Panel):
     def _amount_of_processed_events_label(self):
         return f"Processed events: {self._amount_of_processed_events}\n"
 
-    def _percentage_of_processed_events_label(self):
+    def _percentage_of_processed_events_label_text(self):
         if self._amount_of_events_to_verify == 0:
             percentage = 0
         else:
@@ -412,6 +412,9 @@ class MonitoringPanel(wx.Panel):
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
         self._estimated_remaining_time_label.SetLabel(
             self._estimated_remaining_time_label_text()
+        )
+        self._percentage_of_processed_events_label.SetLabel(
+            self._percentage_of_processed_events_label_text()
         )
 
     def _current_time(self):
