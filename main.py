@@ -65,8 +65,7 @@ class MonitoringPanel(wx.Panel):
         super().__init__(parent=parent)
 
         self._verification = None
-        self._amount_of_events_to_verify = 0
-        self._amount_of_processed_events = 0
+        self._set_up_initial_verification_status()
         self._render()
 
     def select_report(self, event):
@@ -182,6 +181,10 @@ class MonitoringPanel(wx.Panel):
         self._percentage_of_processed_events_label.SetLabel(
             self._percentage_of_processed_events_label_text()
         )
+
+    def _set_up_initial_verification_status(self):
+        self._amount_of_events_to_verify = 0
+        self._amount_of_processed_events = 0
 
     def _update_amount_of_events_to_verify(self):
         with open(self.event_report_file_path_field.Value, "r") as file:
