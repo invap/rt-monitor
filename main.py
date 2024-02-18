@@ -179,6 +179,9 @@ class MonitoringPanel(wx.Panel):
             self._amount_of_processed_events_label()
         )
         self._progress_bar.SetValue(self._amount_of_processed_events)
+        self._percentage_of_processed_events_label.SetLabel(
+            self._percentage_of_processed_events_label_text()
+        )
 
     def _update_amount_of_events_to_verify(self):
         with open(self.event_report_file_path_field.Value, "r") as file:
@@ -412,9 +415,6 @@ class MonitoringPanel(wx.Panel):
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
         self._estimated_remaining_time_label.SetLabel(
             self._estimated_remaining_time_label_text()
-        )
-        self._percentage_of_processed_events_label.SetLabel(
-            self._percentage_of_processed_events_label_text()
         )
 
     def _current_time(self):
