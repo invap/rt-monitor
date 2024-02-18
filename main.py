@@ -103,6 +103,9 @@ class MonitoringPanel(wx.Panel):
         specification_path = self.framework_specification_file_path_field.Value
         event_report_path = self.event_report_file_path_field.Value
 
+        self._set_up_initial_verification_status()
+        self._update_amount_of_events_to_verify()
+
         self._verification = Verification.new_for_workflow_in_file(specification_path)
         self._verification.run_for_report(
             event_report_path,
@@ -185,6 +188,7 @@ class MonitoringPanel(wx.Panel):
     def _set_up_initial_verification_status(self):
         self._amount_of_events_to_verify = 0
         self._amount_of_processed_events = 0
+        self._elapsed_seconds = 0
 
     def _update_amount_of_events_to_verify(self):
         with open(self.event_report_file_path_field.Value, "r") as file:
@@ -315,7 +319,6 @@ class MonitoringPanel(wx.Panel):
         )
 
     def _set_up_elapsed_time(self, sizer):
-        self._elapsed_seconds = 0
         self._timer = wx.Timer(self)
 
         self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
