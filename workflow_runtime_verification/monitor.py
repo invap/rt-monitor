@@ -575,5 +575,5 @@ class Monitor:
 
             logging.info(f"Verification resumed.")
 
-    def _event_was_set(self, stop_event):
-        return stop_event is not None and stop_event.is_set()
+    def _event_was_set(self, ui_event):
+        return ui_event is not None and ui_event.is_set()
