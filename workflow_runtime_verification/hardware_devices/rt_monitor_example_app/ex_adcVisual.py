@@ -16,6 +16,9 @@ class adcVisual(wx.Frame):
         self.Destroy()
 
     def on_timer(self):
+        if not self.timer.IsRunning():
+            return
+
         self.counter_display_number.SetLabel(self._counter_value())
         self.measured_value_display.SetLabel(self._measured_value())
         self.measured_binary_value_display.SetLabel(self._measured_binary_value())

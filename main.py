@@ -117,16 +117,6 @@ class MonitoringPanel(wx.Panel):
         )
         self._start_timer()
 
-    def on_stop(self, _event):
-        logging.warning(
-            "Verification is gracefully stopping in background. "
-            "It will stop when it finishes processing the current event."
-        )
-
-        self._stop_verification()
-        if self._verification is not None:
-            self._verification.stop_hardware_monitoring()
-
     def on_pause(self, event):
         self._pause_event.set()
         logging.warning(
@@ -141,6 +131,13 @@ class MonitoringPanel(wx.Panel):
         logging.warning("Verification resumed.")
         self._pause_event.clear()
         self._resume_timer()
+
+    def on_stop(self, _event):
+        logging.warning(
+            "Verification is gracefully stopping in background. "
+            "It will stop when it finishes processing the current event."
+        )
+        self._stop_verification()
 
     def close(self):
         if self._stop_event.is_set():
@@ -204,6 +201,9 @@ class MonitoringPanel(wx.Panel):
         self._timer.Stop()
 
         self._stop_event.set()
+
+        if self._verification is not None:
+            self._verification.stop_hardware_monitoring()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)

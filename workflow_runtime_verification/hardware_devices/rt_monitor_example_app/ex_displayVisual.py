@@ -23,6 +23,9 @@ class displayVisual(wx.Frame):
         self.Destroy()
 
     def on_timer(self):
+        if not self.timer.IsRunning():
+            return
+
         self.Refresh()
         self.Update()
         self.timer.Restart(50)
