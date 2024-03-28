@@ -174,13 +174,6 @@ class MonitoringPanel(wx.Panel):
 
     def update_amount_of_processed_events(self):
         self._amount_of_processed_events += 1
-        self.amount_of_processed_events_text_label.SetLabel(
-            self._amount_of_processed_events_label()
-        )
-        self._progress_bar.SetValue(self._amount_of_processed_events)
-        self._percentage_of_processed_events_label.SetLabel(
-            self._percentage_of_processed_events_label_text()
-        )
 
     def _set_up_initial_verification_status(self):
         self._amount_of_events_to_verify = 0
@@ -406,14 +399,14 @@ class MonitoringPanel(wx.Panel):
 
     def _update_timer(self, _event):
         if self._last_updated_time is not None:
-            self._update_timers()
+            self._update_status()
 
     def _stop_timer(self, _event):
         if self._last_updated_time is not None:
             self._timer.Stop()
-            self._update_timers()
+            self._update_status()
 
-    def _update_timers(self):
+    def _update_status(self):
         current_time = self._current_time()
         self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
         self._last_updated_time = current_time
@@ -421,6 +414,14 @@ class MonitoringPanel(wx.Panel):
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
         self._estimated_remaining_time_label.SetLabel(
             self._estimated_remaining_time_label_text()
+        )
+
+        self.amount_of_processed_events_text_label.SetLabel(
+            self._amount_of_processed_events_label()
+        )
+        self._progress_bar.SetValue(self._amount_of_processed_events)
+        self._percentage_of_processed_events_label.SetLabel(
+            self._percentage_of_processed_events_label_text()
         )
 
     def _current_time(self):
