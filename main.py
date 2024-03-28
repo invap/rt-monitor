@@ -130,7 +130,7 @@ class MonitoringPanel(wx.Panel):
         self._show_multi_action_button_as_pause()
         logging.warning("Verification resumed.")
         self._pause_event.clear()
-        self._resume_timer()
+        self._start_timer()
 
     def on_stop(self, _event):
         logging.warning(
@@ -390,10 +390,6 @@ class MonitoringPanel(wx.Panel):
         return f"Estimated time to completion: {hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def _start_timer(self):
-        self._last_updated_time = self._current_time()
-        self._timer.Start(1000)
-
-    def _resume_timer(self):
         self._last_updated_time = self._current_time()
         self._timer.Start(1000)
 
