@@ -391,7 +391,7 @@ class MonitoringPanel(wx.Panel):
 
     def _start_timer(self):
         self._last_updated_time = self._current_time()
-        self._timer.Start(1000)
+        self._timer.Start(10)
 
     def _update_timer(self, _event):
         if self._last_updated_time is not None:
