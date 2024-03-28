@@ -65,8 +65,7 @@ class MonitoringPanel(wx.Panel):
         super().__init__(parent=parent)
 
         self._verification = None
-        self._amount_of_events_to_verify = 0
-        self._amount_of_processed_events = 0
+        self._set_up_initial_verification_status()
         self._render()
 
     def select_report(self, event):
@@ -104,6 +103,9 @@ class MonitoringPanel(wx.Panel):
         specification_path = self.framework_specification_file_path_field.Value
         event_report_path = self.event_report_file_path_field.Value
 
+        self._set_up_initial_verification_status()
+        self._update_amount_of_events_to_verify()
+
         self._verification = Verification.new_for_workflow_in_file(specification_path)
         self._verification.run_for_report(
             event_report_path,
@@ -114,16 +116,6 @@ class MonitoringPanel(wx.Panel):
             self,
         )
         self._start_timer()
-
-    def on_stop(self, _event):
-        logging.warning(
-            "Verification is gracefully stopping in background. "
-            "It will stop when it finishes processing the current event."
-        )
-
-        self._stop_verification()
-        if self._verification is not None:
-            self._verification.stop_hardware_monitoring()
 
     def on_pause(self, event):
         self._pause_event.set()
@@ -138,7 +130,14 @@ class MonitoringPanel(wx.Panel):
         self._show_multi_action_button_as_pause()
         logging.warning("Verification resumed.")
         self._pause_event.clear()
-        self._resume_timer()
+        self._start_timer()
+
+    def on_stop(self, _event):
+        logging.warning(
+            "Verification is gracefully stopping in background. "
+            "It will stop when it finishes processing the current event."
+        )
+        self._stop_verification()
 
     def close(self):
         if self._stop_event.is_set():
@@ -175,10 +174,11 @@ class MonitoringPanel(wx.Panel):
 
     def update_amount_of_processed_events(self):
         self._amount_of_processed_events += 1
-        self.amount_of_processed_events_text_label.SetLabel(
-            self._amount_of_processed_events_label()
-        )
-        self._progress_bar.SetValue(self._amount_of_processed_events)
+
+    def _set_up_initial_verification_status(self):
+        self._amount_of_events_to_verify = 0
+        self._amount_of_processed_events = 0
+        self._elapsed_seconds = 0
 
     def _update_amount_of_events_to_verify(self):
         with open(self.event_report_file_path_field.Value, "r") as file:
@@ -194,6 +194,9 @@ class MonitoringPanel(wx.Panel):
         self._timer.Stop()
 
         self._stop_event.set()
+
+        if self._verification is not None:
+            self._verification.stop_hardware_monitoring()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -292,14 +295,14 @@ class MonitoringPanel(wx.Panel):
         )
 
     def _set_up_progress_bar(self):
-        self._percentage_of_processed_events_text = wx.StaticText(
-            self, label=self._percentage_of_processed_events_label()
+        self._percentage_of_processed_events_label = wx.StaticText(
+            self, label=self._percentage_of_processed_events_label_text()
         )
         self._progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
         progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
         progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
         progress_bar_sizer.Add(
-            self._percentage_of_processed_events_text,
+            self._percentage_of_processed_events_label,
             0,
             wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
             border=10,
@@ -309,7 +312,6 @@ class MonitoringPanel(wx.Panel):
         )
 
     def _set_up_elapsed_time(self, sizer):
-        self._elapsed_seconds = 0
         self._timer = wx.Timer(self)
 
         self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
@@ -351,7 +353,7 @@ class MonitoringPanel(wx.Panel):
     def _amount_of_processed_events_label(self):
         return f"Processed events: {self._amount_of_processed_events}\n"
 
-    def _percentage_of_processed_events_label(self):
+    def _percentage_of_processed_events_label_text(self):
         if self._amount_of_events_to_verify == 0:
             percentage = 0
         else:
@@ -389,22 +391,18 @@ class MonitoringPanel(wx.Panel):
 
     def _start_timer(self):
         self._last_updated_time = self._current_time()
-        self._timer.Start(1000)
-
-    def _resume_timer(self):
-        self._last_updated_time = self._current_time()
-        self._timer.Start(1000)
+        self._timer.Start(10)
 
     def _update_timer(self, _event):
         if self._last_updated_time is not None:
-            self._update_timers()
+            self._update_status()
 
     def _stop_timer(self, _event):
         if self._last_updated_time is not None:
             self._timer.Stop()
-            self._update_timers()
+            self._update_status()
 
-    def _update_timers(self):
+    def _update_status(self):
         current_time = self._current_time()
         self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
         self._last_updated_time = current_time
@@ -412,6 +410,14 @@ class MonitoringPanel(wx.Panel):
         self._elapsed_time_label.SetLabel(self._elapsed_time_label_text())
         self._estimated_remaining_time_label.SetLabel(
             self._estimated_remaining_time_label_text()
+        )
+
+        self.amount_of_processed_events_text_label.SetLabel(
+            self._amount_of_processed_events_label()
+        )
+        self._progress_bar.SetValue(self._amount_of_processed_events)
+        self._percentage_of_processed_events_label.SetLabel(
+            self._percentage_of_processed_events_label_text()
         )
 
     def _current_time(self):
