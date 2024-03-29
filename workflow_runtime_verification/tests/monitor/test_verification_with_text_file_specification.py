@@ -55,7 +55,7 @@ class VerificationWithTextFileSpecificationTest(Test):
     ):
         monitor = Monitor(
             self._workflow_specification_with_global_checkpoint_from_file(),
-            self.objects.empty_hardware_dictionary(),
+            self.objects.empty_component_dictionary(),
         )
         event_report = self.events_declaring_the_variables() + [
             self.objects.variable_value_assigned_encoded_event(
@@ -82,7 +82,7 @@ class VerificationWithTextFileSpecificationTest(Test):
     ):
         monitor = Monitor(
             self._workflow_specification_with_local_checkpoints_from_file(),
-            self.objects.empty_hardware_dictionary(),
+            self.objects.empty_component_dictionary(),
         )
         event_report = self.events_declaring_the_variables() + [
             self.objects.task_started_encoded_event(self.objects.task_name()),

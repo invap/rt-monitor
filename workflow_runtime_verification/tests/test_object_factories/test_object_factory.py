@@ -17,7 +17,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
     def monitor_with_no_components_for(self, workflow_specification):
         return Monitor(
             workflow_specification,
-            self.empty_hardware_dictionary(),
+            self.empty_component_dictionary(),
         )
 
     def monitor_for_workflow_with_one_task(self):
@@ -327,5 +327,5 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
     def starting_task_specification(self):
         return TaskSpecification.new_named(self.starting_task_name())
 
-    def empty_hardware_dictionary(self):
+    def empty_component_dictionary(self):
         return dict()
