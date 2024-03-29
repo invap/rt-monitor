@@ -1,6 +1,6 @@
 import wx
 
-from workflow_runtime_verification.hardware_devices.rt_monitor_example_app.ex_adc import (
+from workflow_runtime_verification.components.rt_monitor_example_app.ex_adc import (
     adc,
 )
 from workflow_runtime_verification.monitor import Monitor

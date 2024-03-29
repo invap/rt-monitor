@@ -2,10 +2,10 @@ import inspect
 
 import numpy as np
 
-from workflow_runtime_verification.errors import NoValue, FunctionNotImplemented
-from workflow_runtime_verification.hardware_devices.rt_monitor_example_app import (
+from workflow_runtime_verification.components.rt_monitor_example_app import (
     ex_adcVisual,
 )
+from workflow_runtime_verification.errors import NoValue, FunctionNotImplemented
 
 
 class adc:
