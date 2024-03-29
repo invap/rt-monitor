@@ -178,7 +178,7 @@ class Monitor:
         raise CheckpointDoesNotExist(checkpoint_name)
 
     def process_component_event(self, hardware_event):
-        hardware_data = hardware_event.data()
+        component_data = hardware_event.data()
         component_name = hardware_event.component_name()
 
         if component_name not in self._hardware_dictionary:
@@ -186,7 +186,7 @@ class Monitor:
 
         try:
             hardware_component = self._hardware_dictionary[component_name]
-            hardware_component.process_high_level_call(hardware_data)
+            hardware_component.process_high_level_call(component_data)
             return True
         except FunctionNotImplemented as e:
             logging.error(
