@@ -11,9 +11,7 @@ class VerificationWithComponentsTest(Test):
     def test_verifies_a_valid_report_verifying_component_properties(self):
         _app = wx.App()
         workflow_specification = self.objects.workflow_specification_with_one_task()
-        component_dictionary = {
-            self._component_name(): self._component()
-        }
+        component_dictionary = {self._component_name(): self._component()}
         monitor = Monitor(workflow_specification, component_dictionary)
         event_report = [
             self.objects.hardware_encoded_event(

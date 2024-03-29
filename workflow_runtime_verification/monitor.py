@@ -13,7 +13,7 @@ from workflow_runtime_verification.errors import (
     AnalysisFailed,
     CheckpointDoesNotExist,
     TaskDoesNotExist,
-    HardwareDeviceDoesNotExist,
+    ComponentDoesNotExist,
     FunctionNotImplemented,
     FormulaError,
     EventError,
@@ -182,7 +182,7 @@ class Monitor:
         component_name = hardware_event.component_name()
 
         if component_name not in self._hardware_dictionary:
-            raise HardwareDeviceDoesNotExist(component_name)
+            raise ComponentDoesNotExist(component_name)
 
         try:
             hardware_component = self._hardware_dictionary[component_name]
