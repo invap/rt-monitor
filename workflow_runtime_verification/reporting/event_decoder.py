@@ -54,8 +54,8 @@ class EventDecoder:
 
     def decode_component_event(self, encoded_event):
         return ComponentEvent(
-            self._decode_hardware_component_name(encoded_event),
-            self._decode_hardware_event_data(encoded_event),
+            self._decode_component_name(encoded_event),
+            self._decode_event_data(encoded_event),
             self._decode_time(encoded_event),
         )
 
@@ -124,10 +124,10 @@ class EventDecoder:
 
         return int(serialized_time)
 
-    def _decode_hardware_component_name(self, encoded_event):
+    def _decode_component_name(self, encoded_event):
         return encoded_event.split(",")[2]
 
-    def _decode_hardware_event_data(self, encoded_event):
+    def _decode_event_data(self, encoded_event):
         event_data_as_array = encoded_event.split(",")[3:]
         event_data_with_escaped_characters = ",".join(event_data_as_array)
 
