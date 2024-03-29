@@ -32,7 +32,7 @@ class Monitor:
 
     def __init__(self, workflow_specification, component_dictionary):
         self._event_decoder = EventDecoder()
-        self._hardware_dictionary = component_dictionary
+        self._component_dictionary = component_dictionary
         self._workflow_specification = workflow_specification
         self._workflow_state = set()
         self._execution_state = {}
@@ -106,7 +106,7 @@ class Monitor:
             preconditions_are_met = self.__class__._are_all_properties_satisfied(
                 task_started_event.time(),
                 self._execution_state,
-                self._hardware_dictionary,
+                self._component_dictionary,
                 task_specification.preconditions(),
             )
 
@@ -132,7 +132,7 @@ class Monitor:
             postconditions_are_met = self.__class__._are_all_properties_satisfied(
                 task_finished_event.time(),
                 self._execution_state,
-                self._hardware_dictionary,
+                self._component_dictionary,
                 task_specification.postconditions(),
             )
 
@@ -181,11 +181,11 @@ class Monitor:
         component_data = component_event.data()
         component_name = component_event.component_name()
 
-        if component_name not in self._hardware_dictionary:
+        if component_name not in self._component_dictionary:
             raise ComponentDoesNotExist(component_name)
 
         try:
-            component = self._hardware_dictionary[component_name]
+            component = self._component_dictionary[component_name]
             component.process_high_level_call(component_data)
             return True
         except FunctionNotImplemented as e:
@@ -195,8 +195,8 @@ class Monitor:
             raise EventError(component_event)
 
     def stop_component_monitoring(self):
-        for component_name in self._hardware_dictionary:
-            self._hardware_dictionary[component_name].stop()
+        for component_name in self._component_dictionary:
+            self._component_dictionary[component_name].stop()
 
     def _update_workflow_state_with_started_task(self, task_started_event):
         task_name = task_started_event.name()
@@ -453,7 +453,7 @@ class Monitor:
             properties_are_met = self.__class__._are_all_properties_satisfied(
                 checkpoint_reached_event.time(),
                 self._execution_state,
-                self._hardware_dictionary,
+                self._component_dictionary,
                 checkpoint.properties(),
             )
 
@@ -478,7 +478,7 @@ class Monitor:
             properties_are_met = self.__class__._are_all_properties_satisfied(
                 checkpoint_reached_event.time(),
                 self._execution_state,
-                self._hardware_dictionary,
+                self._component_dictionary,
                 checkpoint.properties(),
             )
 
