@@ -14,7 +14,7 @@ class VerificationWithComponentsTest(Test):
         component_dictionary = {self._component_name(): self._component()}
         monitor = Monitor(workflow_specification, component_dictionary)
         event_report = [
-            self.objects.hardware_encoded_event(
+            self.objects.component_encoded_event(
                 self._component_name(), self._component_event_data()
             ),
         ]

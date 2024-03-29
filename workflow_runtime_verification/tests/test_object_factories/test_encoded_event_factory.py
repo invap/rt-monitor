@@ -70,7 +70,7 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
             f"(no_value_delimiter@{self.time()})"
         )
 
-    def hardware_encoded_event(self, component_name, data):
+    def component_encoded_event(self, component_name, data):
         return self.event_reporter().report_hardware_event(
             component_name, data, self.time()
         )
