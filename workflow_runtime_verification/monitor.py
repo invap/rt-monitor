@@ -177,9 +177,9 @@ class Monitor:
 
         raise CheckpointDoesNotExist(checkpoint_name)
 
-    def process_component_event(self, hardware_event):
-        component_data = hardware_event.data()
-        component_name = hardware_event.component_name()
+    def process_component_event(self, component_event):
+        component_data = component_event.data()
+        component_name = component_event.component_name()
 
         if component_name not in self._hardware_dictionary:
             raise ComponentDoesNotExist(component_name)
@@ -192,7 +192,7 @@ class Monitor:
             logging.error(
                 f"Function [ {e.getFunctionName()} ] is not implemented for device [ {component_name} ]."
             )
-            raise EventError(hardware_event)
+            raise EventError(component_event)
 
     def stop_component_monitoring(self):
         for component_name in self._hardware_dictionary:
