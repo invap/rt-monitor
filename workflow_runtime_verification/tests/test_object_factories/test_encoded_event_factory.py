@@ -1,10 +1,10 @@
 from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
     CheckpointReachedEvent,
 )
+from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
 from workflow_runtime_verification.reporting.event.declare_variable_event import (
     DeclareVariableEvent,
 )
-from workflow_runtime_verification.reporting.event.hardware_event import ComponentEvent
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
 )
