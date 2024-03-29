@@ -32,7 +32,7 @@ class EventDecoder:
         event_type = self._decode_event_type(encoded_event)
         match event_type:
             case "hardware_event":
-                return self.decode_hardware_event(encoded_event)
+                return self.decode_component_event(encoded_event)
             case "workflow_event":
                 return self.decode_workflow_event(encoded_event)
             case "invalid":
@@ -52,7 +52,7 @@ class EventDecoder:
             case "variable_value_assigned":
                 return self.decode_variable_value_assignment_event(encoded_event)
 
-    def decode_hardware_event(self, encoded_event):
+    def decode_component_event(self, encoded_event):
         return ComponentEvent(
             self._decode_hardware_component_name(encoded_event),
             self._decode_hardware_event_data(encoded_event),

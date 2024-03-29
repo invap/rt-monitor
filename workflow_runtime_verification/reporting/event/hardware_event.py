@@ -30,7 +30,7 @@ class ComponentEvent(Event):
 
     @classmethod
     def decode_with(cls, decoder, encoded_event):
-        return decoder.decode_hardware_event(encoded_event)
+        return decoder.decode_component_event(encoded_event)
 
     def serialized(self):
         return (
