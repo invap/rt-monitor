@@ -14,24 +14,24 @@ from workflow_runtime_verification.tests.test_object_factories.test_logic_object
 
 
 class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
-    def monitor_with_no_hardware_for(self, workflow_specification):
+    def monitor_with_no_components_for(self, workflow_specification):
         return Monitor(
             workflow_specification,
             self.empty_hardware_dictionary(),
         )
 
     def monitor_for_workflow_with_one_task(self):
-        return self.monitor_with_no_hardware_for(
+        return self.monitor_with_no_components_for(
             self.workflow_specification_with_one_task()
         )
 
     def monitor_for_workflow_with_many_tasks_and_parallel(self):
-        return self.monitor_with_no_hardware_for(
+        return self.monitor_with_no_components_for(
             self.workflow_specification_with_many_tasks_and_parallel()
         )
 
     def monitor_for_workflow_with_many_tasks_and_choice(self):
-        return self.monitor_with_no_hardware_for(
+        return self.monitor_with_no_components_for(
             self.workflow_specification_with_many_tasks_and_choice()
         )
 
