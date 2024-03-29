@@ -20,7 +20,3 @@ class InvalidEvent(Event):
     @classmethod
     def event_subtype(cls):
         raise NoSubtypeError
-
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
-        return cls()
