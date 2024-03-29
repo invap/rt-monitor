@@ -4,7 +4,7 @@ from workflow_runtime_verification.reporting.event.checkpoint_reached_event impo
 from workflow_runtime_verification.reporting.event.declare_variable_event import (
     DeclareVariableEvent,
 )
-from workflow_runtime_verification.reporting.event.hardware_event import HardwareEvent
+from workflow_runtime_verification.reporting.event.hardware_event import ComponentEvent
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
 )
@@ -122,4 +122,4 @@ class EventReporter:
         ).serialized()
 
     def report_hardware_event(self, component_name, data, time):
-        return HardwareEvent(component_name, data, time).serialized()
+        return ComponentEvent(component_name, data, time).serialized()

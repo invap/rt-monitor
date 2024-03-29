@@ -5,7 +5,7 @@ from workflow_runtime_verification.reporting.event.declare_variable_event import
     DeclareVariableEvent,
 )
 from workflow_runtime_verification.reporting.event.hardware_event import (
-    HardwareEvent,
+    ComponentEvent,
 )
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
@@ -53,7 +53,7 @@ class EventDecoder:
                 return self.decode_variable_value_assignment_event(encoded_event)
 
     def decode_hardware_event(self, encoded_event):
-        return HardwareEvent(
+        return ComponentEvent(
             self._decode_hardware_component_name(encoded_event),
             self._decode_hardware_event_data(encoded_event),
             self._decode_time(encoded_event),

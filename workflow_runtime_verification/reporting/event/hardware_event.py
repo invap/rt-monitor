@@ -5,7 +5,7 @@ class NoSubtypeError(Exception):
     pass
 
 
-class HardwareEvent(Event):
+class ComponentEvent(Event):
     def __init__(self, component_name, data, time) -> None:
         super().__init__(time)
         self._component_name = component_name
