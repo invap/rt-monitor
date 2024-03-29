@@ -20,11 +20,11 @@ class Verification:
         workflow_specification = cls._read_workflow_specification_from(
             specification_directory
         )
-        hardware_specification = cls._read_hardware_specification_from(
+        components_specification = cls._read_components_specification_from(
             specification_directory
         )
 
-        return cls(workflow_specification, hardware_specification)
+        return cls(workflow_specification, components_specification)
 
     def __init__(self, workflow_specification, hardware_specification):
         super().__init__()
@@ -130,7 +130,7 @@ class Verification:
         return WorkflowSpecification.new_from_open_file(file)
 
     @classmethod
-    def _read_hardware_specification_from(cls, specification_directory):
+    def _read_components_specification_from(cls, specification_directory):
         file_name = "hardware.desc"
         path = os.path.join(specification_directory, file_name)
 
