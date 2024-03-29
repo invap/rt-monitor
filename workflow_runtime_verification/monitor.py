@@ -194,7 +194,7 @@ class Monitor:
             )
             raise EventError(hardware_event)
 
-    def stop_hardware_monitoring(self):
+    def stop_component_monitoring(self):
         for component_name in self._hardware_dictionary:
             self._hardware_dictionary[component_name].stop()
 
