@@ -30,9 +30,9 @@ class Monitor:
     TASK_FINISHED_SUFFIX = "_finished"
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
-    def __init__(self, workflow_specification, hardware_dictionary):
+    def __init__(self, workflow_specification, component_dictionary):
         self._event_decoder = EventDecoder()
-        self._hardware_dictionary = hardware_dictionary
+        self._hardware_dictionary = component_dictionary
         self._workflow_specification = workflow_specification
         self._workflow_state = set()
         self._execution_state = {}
@@ -185,8 +185,8 @@ class Monitor:
             raise ComponentDoesNotExist(component_name)
 
         try:
-            hardware_component = self._hardware_dictionary[component_name]
-            hardware_component.process_high_level_call(component_data)
+            component = self._hardware_dictionary[component_name]
+            component.process_high_level_call(component_data)
             return True
         except FunctionNotImplemented as e:
             logging.error(
@@ -238,15 +238,15 @@ class Monitor:
 
     @classmethod
     def _is_property_satisfied(
-        cls, event_time, program_state, hardware_dictionary, logic_property
+        cls, event_time, program_state, component_dictionary, logic_property
     ):
         cls._log_property_analysis(f"Checking property {logic_property[2]}...")
         try:
             declarations = cls._build_declarations(
-                program_state, hardware_dictionary, logic_property
+                program_state, component_dictionary, logic_property
             )
             assumptions = cls._build_assumptions(
-                program_state, hardware_dictionary, logic_property
+                program_state, component_dictionary, logic_property
             )
             not_logic_property_assert = f"(assert (not \n {logic_property[1]} \n))"
             spec = declarations + "\n" + assumptions + "\n" + not_logic_property_assert
@@ -279,7 +279,7 @@ class Monitor:
 
     @classmethod
     def _are_all_properties_satisfied(
-        cls, event_time, program_state, hardware_dictionary, logic_properties
+        cls, event_time, program_state, component_dictionary, logic_properties
     ):
         neg_properties_sat = False
         for logic_property in logic_properties:
@@ -287,7 +287,7 @@ class Monitor:
                 break
             try:
                 neg_properties_sat = cls._is_property_satisfied(
-                    event_time, program_state, hardware_dictionary, logic_property
+                    event_time, program_state, component_dictionary, logic_property
                 )
             except FormulaError as e:
                 logging.error(f"Error in formula [ {e.getFormula} ]")
@@ -372,7 +372,7 @@ class Monitor:
         return assumption
 
     @classmethod
-    def _build_declarations(cls, program_state, hardware_dictionary, logic_property):
+    def _build_declarations(cls, program_state, component_dictionary, logic_property):
         declarations = ""
         # Building a set from the frozen set containing the variables occurring in the formula
         variables = set()
@@ -386,8 +386,8 @@ class Monitor:
                     varname, program_state[varname][0]
                 )
                 variables.remove(varname)
-        for device in hardware_dictionary:
-            dictionary = hardware_dictionary[device].state()
+        for device in component_dictionary:
+            dictionary = component_dictionary[device].state()
             for varname in dictionary:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
@@ -407,7 +407,7 @@ class Monitor:
         return declarations
 
     @classmethod
-    def _build_assumptions(cls, program_state, hardware_dictionary, logic_property):
+    def _build_assumptions(cls, program_state, component_dictionary, logic_property):
         assumptions = ""
         # Building a set from the frozen set containing the variables occurring in the formula
         variables = set()
@@ -421,8 +421,8 @@ class Monitor:
                     varname, program_state[varname][0], program_state[varname][1]
                 )
                 variables.remove(varname)
-        for device in hardware_dictionary:
-            dictionary = hardware_dictionary[device].state()
+        for device in component_dictionary:
+            dictionary = component_dictionary[device].state()
             for varname in dictionary:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
