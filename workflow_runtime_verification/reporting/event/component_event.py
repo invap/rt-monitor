@@ -22,7 +22,7 @@ class ComponentEvent(Event):
 
     @classmethod
     def event_type(cls):
-        return "hardware_event"
+        return "component_event"
 
     @classmethod
     def event_subtype(cls):

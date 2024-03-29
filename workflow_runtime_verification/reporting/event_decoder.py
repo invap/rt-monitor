@@ -31,7 +31,7 @@ class EventDecoder:
     def decode(self, encoded_event):
         event_type = self._decode_event_type(encoded_event)
         match event_type:
-            case "hardware_event":
+            case "component_event":
                 return self.decode_component_event(encoded_event)
             case "workflow_event":
                 return self.decode_workflow_event(encoded_event)
