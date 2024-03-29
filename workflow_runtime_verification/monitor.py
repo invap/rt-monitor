@@ -177,7 +177,7 @@ class Monitor:
 
         raise CheckpointDoesNotExist(checkpoint_name)
 
-    def process_hardware_event(self, hardware_event):
+    def process_component_event(self, hardware_event):
         hardware_data = hardware_event.data()
         component_name = hardware_event.component_name()
 

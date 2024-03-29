@@ -12,7 +12,7 @@ class ComponentEvent(Event):
         self._data = data
 
     def process_with(self, monitor):
-        return monitor.process_hardware_event(self)
+        return monitor.process_component_event(self)
 
     def component_name(self):
         return self._component_name
