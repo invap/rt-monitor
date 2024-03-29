@@ -71,7 +71,7 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
         )
 
     def component_encoded_event(self, component_name, data):
-        return self.event_reporter().report_hardware_event(
+        return self.event_reporter().report_component_event(
             component_name, data, self.time()
         )
 
@@ -121,5 +121,5 @@ class EventReporter:
             variable_name, variable_value, time
         ).serialized()
 
-    def report_hardware_event(self, component_name, data, time):
+    def report_component_event(self, component_name, data, time):
         return ComponentEvent(component_name, data, time).serialized()
