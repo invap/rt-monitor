@@ -131,7 +131,7 @@ class Verification:
 
     @classmethod
     def _read_components_specification_from(cls, specification_directory):
-        file_name = "hardware.desc"
+        file_name = "components.desc"
         path = os.path.join(specification_directory, file_name)
 
         file = open(path, "r")
