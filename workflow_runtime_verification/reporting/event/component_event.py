@@ -5,14 +5,14 @@ class NoSubtypeError(Exception):
     pass
 
 
-class HardwareEvent(Event):
+class ComponentEvent(Event):
     def __init__(self, component_name, data, time) -> None:
         super().__init__(time)
         self._component_name = component_name
         self._data = data
 
     def process_with(self, monitor):
-        return monitor.process_hardware_event(self)
+        return monitor.process_component_event(self)
 
     def component_name(self):
         return self._component_name
@@ -22,7 +22,7 @@ class HardwareEvent(Event):
 
     @classmethod
     def event_type(cls):
-        return "hardware_event"
+        return "component_event"
 
     @classmethod
     def event_subtype(cls):
@@ -30,7 +30,7 @@ class HardwareEvent(Event):
 
     @classmethod
     def decode_with(cls, decoder, encoded_event):
-        return decoder.decode_hardware_event(encoded_event)
+        return decoder.decode_component_event(encoded_event)
 
     def serialized(self):
         return (

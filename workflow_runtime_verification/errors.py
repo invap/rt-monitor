@@ -60,7 +60,7 @@ class TaskDoesNotExist(Exception):
         return self._task_name
 
 
-class HardwareDeviceDoesNotExist(Exception):
+class ComponentDoesNotExist(Exception):
     def __init__(self, device_name):
         super().__init__()
         self._device_name = device_name

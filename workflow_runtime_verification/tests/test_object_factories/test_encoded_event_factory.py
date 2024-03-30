@@ -1,10 +1,10 @@
 from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
     CheckpointReachedEvent,
 )
+from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
 from workflow_runtime_verification.reporting.event.declare_variable_event import (
     DeclareVariableEvent,
 )
-from workflow_runtime_verification.reporting.event.hardware_event import HardwareEvent
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
 )
@@ -70,8 +70,8 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
             f"(no_value_delimiter@{self.time()})"
         )
 
-    def hardware_encoded_event(self, component_name, data):
-        return self.event_reporter().report_hardware_event(
+    def component_encoded_event(self, component_name, data):
+        return self.event_reporter().report_component_event(
             component_name, data, self.time()
         )
 
@@ -121,5 +121,5 @@ class EventReporter:
             variable_name, variable_value, time
         ).serialized()
 
-    def report_hardware_event(self, component_name, data, time):
-        return HardwareEvent(component_name, data, time).serialized()
+    def report_component_event(self, component_name, data, time):
+        return ComponentEvent(component_name, data, time).serialized()

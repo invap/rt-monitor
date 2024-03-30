@@ -1,11 +1,11 @@
 from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
     CheckpointReachedEvent,
 )
+from workflow_runtime_verification.reporting.event.component_event import (
+    ComponentEvent,
+)
 from workflow_runtime_verification.reporting.event.declare_variable_event import (
     DeclareVariableEvent,
-)
-from workflow_runtime_verification.reporting.event.hardware_event import (
-    HardwareEvent,
 )
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
@@ -31,8 +31,8 @@ class EventDecoder:
     def decode(self, encoded_event):
         event_type = self._decode_event_type(encoded_event)
         match event_type:
-            case "hardware_event":
-                return self.decode_hardware_event(encoded_event)
+            case "component_event":
+                return self.decode_component_event(encoded_event)
             case "workflow_event":
                 return self.decode_workflow_event(encoded_event)
             case "invalid":
@@ -52,10 +52,10 @@ class EventDecoder:
             case "variable_value_assigned":
                 return self.decode_variable_value_assignment_event(encoded_event)
 
-    def decode_hardware_event(self, encoded_event):
-        return HardwareEvent(
-            self._decode_hardware_component_name(encoded_event),
-            self._decode_hardware_event_data(encoded_event),
+    def decode_component_event(self, encoded_event):
+        return ComponentEvent(
+            self._decode_component_name(encoded_event),
+            self._decode_event_data(encoded_event),
             self._decode_time(encoded_event),
         )
 
@@ -124,10 +124,10 @@ class EventDecoder:
 
         return int(serialized_time)
 
-    def _decode_hardware_component_name(self, encoded_event):
+    def _decode_component_name(self, encoded_event):
         return encoded_event.split(",")[2]
 
-    def _decode_hardware_event_data(self, encoded_event):
+    def _decode_event_data(self, encoded_event):
         event_data_as_array = encoded_event.split(",")[3:]
         event_data_with_escaped_characters = ",".join(event_data_as_array)
 

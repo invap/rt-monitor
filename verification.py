@@ -20,16 +20,16 @@ class Verification:
         workflow_specification = cls._read_workflow_specification_from(
             specification_directory
         )
-        hardware_specification = cls._read_hardware_specification_from(
+        components_specification = cls._read_components_specification_from(
             specification_directory
         )
 
-        return cls(workflow_specification, hardware_specification)
+        return cls(workflow_specification, components_specification)
 
-    def __init__(self, workflow_specification, hardware_specification):
+    def __init__(self, workflow_specification, components_specification):
         super().__init__()
 
-        self._monitor = Monitor(workflow_specification, hardware_specification)
+        self._monitor = Monitor(workflow_specification, components_specification)
         self._set_up_logging()
 
     def run_for_report(
@@ -58,8 +58,8 @@ class Verification:
         )
         application_thread.start()
 
-    def stop_hardware_monitoring(self):
-        self._monitor.stop_hardware_monitoring()
+    def stop_component_monitoring(self):
+        self._monitor.stop_component_monitoring()
 
     def _set_up_logging(self):
         logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
@@ -130,18 +130,18 @@ class Verification:
         return WorkflowSpecification.new_from_open_file(file)
 
     @classmethod
-    def _read_hardware_specification_from(cls, specification_directory):
+    def _read_components_specification_from(cls, specification_directory):
         file_name = "hardware.desc"
         path = os.path.join(specification_directory, file_name)
 
         file = open(path, "r")
-        return cls._new_hardware_map_from_open_file(file)
+        return cls._new_component_map_from_open_file(file)
 
     @classmethod
-    def _new_hardware_map_from_open_file(cls, hardware_file):
-        hardware_map = {}
+    def _new_component_map_from_open_file(cls, component_file):
+        component_map = {}
 
-        for line in hardware_file:
+        for line in component_file:
             split_line = line.split(",")
 
             device_name = split_line[0]
@@ -151,6 +151,6 @@ class Verification:
             component_module = importlib.import_module(split_component_class_path[0])
             component_class = getattr(component_module, split_component_class_path[1])
 
-            hardware_map[device_name] = component_class()
+            component_map[device_name] = component_class()
 
-        return hardware_map
+        return component_map

@@ -196,7 +196,7 @@ class MonitoringPanel(wx.Panel):
         self._stop_event.set()
 
         if self._verification is not None:
-            self._verification.stop_hardware_monitoring()
+            self._verification.stop_component_monitoring()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
