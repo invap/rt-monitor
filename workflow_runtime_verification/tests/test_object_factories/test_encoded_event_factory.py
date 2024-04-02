@@ -23,9 +23,6 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
     def time(self):
         return 0
 
-    def serialized_time(self):
-        return "2000-01-01 00:00:00"
-
     def event_reporter(self):
         return EventReporter()
 
