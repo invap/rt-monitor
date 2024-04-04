@@ -190,7 +190,7 @@ class Monitor:
             return True
         except FunctionNotImplemented as e:
             logging.error(
-                f"Function [ {e.getFunctionName()} ] is not implemented for device [ {component_name} ]."
+                f"Function [ {e.getFunctionName()} ] is not implemented for component [ {component_name} ]."
             )
             raise EventError(component_event)
 

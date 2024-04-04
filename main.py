@@ -9,7 +9,7 @@ from verification import Verification
 
 class MainWindow(wx.Frame):
     def __init__(self):
-        super().__init__(parent=None, title="Run-time Monitor")
+        super().__init__(parent=None, title="Runtime Monitor")
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
         self._set_up_control_panel()
