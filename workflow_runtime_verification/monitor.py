@@ -31,7 +31,6 @@ class Monitor:
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
     def __init__(self, workflow_specification, component_dictionary):
-        self._event_decoder = EventDecoder()
         self._component_dictionary = component_dictionary
         self._workflow_specification = workflow_specification
         self._workflow_state = set()
@@ -54,7 +53,7 @@ class Monitor:
                 if self._event_was_set(stop_event):
                     break
 
-                decoded_event = self._event_decoder.decode(line.strip())
+                decoded_event = EventDecoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
 

@@ -1,3 +1,12 @@
+class InvalidEventE(Exception):
+    def __init__(self, event):
+        super().__init__()
+        self._event = event
+
+    def event(self):
+        return self._event
+
+
 class UndeclaredVariable(Exception):
     def __init__(self, varname):
         super().__init__()
@@ -23,6 +32,24 @@ class AlreadyDeclaredVariable(Exception):
 
     def getVarname(self):
         return self._varname
+
+
+class AlreadyDeclaredClock(Exception):
+    def __init__(self, clockname):
+        super().__init__()
+        self._clockname = clockname
+
+    def getVarname(self):
+        return self._clockname
+
+
+class UndeclaredClock(Exception):
+    def __init__(self, clockname):
+        super().__init__()
+        self._clockname = clockname
+
+    def getVarname(self):
+        return self._clockname
 
 
 class NoValueAssignedToVariable(Exception):

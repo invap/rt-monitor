@@ -1,9 +1,7 @@
-from workflow_runtime_verification.reporting.event.workflow_event import (
-    WorkflowEvent,
-)
+from workflow_runtime_verification.reporting.event.state_event import StateEvent
 
 
-class DeclareVariableEvent(WorkflowEvent):
+class DeclareVariableEvent(StateEvent):
     def __init__(self, variable_name, variable_type, time) -> None:
         super().__init__(time)
         self._variable_name = variable_name
@@ -18,12 +16,12 @@ class DeclareVariableEvent(WorkflowEvent):
     def process_with(self, monitor):
         return monitor.process_declare_variable(self)
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         return "declare_variable"
 
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
+    @staticmethod
+    def decode_with(decoder, encoded_event):
         return decoder.decode_declare_variable_event(encoded_event)
 
     def serialized(self):

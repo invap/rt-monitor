@@ -20,20 +20,19 @@ class ComponentEvent(Event):
     def data(self):
         return self._data
 
-    @classmethod
-    def event_type(cls):
+    @staticmethod
+    def event_type():
         return "component_event"
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         raise NoSubtypeError
 
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
+    @staticmethod
+    def decode_with(decoder, encoded_event):
         return decoder.decode_component_event(encoded_event)
 
     def serialized(self):
         return (
-            f"{self.time()},{self.event_type()},"
-            f"{self.component_name()},{self.data()}"
+            f"{self.time()},{self.event_type()},{self.component_name()},{self.data()}"
         )

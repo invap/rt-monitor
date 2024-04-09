@@ -8,12 +8,12 @@ class TaskFinishedEvent(TaskEvent):
     def process_with(self, monitor):
         return monitor.process_task_finished(self)
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         return "task_finished"
 
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
+    @staticmethod
+    def decode_with(decoder, encoded_event):
         return decoder.decode_task_finished_event(encoded_event)
 
     def serialized(self):

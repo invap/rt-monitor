@@ -5,20 +5,20 @@ class Event:
     def time(self):
         return self._time
 
-    def serialized(self):
-        raise NotImplementedError
-
     def process_with(self, monitor):
         raise NotImplementedError
 
-    @classmethod
-    def event_type(cls):
+    @staticmethod
+    def event_type():
         raise NotImplementedError
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         raise NotImplementedError
 
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
+    @staticmethod
+    def decode_with(decoder, encoded_event):
+        raise NotImplementedError
+
+    def serialized(self):
         raise NotImplementedError

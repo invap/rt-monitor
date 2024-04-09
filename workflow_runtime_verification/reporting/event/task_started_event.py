@@ -8,12 +8,12 @@ class TaskStartedEvent(TaskEvent):
     def process_with(self, monitor):
         return monitor.process_task_started(self)
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         return "task_started"
 
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
+    @staticmethod
+    def decode_with(decoder, encoded_event):
         return decoder.decode_task_started_event(encoded_event)
 
     def serialized(self):

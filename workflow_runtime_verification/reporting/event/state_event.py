@@ -1,14 +1,14 @@
 from workflow_runtime_verification.reporting.event.event import Event
 
 
-class WorkflowEvent(Event):
+class StateEvent(Event):
     def __init__(self, time) -> None:
         super().__init__(time)
 
     @staticmethod
     def event_type():
-        return "workflow_event"
+        return "state_event"
 
     @staticmethod
     def decode_with(decoder, encoded_event):
-        return decoder.decode_workflow_event(encoded_event)
+        return decoder.decode_state_event(encoded_event)
