@@ -1,31 +1,19 @@
 from workflow_runtime_verification.errors import InvalidEventE
-from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
-    CheckpointReachedEvent,
-)
-from workflow_runtime_verification.reporting.event.clock_pause_event import ClockPauseEvent
-from workflow_runtime_verification.reporting.event.clock_reset_event import ClockResetEvent
-from workflow_runtime_verification.reporting.event.clock_resume_event import ClockResumeEvent
-from workflow_runtime_verification.reporting.event.clock_start_event import ClockStartEvent
-from workflow_runtime_verification.reporting.event.component_event import (
-    ComponentEvent,
-)
-from workflow_runtime_verification.reporting.event.declare_clock_event import DeclareClockEvent
-from workflow_runtime_verification.reporting.event.declare_variable_event import (
-    DeclareVariableEvent,
-)
-from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
-from workflow_runtime_verification.reporting.event.state_event import StateEvent
-from workflow_runtime_verification.reporting.event.task_finished_event import (
-    TaskFinishedEvent,
-)
-from workflow_runtime_verification.reporting.event.task_started_event import (
-    TaskStartedEvent,
-)
 from workflow_runtime_verification.reporting.event.timed_event import TimedEvent
-from workflow_runtime_verification.reporting.event.variable_value_assigned_event import (
-    VariableValueAssignedEvent,
-)
+from workflow_runtime_verification.reporting.event.state_event import StateEvent
+from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
 from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
+from workflow_runtime_verification.reporting.event.declare_clock_event import DeclareClockEvent
+from workflow_runtime_verification.reporting.event.clock_start_event import ClockStartEvent
+from workflow_runtime_verification.reporting.event.clock_pause_event import ClockPauseEvent
+from workflow_runtime_verification.reporting.event.clock_resume_event import ClockResumeEvent
+from workflow_runtime_verification.reporting.event.clock_reset_event import ClockResetEvent
+from workflow_runtime_verification.reporting.event.declare_variable_event import DeclareVariableEvent
+from workflow_runtime_verification.reporting.event.variable_value_assigned_event import VariableValueAssignedEvent
+from workflow_runtime_verification.reporting.event.task_started_event import TaskStartedEvent
+from workflow_runtime_verification.reporting.event.task_finished_event import TaskFinishedEvent
+from workflow_runtime_verification.reporting.event.checkpoint_reached_event import CheckpointReachedEvent
+from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
 
 
 class EventDecoder:
