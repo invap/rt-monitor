@@ -22,56 +22,56 @@ class EventDecoder:
         event_type = EventDecoder._decode_event_type(encoded_event)
         match event_type:
             case "timed_event":
-                return TimedEvent.decode_with(encoded_event)
+                return TimedEvent.decode_with(EventDecoder, encoded_event)
             case "state_event":
-                return StateEvent.decode_with(encoded_event)
+                return StateEvent.decode_with(EventDecoder, encoded_event)
             case "component_event":
-                return ComponentEvent.decode_with(encoded_event)
+                return ComponentEvent.decode_with(EventDecoder, encoded_event)
             case "workflow_event":
-                return WorkflowEvent.decode_with(encoded_event)
+                return WorkflowEvent.decode_with(EventDecoder, encoded_event)
             case "invalid":
-                return InvalidEvent.decode_with(encoded_event)
+                return InvalidEvent.decode_with(EventDecoder, encoded_event)
 
     @staticmethod
     def decode_timed_event(encoded_event):
         timed_event_type = EventDecoder._decode_timed_event_type(encoded_event)
         match timed_event_type:
             case "declare_clock":
-                return DeclareClockEvent.decode_with(encoded_event)
+                return DeclareClockEvent.decode_with(EventDecoder, encoded_event)
             case "clock_start":
-                return ClockStartEvent.decode_with(encoded_event)
+                return ClockStartEvent.decode_with(EventDecoder, encoded_event)
             case "clock_pause":
-                return ClockPauseEvent.decode_with(encoded_event)
+                return ClockPauseEvent.decode_with(EventDecoder, encoded_event)
             case "clock_resume":
-                return ClockResumeEvent.decode_with(encoded_event)
+                return ClockResumeEvent.decode_with(EventDecoder, encoded_event)
             case "clock_reset":
-                return ClockResetEvent.decode_with(encoded_event)
+                return ClockResetEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(encoded_event)
+                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
 
     @staticmethod
     def decode_state_event(encoded_event):
         state_event_type = EventDecoder._decode_state_event_type(encoded_event)
         match state_event_type:
             case "declare_variable":
-                return DeclareVariableEvent.decode_with(encoded_event)
+                return DeclareVariableEvent.decode_with(EventDecoder, encoded_event)
             case "variable_value_assigned":
-                return VariableValueAssignedEvent.decode_with(encoded_event)
+                return VariableValueAssignedEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(encoded_event)
+                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
 
     @staticmethod
     def decode_workflow_event(encoded_event):
         workflow_event_type = EventDecoder._decode_workflow_event_type(encoded_event)
         match workflow_event_type:
             case "task_started":
-                return TaskStartedEvent.decode_with(encoded_event)
+                return TaskStartedEvent.decode_with(EventDecoder, encoded_event)
             case "task_finished":
-                return TaskFinishedEvent.decode_with(encoded_event)
+                return TaskFinishedEvent.decode_with(EventDecoder, encoded_event)
             case "checkpoint_reached":
-                return CheckpointReachedEvent.decode_with(encoded_event)
+                return CheckpointReachedEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(encoded_event)
+                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
 
     @staticmethod
     def decode_declare_clock_event(encoded_event):

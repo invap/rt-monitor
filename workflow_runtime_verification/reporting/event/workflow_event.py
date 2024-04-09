@@ -1,5 +1,4 @@
 from workflow_runtime_verification.reporting.event.event import Event
-from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
 class WorkflowEvent(Event):
@@ -11,5 +10,5 @@ class WorkflowEvent(Event):
         return "workflow_event"
 
     @staticmethod
-    def decode_with(encoded_event):
-        return EventDecoder.decode_workflow_event(encoded_event)
+    def decode_with(decoder, encoded_event):
+        return decoder.decode_workflow_event(encoded_event)

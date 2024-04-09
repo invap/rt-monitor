@@ -1,5 +1,4 @@
 from workflow_runtime_verification.reporting.event.timed_event import TimedEvent
-from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
 class DeclareClockEvent(TimedEvent):
@@ -14,12 +13,12 @@ class DeclareClockEvent(TimedEvent):
         return monitor.process_declare_clock(self)
 
     @staticmethod
-    def event_subtype(s):
+    def event_subtype():
         return "declare_clock"
 
     @staticmethod
-    def decode_with(encoded_event):
-        return EventDecoder.decode_declare_clock_event(encoded_event)
+    def decode_with(decoder, encoded_event):
+        return decoder.decode_declare_clock_event(encoded_event)
 
     def serialized(self):
         return f"{self.time()},{self.event_type()},{self.event_subtype()},{self.clock_name()}"

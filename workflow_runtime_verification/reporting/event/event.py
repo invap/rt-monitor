@@ -17,7 +17,7 @@ class Event:
         raise NotImplementedError
 
     @staticmethod
-    def decode_with(encoded_event):
+    def decode_with(decoder, encoded_event):
         raise NotImplementedError
 
     def serialized(self):

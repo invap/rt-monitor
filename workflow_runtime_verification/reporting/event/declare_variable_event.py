@@ -1,5 +1,4 @@
 from workflow_runtime_verification.reporting.event.state_event import StateEvent
-from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
 class DeclareVariableEvent(StateEvent):
@@ -22,8 +21,8 @@ class DeclareVariableEvent(StateEvent):
         return "declare_variable"
 
     @staticmethod
-    def decode_with(encoded_event):
-        return EventDecoder.decode_declare_variable_event(encoded_event)
+    def decode_with(decoder, encoded_event):
+        return decoder.decode_declare_variable_event(encoded_event)
 
     def serialized(self):
         return f"{self.time()},{self.event_type()},{self.event_subtype()},{self.variable_name()},{self.variable_type()}"

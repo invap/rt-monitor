@@ -1,5 +1,4 @@
 from workflow_runtime_verification.reporting.event.event import Event
-from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
 class NoSubtypeError(Exception):
@@ -30,8 +29,8 @@ class ComponentEvent(Event):
         raise NoSubtypeError
 
     @staticmethod
-    def decode_with(encoded_event):
-        return EventDecoder.decode_component_event(encoded_event)
+    def decode_with(decoder, encoded_event):
+        return decoder.decode_component_event(encoded_event)
 
     def serialized(self):
         return (

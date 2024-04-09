@@ -1,6 +1,4 @@
 from workflow_runtime_verification.reporting.event.event import Event
-from workflow_runtime_verification.reporting.event_decoder import EventDecoder
-
 
 class TimedEvent(Event):
     def __init__(self, time) -> None:
@@ -11,5 +9,5 @@ class TimedEvent(Event):
         return "timed_event"
 
     @staticmethod
-    def decode_with(encoded_event):
-        return EventDecoder.decode_timed_event(encoded_event)
+    def decode_with(decoder, encoded_event):
+        return decoder.decode_timed_event(encoded_event)

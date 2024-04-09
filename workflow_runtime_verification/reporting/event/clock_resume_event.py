@@ -1,5 +1,4 @@
 from workflow_runtime_verification.reporting.event.timed_event import TimedEvent
-from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
 class ClockResumeEvent(TimedEvent):
@@ -18,8 +17,8 @@ class ClockResumeEvent(TimedEvent):
         return "clock_resume"
 
     @staticmethod
-    def decode_with(encoded_event):
-        return EventDecoder.decode_clock_resume_event(encoded_event)
+    def decode_with(decoder, encoded_event):
+        return decoder.decode_clock_resume_event(encoded_event)
 
     def serialized(self):
         return f"{self.time()},{self.event_type()},{self.event_subtype()},{self.clock_name()}"
