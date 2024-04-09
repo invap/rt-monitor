@@ -1,6 +1,7 @@
 from workflow_runtime_verification.reporting.event.workflow_event import (
     WorkflowEvent,
 )
+from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
 class CheckpointReachedEvent(WorkflowEvent):
@@ -14,13 +15,13 @@ class CheckpointReachedEvent(WorkflowEvent):
     def process_with(self, monitor):
         return monitor.process_checkpoint_reached(self)
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         return "checkpoint_reached"
 
-    @classmethod
-    def decode_with(cls, decoder, encoded_event):
-        return decoder.decode_checkpoint_reached_event(encoded_event)
+    @staticmethod
+    def decode_with(encoded_event):
+        return EventDecoder.decode_checkpoint_reached_event(encoded_event)
 
     def serialized(self):
         return f"{self.time()},{self.event_type()},{self.event_subtype()},{self.name()}"

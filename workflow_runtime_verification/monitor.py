@@ -4,6 +4,7 @@ from collections.abc import Iterable
 import z3
 
 from logging_configuration import LoggingLevel
+from workflow_runtime_verification.clock import Clock
 from workflow_runtime_verification.errors import (
     UndeclaredVariable,
     UnboundVariables,
@@ -18,6 +19,7 @@ from workflow_runtime_verification.errors import (
     FormulaError,
     EventError,
     AbortRun,
+    AlreadyDeclaredClock, UndeclaredClock, InvalidEventE,
 )
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
@@ -31,18 +33,18 @@ class Monitor:
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
     def __init__(self, workflow_specification, component_dictionary):
-        self._event_decoder = EventDecoder()
         self._component_dictionary = component_dictionary
         self._workflow_specification = workflow_specification
         self._workflow_state = set()
+        self._timed_state = {}
         self._execution_state = {}
 
     def run(
-        self,
-        event_report_file,
-        pause_event=None,
-        stop_event=None,
-        event_processed_callback=None,
+            self,
+            event_report_file,
+            pause_event=None,
+            stop_event=None,
+            event_processed_callback=None,
     ):
         try:
             is_a_valid_report = True
@@ -54,7 +56,7 @@ class Monitor:
                 if self._event_was_set(stop_event):
                     break
 
-                decoded_event = self._event_decoder.decode(line.strip())
+                decoded_event = EventDecoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 is_a_valid_report = decoded_event.process_with(self)
 
@@ -143,6 +145,17 @@ class Monitor:
             logging.critical(f"Analysis FAILED.")
             raise EventError(task_finished_event)
 
+    def process_checkpoint_reached(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+
+        if self._workflow_specification.global_checkpoint_exists(checkpoint_name):
+            return self._process_global_checkpoint_reached(checkpoint_reached_event)
+
+        if self._workflow_specification.local_checkpoint_exists(checkpoint_name):
+            return self._process_local_checkpoint_reached(checkpoint_reached_event)
+
+        raise CheckpointDoesNotExist(checkpoint_name)
+
     def process_declare_variable(self, declare_variable_event):
         variable_name = declare_variable_event.variable_name()
         variable_type = declare_variable_event.variable_type()
@@ -166,17 +179,6 @@ class Monitor:
         ]
         return True
 
-    def process_checkpoint_reached(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-
-        if self._workflow_specification.global_checkpoint_exists(checkpoint_name):
-            return self._process_global_checkpoint_reached(checkpoint_reached_event)
-
-        if self._workflow_specification.local_checkpoint_exists(checkpoint_name):
-            return self._process_local_checkpoint_reached(checkpoint_reached_event)
-
-        raise CheckpointDoesNotExist(checkpoint_name)
-
     def process_component_event(self, component_event):
         component_data = component_event.data()
         component_name = component_event.component_name()
@@ -193,6 +195,54 @@ class Monitor:
                 f"Function [ {e.getFunctionName()} ] is not implemented for component [ {component_name} ]."
             )
             raise EventError(component_event)
+
+    def process_declare_clock(self, declare_clock_event):
+        clock_name = declare_clock_event.clock_name()
+
+        if clock_name in self._timed_state:
+            raise AlreadyDeclaredClock(clock_name)
+
+        self._timed_state[clock_name] = Clock()
+        return True
+
+    def process_clock_start(self, clock_start_event):
+        clock_name = clock_start_event.clock_name()
+
+        if clock_name not in self._timed_state:
+            raise UndeclaredClock(clock_name)
+
+        self._timed_state[clock_name].start(clock_start_event.time())
+        return True
+
+    def process_clock_pause(self, clock_pause_event):
+        clock_name = clock_pause_event.clock_name()
+
+        if clock_name not in self._timed_state:
+            raise UndeclaredClock(clock_name)
+
+        self._timed_state[clock_name].pause(clock_pause_event.time())
+        return True
+
+    def process_clock_resume(self, clock_resume_event):
+        clock_name = clock_resume_event.clock_name()
+
+        if clock_name not in self._timed_state:
+            raise UndeclaredClock(clock_name)
+
+        self._timed_state[clock_name].resume(clock_resume_event.time())
+        return True
+
+    def process_clock_reset(self, clock_reset_event):
+        clock_name = clock_reset_event.clock_name()
+
+        if clock_name not in self._timed_state:
+            raise UndeclaredClock(clock_name)
+
+        self._timed_state[clock_name].reset(clock_reset_event.time())
+        return True
+
+    def process_invalid_event(self, invalid_event):
+        raise InvalidEventE(invalid_event)
 
     def stop_component_monitoring(self):
         for component_name in self._component_dictionary:
@@ -211,7 +261,7 @@ class Monitor:
         self._workflow_state.add(task_name + Monitor.TASK_FINISHED_SUFFIX)
 
     def _update_workflow_state_with_reached_global_checkpoint(
-        self, checkpoint_reached_event
+            self, checkpoint_reached_event
     ):
         checkpoint_name = checkpoint_reached_event.name()
 
@@ -223,7 +273,7 @@ class Monitor:
         self._workflow_state.add(checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
     def _update_workflow_state_with_reached_local_checkpoint(
-        self, checkpoint_reached_event, task_name
+            self, checkpoint_reached_event, task_name
     ):
         checkpoint_name = checkpoint_reached_event.name()
 
@@ -238,7 +288,7 @@ class Monitor:
 
     @classmethod
     def _is_property_satisfied(
-        cls, event_time, program_state, component_dictionary, logic_property
+            cls, event_time, program_state, component_dictionary, logic_property
     ):
         cls._log_property_analysis(f"Checking property {logic_property[2]}...")
         try:
@@ -279,7 +329,7 @@ class Monitor:
 
     @classmethod
     def _are_all_properties_satisfied(
-        cls, event_time, program_state, component_dictionary, logic_properties
+            cls, event_time, program_state, component_dictionary, logic_properties
     ):
         neg_properties_sat = False
         for logic_property in logic_properties:
@@ -344,7 +394,7 @@ class Monitor:
                 assumption = "(assert (and\n"
                 for i in range(0, int(vartype[1])):
                     assumption = (
-                        assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
+                            assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
                     )
                 assumption = assumption + ") )\n"
             case 3:
@@ -352,8 +402,8 @@ class Monitor:
                 for i in range(0, int(vartype[1])):
                     for j in range(0, int(vartype[2])):
                         assumption = (
-                            assumption
-                            + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
+                                assumption
+                                + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
                         )
                 assumption = assumption + ") )\n"
             case 4:
@@ -362,8 +412,8 @@ class Monitor:
                     for j in range(0, int(vartype[2])):
                         for k in range(0, int(vartype[3])):
                             assumption = (
-                                assumption
-                                + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
+                                    assumption
+                                    + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
                             )
                 assumption = assumption + ") )\n"
             case _:
@@ -393,7 +443,7 @@ class Monitor:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
                         if any(
-                            [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                                [isinstance(x, NoValue) for x in dictionary[varname][1]]
                         ):
                             raise NoValueAssignedToVariable(varname)
                     elif isinstance(dictionary[varname][1], NoValue):
@@ -428,7 +478,7 @@ class Monitor:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
                         if any(
-                            [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                                [isinstance(x, NoValue) for x in dictionary[varname][1]]
                         ):
                             raise NoValueAssignedToVariable(varname)
                     elif isinstance(dictionary[varname][1], NoValue):
@@ -531,14 +581,14 @@ class Monitor:
             for preceding_element in preceding_elements
         )
         is_starting_element_and_state_is_empty = (
-            self._workflow_specification.is_starting_element(element_name)
-            and self._workflow_state == set()
+                self._workflow_specification.is_starting_element(element_name)
+                and self._workflow_state == set()
         )
 
         return (
-            follows_a_corresponding_finishing_task
-            or follows_a_corresponding_reached_checkpoint
-            or is_starting_element_and_state_is_empty
+                follows_a_corresponding_finishing_task
+                or follows_a_corresponding_reached_checkpoint
+                or is_starting_element_and_state_is_empty
         )
 
     def _task_had_started(self, task_name):
