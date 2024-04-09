@@ -21,12 +21,12 @@ class ComponentEvent(Event):
     def data(self):
         return self._data
 
-    @classmethod
-    def event_type(cls):
+    @staticmethod
+    def event_type():
         return "component_event"
 
-    @classmethod
-    def event_subtype(cls):
+    @staticmethod
+    def event_subtype():
         raise NoSubtypeError
 
     @staticmethod

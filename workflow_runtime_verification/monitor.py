@@ -19,7 +19,9 @@ from workflow_runtime_verification.errors import (
     FormulaError,
     EventError,
     AbortRun,
-    AlreadyDeclaredClock, UndeclaredClock, InvalidEventE,
+    AlreadyDeclaredClock,
+    UndeclaredClock,
+    InvalidEventE,
 )
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 

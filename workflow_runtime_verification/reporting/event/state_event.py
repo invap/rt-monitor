@@ -11,9 +11,5 @@ class StateEvent(Event):
         return "state_event"
 
     @staticmethod
-    def event_subtype():
-        raise NotImplementedError
-
-    @staticmethod
     def decode_with(encoded_event):
         return EventDecoder.decode_state_event(encoded_event)

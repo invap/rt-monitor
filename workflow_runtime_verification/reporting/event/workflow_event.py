@@ -11,9 +11,5 @@ class WorkflowEvent(Event):
         return "workflow_event"
 
     @staticmethod
-    def event_subtype():
-        raise NotImplementedError
-
-    @staticmethod
     def decode_with(encoded_event):
         return EventDecoder.decode_workflow_event(encoded_event)

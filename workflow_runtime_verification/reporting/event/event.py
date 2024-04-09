@@ -5,9 +5,6 @@ class Event:
     def time(self):
         return self._time
 
-    def serialized(self):
-        raise NotImplementedError
-
     def process_with(self, monitor):
         raise NotImplementedError
 
@@ -21,4 +18,7 @@ class Event:
 
     @staticmethod
     def decode_with(encoded_event):
+        raise NotImplementedError
+
+    def serialized(self):
         raise NotImplementedError

@@ -1,6 +1,4 @@
-from workflow_runtime_verification.reporting.event.timed_event import (
-    TimedEvent,
-)
+from workflow_runtime_verification.reporting.event.timed_event import TimedEvent
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 

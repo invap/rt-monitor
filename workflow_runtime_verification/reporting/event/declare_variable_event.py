@@ -1,6 +1,4 @@
-from workflow_runtime_verification.reporting.event.state_event import (
-    StateEvent,
-)
+from workflow_runtime_verification.reporting.event.state_event import StateEvent
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
