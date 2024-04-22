@@ -1,6 +1,6 @@
 import unittest
 
-from attic.logic_property import LogicProperty
+from workflow_runtime_verification.specification.logic_property import LogicProperty
 from workflow_runtime_verification.specification.workflow_node.task_specification import (
     TaskSpecification,
 )

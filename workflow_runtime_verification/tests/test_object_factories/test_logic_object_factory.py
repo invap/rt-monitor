@@ -1,4 +1,4 @@
-from attic.logic_property import LogicProperty
+from workflow_runtime_verification.specification.logic_property import LogicProperty
 from workflow_runtime_verification.tests.test_object_factories.test_name_and_value_factory import (
     TestNameAndValueFactory,
 )

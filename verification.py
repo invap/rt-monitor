@@ -13,24 +13,10 @@ from workflow_runtime_verification.specification.workflow_specification import (
 
 
 class Verification:
-    @classmethod
-    def new_for_workflow_in_file(cls, specification_path):
-        specification_directory = cls._unpack_specification_file(specification_path)
-
-        workflow_specification = cls._read_workflow_specification_from(
-            specification_directory
-        )
-        components_specification = cls._read_components_specification_from(
-            specification_directory
-        )
-
-        return cls(workflow_specification, components_specification)
-
     def __init__(self, workflow_specification, components_specification):
         super().__init__()
-
         self._monitor = Monitor(workflow_specification, components_specification)
-        self._set_up_logging()
+        Verification._set_up_logging()
 
     def run_for_report(
         self,
@@ -61,21 +47,36 @@ class Verification:
     def stop_component_monitoring(self):
         self._monitor.stop_component_monitoring()
 
-    def _set_up_logging(self):
+    @staticmethod
+    def new_for_workflow_in_file(specification_path):
+        specification_directory = Verification._unpack_specification_file(specification_path)
+
+        workflow_specification = Verification._read_workflow_specification_from(
+            specification_directory
+        )
+        components_specification = Verification._read_components_specification_from(
+            specification_directory
+        )
+
+        return Verification(workflow_specification, components_specification)
+
+    @staticmethod
+    def _set_up_logging():
         logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
         logging.basicConfig(
             stream=sys.stdout,
-            level=self._default_logging_level(),
-            datefmt=self._date_logging_format(),
-            format=self._logging_format(),
+            level=Verification._default_logging_level(),
+            datefmt=Verification._date_logging_format(),
+            format=Verification._logging_format(),
             encoding="utf-8",
         )
 
-    def _configure_logging_destination(self, logging_destination):
+    @staticmethod
+    def _configure_logging_destination(logging_destination):
         logging.getLogger().handlers.clear()
 
         formatter = logging.Formatter(
-            self._logging_format(), datefmt=self._date_logging_format()
+            Verification._logging_format(), datefmt=Verification._date_logging_format()
         )
 
         match logging_destination:
@@ -89,20 +90,24 @@ class Verification:
         handler.setFormatter(formatter)
         logging.getLogger().addHandler(handler)
 
-    def _configure_logging_level(self, logging_level):
+    @staticmethod
+    def _configure_logging_level(logging_level):
         logging.getLogger().setLevel(logging_level)
 
-    def _default_logging_level(self):
+    @staticmethod
+    def _default_logging_level():
         return LoggingLevel.INFO
 
-    def _date_logging_format(self):
+    @staticmethod
+    def _date_logging_format():
         return "%d/%m/%Y %H:%M:%S"
 
-    def _logging_format(self):
+    @staticmethod
+    def _logging_format():
         return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
 
-    @classmethod
-    def _unpack_specification_file(cls, file_path):
+    @staticmethod
+    def _unpack_specification_file(file_path):
         split_file_path = os.path.split(file_path)
         file_directory = split_file_path[0]
         file_name = split_file_path[1]
@@ -121,24 +126,24 @@ class Verification:
         shutil.unpack_archive(file_path, specification_directory)
         return specification_directory
 
-    @classmethod
-    def _read_workflow_specification_from(cls, specification_directory):
+    @staticmethod
+    def _read_workflow_specification_from(specification_directory):
         file_name = "workflow.desc"
         path = os.path.join(specification_directory, file_name)
 
         file = open(path, "r")
         return WorkflowSpecification.new_from_open_file(file)
 
-    @classmethod
-    def _read_components_specification_from(cls, specification_directory):
+    @staticmethod
+    def _read_components_specification_from(specification_directory):
         file_name = "components.desc"
         path = os.path.join(specification_directory, file_name)
 
         file = open(path, "r")
-        return cls._new_component_map_from_open_file(file)
+        return Verification._new_component_map_from_open_file(file)
 
-    @classmethod
-    def _new_component_map_from_open_file(cls, component_file):
+    @staticmethod
+    def _new_component_map_from_open_file(component_file):
         component_map = {}
 
         for line in component_file:

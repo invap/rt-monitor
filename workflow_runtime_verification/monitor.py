@@ -1,15 +1,13 @@
 import logging
 from collections.abc import Iterable
 
-import z3
+from z3 import z3
 
 from logging_configuration import LoggingLevel
 from workflow_runtime_verification.clock import Clock
 from workflow_runtime_verification.errors import (
     UndeclaredVariable,
-    UnboundVariables,
     AlreadyDeclaredVariable,
-    NoValueAssignedToVariable,
     NoValue,
     AnalysisFailed,
     CheckpointDoesNotExist,
@@ -22,6 +20,9 @@ from workflow_runtime_verification.errors import (
     AlreadyDeclaredClock,
     UndeclaredClock,
     InvalidEventE,
+    UnboundVariables,
+    NoValueAssignedToVariable,
+    ClockWasNotStarted, ClockWasAlreadyStarted, ClockWasAlreadyPaused, ClockWasNotPaused,
 )
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
@@ -54,8 +55,8 @@ class Monitor:
                 if not is_a_valid_report:
                     break
 
-                self._pause_verification_if_requested(pause_event, stop_event)
-                if self._event_was_set(stop_event):
+                Monitor._pause_verification_if_requested(pause_event, stop_event)
+                if Monitor._event_was_set(stop_event):
                     break
 
                 decoded_event = EventDecoder.decode(line.strip())
@@ -71,26 +72,42 @@ class Monitor:
                         f"[ {decoded_event.serialized()} ]"
                     )
 
-            if self._event_was_set(stop_event):
+            if Monitor._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
             elif not is_a_valid_report:
-                self.__class__._log_property_analysis(
+                Monitor._log_property_analysis(
                     f"Verification completed UNSUCCESSFULLY."
                 )
             else:
-                self.__class__._log_property_analysis(
+                Monitor._log_property_analysis(
                     f"Verification completed SUCCESSFULLY."
                 )
-
             return is_a_valid_report
+        # Clock related exceptions
+        except AlreadyDeclaredClock as e:
+            logging.error(f"Clock [ {e.get_clockname()} ] was already declared.")
+        except UndeclaredClock as e:
+            logging.error(f"Clock [ {e.get_clockname()} ] has not been declared.")
+        except ClockWasAlreadyStarted as e:
+            logging.error(f"Clock [ {e.get_clockname()} ] was not started.")
+        except ClockWasAlreadyPaused as e:
+            logging.error(f"Clock [ {e.get_clockname()} ] was already paused.")
+        except ClockWasNotPaused as e:
+            logging.error(f"Clock [ {e.get_clockname()} ] was not paused.")
+        # Task related exceptions
         except TaskDoesNotExist as e:
-            logging.error(f"Task [ {e.getTaskName()} ] does not exist.")
+            logging.error(f"Task [ {e.get_task_name()} ] does not exist.")
+        # Checkpoint related exceptions
         except CheckpointDoesNotExist as e:
-            logging.error(f"Checkpoint [ {e.getCheckpointName()} ] does not exist.")
+            logging.error(f"Checkpoint [ {e.get_checkpoint_name()} ] does not exist.")
+        # Execution state related exceptions
         except AlreadyDeclaredVariable as e:
-            logging.error(f"Variable [ {e.getVarname()} ] is already declared.")
+            logging.error(f"Variable [ {e.get_varnames()} ] is already declared.")
+        except UndeclaredVariable as e:
+            logging.error(f"Variable [ {e.get_varnames()} ] was not declared.")
+        # Events related exceptions
         except EventError as e:
-            logging.critical(f"Event [ {e.getEvent()} ] produced an error.")
+            logging.critical(f"Event [ {e.get_event()} ] produced an error.")
 
         logging.critical(f"Runtime monitoring process ABORTED.")
         raise AbortRun()
@@ -107,10 +124,8 @@ class Monitor:
             task_name
         )
         try:
-            preconditions_are_met = self.__class__._are_all_properties_satisfied(
+            preconditions_are_met = self._are_all_properties_satisfied(
                 task_started_event.time(),
-                self._execution_state,
-                self._component_dictionary,
                 task_specification.preconditions(),
             )
 
@@ -133,10 +148,8 @@ class Monitor:
             task_name
         )
         try:
-            postconditions_are_met = self.__class__._are_all_properties_satisfied(
+            postconditions_are_met = self._are_all_properties_satisfied(
                 task_finished_event.time(),
-                self._execution_state,
-                self._component_dictionary,
                 task_specification.postconditions(),
             )
 
@@ -194,7 +207,7 @@ class Monitor:
             return True
         except FunctionNotImplemented as e:
             logging.error(
-                f"Function [ {e.getFunctionName()} ] is not implemented for component [ {component_name} ]."
+                f"Function [ {e.get_function_name()} ] is not implemented for component [ {component_name} ]."
             )
             raise EventError(component_event)
 
@@ -204,7 +217,7 @@ class Monitor:
         if clock_name in self._timed_state:
             raise AlreadyDeclaredClock(clock_name)
 
-        self._timed_state[clock_name] = Clock()
+        self._timed_state[clock_name] = Clock(clock_name)
         return True
 
     def process_clock_start(self, clock_start_event):
@@ -288,67 +301,162 @@ class Monitor:
             task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX
         )
 
-    @classmethod
-    def _is_property_satisfied(
-            cls, event_time, program_state, component_dictionary, logic_property
-    ):
-        cls._log_property_analysis(f"Checking property {logic_property[2]}...")
+    def _is_property_satisfied(self, event_time, logic_property):
+        Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
+        negation_is_sat = logic_property.eval_with(event_time, self)
+        if not negation_is_sat:
+            Monitor._log_property_analysis(f"Property {logic_property.filename()} PASSED")
+        else:
+            Monitor._log_property_analysis(f"Property {logic_property.filename()} FAILED")
+        return negation_is_sat
+
+    def eval_smt2(self, event_time, logic_property):
         try:
-            declarations = cls._build_declarations(
-                program_state, component_dictionary, logic_property
-            )
-            assumptions = cls._build_assumptions(
-                program_state, component_dictionary, logic_property
-            )
-            not_logic_property_assert = f"(assert (not \n {logic_property[1]} \n))"
-            spec = declarations + "\n" + assumptions + "\n" + not_logic_property_assert
+            declarations = self._smt2_build_declarations(logic_property)
+            assumptions = self._smt2_build_assumptions(logic_property)
+            spec = (f"{"".join([decl + "\n" for decl in declarations])}\n" +
+                    f"{"".join([ass + "\n" for ass in assumptions])}\n" +
+                    f"(assert (not {logic_property.formula()}))\n")
             temp_solver = z3.Solver()
             temp_solver.from_string(spec)
             negation_is_sat = z3.sat == temp_solver.check()
-            if not negation_is_sat:
-                message = f"Property {logic_property[2]} PASSED"
-                cls._log_property_analysis(message)
-            else:
-                cls._log_property_analysis(f"Property {logic_property[2]} FAILED")
-                spec_filename = logic_property[2] + "@" + str(event_time) + ".smt2"
+            if negation_is_sat:
+                # Output counterexample as specification
+                spec_filename = logic_property.filename() + "@" + str(event_time) + ".smt2"
                 spec_file = open(spec_filename, "w")
                 spec_file.write(spec)
                 spec_file.close()
                 logging.info(f"Specification dumped: [ {spec_filename} ]")
             return negation_is_sat
         except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.getVarname()} ] has no value.")
-            raise FormulaError(logic_property[1])
+            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
+            raise FormulaError(logic_property.formula())
         except UnboundVariables as e:
-            logging.error(
-                f"Unbounded variables [ {e.getVars()} ] in formula [ {logic_property[2]} ]"
-            )
-            raise FormulaError(logic_property[1])
+            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {logic_property.filename()} ]")
+            raise FormulaError(logic_property.formula())
 
-    @classmethod
-    def _log_property_analysis(cls, message):
-        logging.log(LoggingLevel.PROPERTY_ANALYSIS, message)
+    def _smt2_build_declarations(self, logic_property):
+        declarations = []
+        # Building a set from the frozen set containing the variables occurring in the formula
+        variables = set()
+        for var in logic_property.variables():
+            variables.add(var)
+        for varname in self._execution_state:
+            if varname in variables:
+                if isinstance(self._execution_state[varname][1], NoValue):
+                    raise NoValueAssignedToVariable(varname)
+                try:
+                    declarations.append(
+                        f"{Monitor._smt2_c_type_2_smt2_type(varname, self._execution_state[varname][0])}")
+                except TypeError:
+                    logging.error(
+                        f"Variable type error [ {varname: self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                    raise FormulaError(logic_property.formula())
+                variables.remove(varname)
+        for device in self._component_dictionary:
+            dictionary = self._component_dictionary[device].state()
+            for varname in dictionary:
+                if varname in variables:
+                    # The value of the variable of the state might be iterable.
+                    if isinstance(dictionary[varname][1], Iterable):
+                        if any(
+                                [isinstance(x, NoValue) for x in dictionary[varname][1]]
+                        ):
+                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
+                    try:
+                        declarations.append(f"{Monitor._smt2_c_type_2_smt2_type(varname, dictionary[varname][0])}")
+                    except TypeError:
+                        logging.error(
+                            f"Variable type error [ {varname: self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                        raise FormulaError(logic_property.formula())
+                    variables.remove(varname)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return declarations
 
-    @classmethod
-    def _are_all_properties_satisfied(
-            cls, event_time, program_state, component_dictionary, logic_properties
-    ):
-        neg_properties_sat = False
-        for logic_property in logic_properties:
-            if neg_properties_sat:
-                break
-            try:
-                neg_properties_sat = cls._is_property_satisfied(
-                    event_time, program_state, component_dictionary, logic_property
-                )
-            except FormulaError as e:
-                logging.error(f"Error in formula [ {e.getFormula} ]")
-                raise AnalysisFailed()
+    def _smt2_build_assumptions(self, logic_property):
+        assumptions = []
+        # Building a set from the frozen set containing the variables occurring in the formula
+        variables = set()
+        for var in logic_property.variables():
+            variables.add(var)
+        for varname in self._execution_state:
+            if varname in variables:
+                if isinstance(self._execution_state[varname][1], NoValue):
+                    raise NoValueAssignedToVariable(varname)
+                try:
+                    assumptions.append(Monitor._smt2_build_assumption(
+                        varname, self._execution_state[varname][0], self._execution_state[varname][1]
+                    ))
+                except TypeError:
+                    logging.error(
+                        f"Variable type error [ {varname}: {self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                    raise FormulaError(logic_property.formula())
+                variables.remove(varname)
+        for device in self._component_dictionary:
+            dictionary = self._component_dictionary[device].state()
+            for varname in dictionary:
+                if varname in variables:
+                    # The value of the variable of the state might be iterable.
+                    if isinstance(dictionary[varname][1], Iterable):
+                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
+                    try:
+                        assumptions.append(Monitor._smt2_build_assumption(
+                            varname, dictionary[varname][0], dictionary[varname][1]
+                        ))
+                    except TypeError:
+                        logging.error(
+                            f"Variable type error [ {varname}: {self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                        raise FormulaError(logic_property.formula())
+                    variables.remove(varname)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return assumptions
 
-        return not neg_properties_sat
+    @staticmethod
+    def _smt2_build_assumption(varname, vartype, varvalue):
+        assumption = ""
+        match len(vartype):
+            case 1:
+                assumption = assumption + f"(assert (= {varname} {varvalue}))"
+            case 2:
+                assumption = "(assert (and\n"
+                for i in range(0, int(vartype[1])):
+                    assumption = (
+                            assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
+                    )
+                assumption = assumption + ") )"
+            case 3:
+                assumption = "(assert (and\n"
+                for i in range(0, int(vartype[1])):
+                    for j in range(0, int(vartype[2])):
+                        assumption = (
+                                assumption
+                                + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
+                        )
+                assumption = assumption + ") )"
+            case 4:
+                assumption = "(assert (and\n"
+                for i in range(0, int(vartype[1])):
+                    for j in range(0, int(vartype[2])):
+                        for k in range(0, int(vartype[3])):
+                            assumption = (
+                                    assumption
+                                    + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
+                            )
+                assumption = assumption + ") )"
+            case _:
+                raise TypeError()
 
-    @classmethod
-    def _c_type_2_z3_type(cls, varname, var_c_type):
+        return assumption
+
+    @staticmethod
+    def _smt2_c_type_2_smt2_type(varname, var_c_type):
         match var_c_type[0]:
             case "char_t":
                 return f"(declare-const {varname} Int)"
@@ -375,123 +483,141 @@ class Monitor:
             case "uint8_t[][]":
                 return f"(declare-const {varname} (Array Int (Array Int Int)))"
             case "uint8_t[][][]":
-                return (
-                    f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
-                )
+                return f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
             case _:
                 raise TypeError()
 
-    @classmethod
-    def _build_declaration(cls, varname, vartype):
-        declaration = f"{cls._c_type_2_z3_type(varname, vartype)}\n"
-        return declaration
+    @staticmethod
+    def eval_py(event_time, spec, filename):
+        locs = {}
+        exec(spec, globals(), locs)
+        negation_is_true = locs['result']
+        if negation_is_true:
+            # Output counterexample as specification
+            spec_filename = filename + "@" + str(event_time) + ".py"
+            spec_file = open(spec_filename, "w")
+            spec_file.write(spec)
+            spec_file.close()
+            logging.info(f"Specification dumped: [ {spec_filename} ]")
+        return negation_is_true
 
-    @classmethod
-    def _build_assumption(cls, varname, vartype, varvalue):
-        assumption = ""
-        match len(vartype):
-            case 1:
-                assumption = assumption + f"(assert (= {varname} {varvalue}))\n"
-            case 2:
-                assumption = "(assert (and\n"
-                for i in range(0, int(vartype[1])):
-                    assumption = (
-                            assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
-                    )
-                assumption = assumption + ") )\n"
-            case 3:
-                assumption = "(assert (and\n"
-                for i in range(0, int(vartype[1])):
-                    for j in range(0, int(vartype[2])):
-                        assumption = (
-                                assumption
-                                + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
-                        )
-                assumption = assumption + ") )\n"
-            case 4:
-                assumption = "(assert (and\n"
-                for i in range(0, int(vartype[1])):
-                    for j in range(0, int(vartype[2])):
-                        for k in range(0, int(vartype[3])):
-                            assumption = (
-                                    assumption
-                                    + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
-                            )
-                assumption = assumption + ") )\n"
-            case _:
-                raise TypeError()
+    def sympy_build_spec(self, event_time, logic_property):
+        try:
+            declarations = self._sympy_build_declarations(logic_property, event_time)
+            assumptions = self._py_build_assumptions(logic_property, event_time)
+            spec = (f"from sympy import Symbol\n" +
+                    f"{"".join([decl + "\n" for decl in declarations])}\n" +
+                    f"{"".join([ass + "\n" for ass in assumptions])}\n" +
+                    f"result = not {logic_property.formula()}\n")
+            return spec
+        except NoValueAssignedToVariable as e:
+            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
+            raise FormulaError(logic_property.formula())
+        except UnboundVariables as e:
+            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {logic_property.filename()} ]")
+            raise FormulaError(logic_property.formula())
 
-        return assumption
+    def py_build_spec(self, event_time, logic_property):
+        try:
+            assumptions = self._py_build_assumptions(logic_property, event_time)
+            spec = (f"{"".join([ass + "\n" for ass in assumptions])}\n" +
+                    f"result = not {logic_property.formula()}\n")
+            return spec
+        except NoValueAssignedToVariable as e:
+            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
+            raise FormulaError(logic_property.formula())
+        except UnboundVariables as e:
+            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {logic_property.filename()} ]")
+            raise FormulaError(logic_property.formula())
 
-    @classmethod
-    def _build_declarations(cls, program_state, component_dictionary, logic_property):
-        declarations = ""
+    def _sympy_build_declarations(self, logic_property, now):
+        declarations = []
         # Building a set from the frozen set containing the variables occurring in the formula
         variables = set()
-        for var in logic_property[0]:
+        for var in logic_property.variables():
             variables.add(var)
-        for varname in program_state:
+        for clock_name in self._timed_state:
+            if clock_name in variables:
+                if isinstance(self._timed_state[clock_name].get_time(now), NoValue):
+                    raise ClockWasNotStarted(clock_name)
+                declarations.append(f"{clock_name} = Symbol('{clock_name}', integer=True, positive=True)")
+                variables.remove(clock_name)
+        for varname in self._execution_state:
             if varname in variables:
-                if isinstance(program_state[varname][1], NoValue):
+                if isinstance(self._execution_state[varname][1], NoValue):
                     raise NoValueAssignedToVariable(varname)
-                declarations = declarations + cls._build_declaration(
-                    varname, program_state[varname][0]
-                )
+                try:
+                    declarations.append(
+                        f"{Monitor._sympy_c_type_2_sympy_type(varname, self._execution_state[varname][0])}")
+                except TypeError:
+                    logging.error(
+                        f"Variable type error [ {varname}: {self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                    raise FormulaError(logic_property.formula())
                 variables.remove(varname)
-        for device in component_dictionary:
-            dictionary = component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any(
-                                [isinstance(x, NoValue) for x in dictionary[varname][1]]
-                        ):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
-                    declarations = declarations + cls._build_declaration(
-                        varname, dictionary[varname][0]
-                    )
-                    variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
         return declarations
 
-    @classmethod
-    def _build_assumptions(cls, program_state, component_dictionary, logic_property):
-        assumptions = ""
+    @staticmethod
+    def _sympy_c_type_2_sympy_type(varname, var_c_type):
+        match var_c_type[0]:
+            case "char_t":
+                return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # -128 <= varname < 128
+            case "uint8_t":
+                return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # 0 <= varname < 255
+            case "int8_t":
+                return f"{varname} = Symbol('{varname}', integer=True)"  # -128 <= varname < 128
+            case "uint16_t":
+                return f"{varname} = Symbol('{varname}', integer=True, positive=True)\n"  # 0 <= varname < 65535
+            case "int16_t":
+                return f"{varname} = Symbol('{varname}', integer=True)"  # -32768 <= varname < 32768
+            case "int":
+                return f"{varname} = Symbol('{varname}', integer=True)"  # -32768 <= varname < 32768
+            case "unsigned int":
+                return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # 0 <= varname < 65535
+            case "float":
+                return f"{varname} = Symbol('{varname}', real=True)"  # 1.175494351*10^(-38) <= varname <= 3.402823466*10^38
+            case "double":
+                return f"{varname} = Symbol('{varname}', real=True)"  # 2.2250738585072014*10^(-308) <= varname <= 1.7976931348623158*10^308
+            case _:
+                raise TypeError()
+
+    def _py_build_assumptions(self, logic_property, now):
+        assumptions = []
         # Building a set from the frozen set containing the variables occurring in the formula
         variables = set()
-        for var in logic_property[0]:
+        for var in logic_property.variables():
             variables.add(var)
-        for varname in program_state:
+        for clock_name in self._timed_state:
+            if clock_name in variables:
+                if isinstance(self._timed_state[clock_name].get_time(now), NoValue):
+                    raise ClockWasNotStarted(clock_name)
+                assumptions.append(f"{clock_name} = {self._timed_state[clock_name].get_time(now)}")
+                variables.remove(clock_name)
+        for varname in self._execution_state:
             if varname in variables:
-                if isinstance(program_state[varname][1], NoValue):
+                if isinstance(self._execution_state[varname][1], NoValue):
                     raise NoValueAssignedToVariable(varname)
-                assumptions = assumptions + cls._build_assumption(
-                    varname, program_state[varname][0], program_state[varname][1]
-                )
+                assumptions.append(f"{varname} = {self._execution_state[varname][1]}")
                 variables.remove(varname)
-        for device in component_dictionary:
-            dictionary = component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any(
-                                [isinstance(x, NoValue) for x in dictionary[varname][1]]
-                        ):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
-                    assumptions = assumptions + cls._build_assumption(
-                        varname, dictionary[varname][0], dictionary[varname][1]
-                    )
-                    variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
         return assumptions
+
+    def _are_all_properties_satisfied(self, event_time, logic_properties):
+        neg_properties_sat = False
+        for logic_property in logic_properties:
+            if neg_properties_sat:
+                break
+            try:
+                neg_properties_sat = self._is_property_satisfied(
+                    event_time, logic_property
+                )
+            except FormulaError as e:
+                logging.error(f"Error in formula [ {e.get_formula} ]")
+                raise AnalysisFailed()
+
+        return not neg_properties_sat
 
     def _process_global_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
@@ -502,10 +628,8 @@ class Monitor:
             checkpoint_name
         )
         try:
-            properties_are_met = self.__class__._are_all_properties_satisfied(
+            properties_are_met = self._are_all_properties_satisfied(
                 checkpoint_reached_event.time(),
-                self._execution_state,
-                self._component_dictionary,
                 checkpoint.properties(),
             )
 
@@ -527,10 +651,8 @@ class Monitor:
             checkpoint_name
         )
         try:
-            properties_are_met = self.__class__._are_all_properties_satisfied(
+            properties_are_met = self._are_all_properties_satisfied(
                 checkpoint_reached_event.time(),
-                self._execution_state,
-                self._component_dictionary,
                 checkpoint.properties(),
             )
 
@@ -615,9 +737,10 @@ class Monitor:
             if state_word.endswith(Monitor.TASK_STARTED_SUFFIX):
                 return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]
 
-    def _pause_verification_if_requested(self, pause_event, stop_event):
+    @staticmethod
+    def _pause_verification_if_requested(pause_event, stop_event):
         # This is busy waiting. There are better solutions.
-        if self._event_was_set(pause_event):
+        if Monitor._event_was_set(pause_event):
             logging.info(f"Verification paused.")
 
             while pause_event.is_set():
@@ -626,5 +749,10 @@ class Monitor:
 
             logging.info(f"Verification resumed.")
 
-    def _event_was_set(self, ui_event):
+    @staticmethod
+    def _event_was_set(ui_event):
         return ui_event is not None and ui_event.is_set()
+
+    @staticmethod
+    def _log_property_analysis(message):
+        logging.log(LoggingLevel.PROPERTY_ANALYSIS, message)

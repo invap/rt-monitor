@@ -2,6 +2,8 @@ import os
 
 from igraph import Graph
 
+from workflow_runtime_verification.errors import PropertyTypeError
+from workflow_runtime_verification.specification.logic_property import SymPyProperty, SMT2Property, PyProperty
 from workflow_runtime_verification.specification.workflow_node.checkpoint import (
     Checkpoint,
 )
@@ -12,14 +14,14 @@ from workflow_runtime_verification.specification.workflow_node.task_specificatio
 
 
 class WorkflowSpecification:
-    @classmethod
-    def new_with(cls, ordered_task_specifications, dependencies):
-        return cls(ordered_task_specifications, dependencies)
+    @staticmethod
+    def new_with(ordered_task_specifications, dependencies):
+        return WorkflowSpecification(ordered_task_specifications, dependencies)
 
-    @classmethod
-    def new_from_file(cls, specification_file_path):
+    @staticmethod
+    def new_from_file(specification_file_path):
         with open(specification_file_path, "r") as specification_file:
-            instance = cls.new_from_open_file(specification_file)
+            instance = WorkflowSpecification.new_from_open_file(specification_file)
             specification_file.close()
         return instance
 
@@ -28,14 +30,14 @@ class WorkflowSpecification:
         encoded_specification = specification_file.read().splitlines()
         specification_file_directory = os.path.dirname(specification_file.name)
 
-        start_node_index = cls._start_node_index_from_file(encoded_specification)
+        start_node_index = WorkflowSpecification._start_node_index_from_file(encoded_specification)
 
-        ordered_nodes = cls._ordered_nodes_from_file(
+        ordered_nodes = WorkflowSpecification._ordered_nodes_from_file(
             encoded_specification, specification_file_directory
         )
-        dependencies = cls._dependencies_from_file(encoded_specification)
+        dependencies = WorkflowSpecification._dependencies_from_file(encoded_specification)
 
-        return cls(
+        return WorkflowSpecification(
             ordered_nodes,
             dependencies,
             start_node_index=start_node_index,
@@ -97,10 +99,8 @@ class WorkflowSpecification:
             if task.has_checkpoint_named(checkpoint_name):
                 return task.checkpoint_named(checkpoint_name)
 
-    @classmethod
-    def _ordered_nodes_from_file(
-        cls, encoded_specification, specification_file_directory
-    ):
+    @staticmethod
+    def _ordered_nodes_from_file(encoded_specification, specification_file_directory):
         nodes_as_text = encoded_specification[2:]
         nodes_as_text = [
             encoded_task_specification.split(",")
@@ -108,49 +108,47 @@ class WorkflowSpecification:
         ]
 
         return [
-            cls._decode_node(encoded_node, specification_file_directory)
+            WorkflowSpecification._decode_node(encoded_node, specification_file_directory)
             for encoded_node in nodes_as_text
         ]
 
-    @classmethod
-    def _start_node_index_from_file(cls, encoded_specification):
+    @staticmethod
+    def _start_node_index_from_file(encoded_specification):
         return int(encoded_specification[1])
 
-    @classmethod
-    def _filenames_from_set(cls, filenames_set):
+    @staticmethod
+    def _filenames_from_set(filenames_set):
         files_str = (filenames_set.split("{", 1)[1]).rsplit("}", 1)[0]
         filenames = files_str.split(";")
         if filenames[0] == "":
             filenames = []
         return filenames
 
-    @classmethod
-    def _decode_node(cls, encoded_node, specification_file_directory):
-        if cls._encoded_node_is_task(encoded_node):
-            return cls._decode_task_specification(
+    @staticmethod
+    def _decode_node(encoded_node, specification_file_directory):
+        if WorkflowSpecification._encoded_node_is_task(encoded_node):
+            return WorkflowSpecification._decode_task_specification(
                 encoded_node, specification_file_directory
             )
-        elif cls._encoded_node_is_checkpoint(encoded_node):
-            return cls._decode_global_checkpoint(
+        elif WorkflowSpecification._encoded_node_is_checkpoint(encoded_node):
+            return WorkflowSpecification._decode_global_checkpoint(
                 encoded_node, specification_file_directory
             )
-        elif cls._encoded_node_is_operator(encoded_node):
-            return cls._decode_operator(encoded_node)
+        elif WorkflowSpecification._encoded_node_is_operator(encoded_node):
+            return WorkflowSpecification._decode_operator(encoded_node)
 
-    @classmethod
-    def _decode_task_specification(
-        cls, encoded_task_specification, specification_file_directory
-    ):
+    @staticmethod
+    def _decode_task_specification(encoded_task_specification, specification_file_directory):
         task_name = encoded_task_specification[1]
-        preconditions = cls._smt2_properties_from_files(
-            cls._filenames_from_set(encoded_task_specification[2]),
+        preconditions = WorkflowSpecification._properties_from_files(
+            WorkflowSpecification._filenames_from_set(encoded_task_specification[2]),
             specification_file_directory,
         )
-        postconditions = cls._smt2_properties_from_files(
-            cls._filenames_from_set(encoded_task_specification[3]),
+        postconditions = WorkflowSpecification._properties_from_files(
+            WorkflowSpecification._filenames_from_set(encoded_task_specification[3]),
             specification_file_directory,
         )
-        local_checkpoints = cls._decode_local_checkpoints(
+        local_checkpoints = WorkflowSpecification._decode_local_checkpoints(
             ",".join(encoded_task_specification[4:]), specification_file_directory
         )
         return TaskSpecification(
@@ -160,21 +158,17 @@ class WorkflowSpecification:
             checkpoints=local_checkpoints,
         )
 
-    @classmethod
-    def _decode_global_checkpoint(
-        cls, encoded_checkpoint, specification_file_directory
-    ):
+    @staticmethod
+    def _decode_global_checkpoint(encoded_checkpoint, specification_file_directory):
         checkpoint_name = encoded_checkpoint[1]
-        properties = cls._smt2_properties_from_files(
-            cls._filenames_from_set(encoded_checkpoint[2]),
+        properties = WorkflowSpecification._properties_from_files(
+            WorkflowSpecification._filenames_from_set(encoded_checkpoint[2]),
             specification_file_directory,
         )
         return Checkpoint(checkpoint_name, properties)
 
-    @classmethod
-    def _decode_local_checkpoints(
-        cls, encoded_checkpoints, specification_file_directory
-    ):
+    @staticmethod
+    def _decode_local_checkpoints(encoded_checkpoints, specification_file_directory):
         encoded_checkpoints = (encoded_checkpoints.split("{", 1)[1]).rsplit("}", 1)[0]
         encoded_checkpoints = encoded_checkpoints.split(",")
         encoded_checkpoints = [
@@ -185,54 +179,87 @@ class WorkflowSpecification:
         ]
 
         return {
-            cls._decode_local_checkpoint(
+            WorkflowSpecification._decode_local_checkpoint(
                 encoded_checkpoint, specification_file_directory
             )
             for encoded_checkpoint in encoded_checkpoints
         }
 
-    @classmethod
-    def _decode_local_checkpoint(cls, encoded_checkpoint, specification_file_directory):
+    @staticmethod
+    def _decode_local_checkpoint(encoded_checkpoint, specification_file_directory):
         encoded_checkpoint = (encoded_checkpoint.split("<", 1)[1]).rsplit(">", 1)[0]
         checkpoint_name = encoded_checkpoint.split(",")[0]
-        properties = cls._smt2_properties_from_files(
-            cls._filenames_from_set(encoded_checkpoint.split(",")[1]),
+        properties = WorkflowSpecification._properties_from_files(
+            WorkflowSpecification._filenames_from_set(encoded_checkpoint.split(",")[1]),
             specification_file_directory,
         )
         return Checkpoint(checkpoint_name, properties)
 
-    @classmethod
-    def _decode_operator(cls, encoded_node):
+    @staticmethod
+    def _decode_operator(encoded_node):
         return Operator.new_of_type(encoded_node[1])
 
-    @classmethod
-    def _smt2_property_from_file(cls, file_name, specification_file_directory):
+    @staticmethod
+    def _properties_from_files(file_names, specification_file_directory):
+        properties = set()
+        for file_name in file_names:
+            properties.add(
+                WorkflowSpecification._property_from_file(file_name, specification_file_directory)
+            )
+        return properties
+
+    @staticmethod
+    def _property_from_file(file_name, specification_file_directory):
+        decoded_filename = file_name.split(":")
+        property_type = decoded_filename[0]
+        filename = decoded_filename[1]
+        match property_type:
+            case "smt2":
+                return WorkflowSpecification._smt2_property_from_file(filename, specification_file_directory)
+            case "sympy":
+                return WorkflowSpecification._sympy_property_from_file(filename, specification_file_directory)
+            case "py":
+                return WorkflowSpecification._py_property_from_file(filename, specification_file_directory)
+            case _:
+                raise PropertyTypeError(property_type, filename)
+
+    @staticmethod
+    def _smt2_property_from_file(file_name, specification_file_directory):
         file_name_ext = file_name + ".protosmt2"
         file_path = os.path.join(specification_file_directory, file_name_ext)
+        spec_vars, spec = WorkflowSpecification._spec_from_file(file_path)
+        return SMT2Property(frozenset(spec_vars), spec, file_name)
+
+    @staticmethod
+    def _sympy_property_from_file(file_name, specification_file_directory):
+        file_name_ext = file_name + ".protosympy"
+        file_path = os.path.join(specification_file_directory, file_name_ext)
+        spec_vars, spec = WorkflowSpecification._spec_from_file(file_path)
+        return SymPyProperty(frozenset(spec_vars), spec, file_name)
+
+    @staticmethod
+    def _py_property_from_file(file_name, specification_file_directory):
+        file_name_ext = file_name + ".protopy"
+        file_path = os.path.join(specification_file_directory, file_name_ext)
+        spec_vars, spec = WorkflowSpecification._spec_from_file(file_path)
+        return PyProperty(frozenset(spec_vars), spec, file_name)
+
+    @staticmethod
+    def _spec_from_file(file_path):
         with open(file_path, "r") as file:
-            vars = (file.readline().split("\n")[0]).split(",")
+            varnames = (file.readline().split("\n")[0]).split(",")
             spec_vars = set()
-            if vars[0] != "None":
-                for var in vars:
+            if varnames[0] != "None":
+                for var in varnames:
                     spec_vars.add(var)
             spec = ""
             for line in file:
                 spec = spec + line
-            file.close()
-            s = (frozenset(spec_vars), spec, file_name)
-        return s
+        file.close()
+        return spec_vars, spec
 
-    @classmethod
-    def _smt2_properties_from_files(cls, file_names, specification_file_directory):
-        properties = set()
-        for file_name in file_names:
-            properties.add(
-                cls._smt2_property_from_file(file_name, specification_file_directory)
-            )
-        return properties
-
-    @classmethod
-    def _dependencies_from_file(cls, encoded_specification):
+    @staticmethod
+    def _dependencies_from_file(encoded_specification):
         encoded_dependencies = encoded_specification[0].replace(" ", "")
         dependencies_as_text = encoded_dependencies.split("{", 1)[1].rsplit("}", 1)[0]
         node_indices = dependencies_as_text.replace("(", "").replace(")", "").split(",")
@@ -255,11 +282,11 @@ class WorkflowSpecification:
         return self._graph.vs.find(workflow_node=task_specification)
 
     def _task_specifications(self):
-        nodes = self._graph.vs[self._workflow_node_attribute_name()]
+        nodes = self._graph.vs[WorkflowSpecification._workflow_node_attribute_name()]
         return [node for node in nodes if isinstance(node, TaskSpecification)]
 
     def _global_checkpoints(self):
-        nodes = self._graph.vs[self._workflow_node_attribute_name()]
+        nodes = self._graph.vs[WorkflowSpecification._workflow_node_attribute_name()]
         return [node for node in nodes if isinstance(node, Checkpoint)]
 
     def _build_workflow_graph(
@@ -317,18 +344,18 @@ class WorkflowSpecification:
     def _workflow_node_attribute_name():
         return "workflow_node"
 
-    @classmethod
-    def _encoded_node_is_task(cls, encoded_node):
-        return cls._encoded_node_type(encoded_node) == "task"
+    @staticmethod
+    def _encoded_node_is_task(encoded_node):
+        return WorkflowSpecification._encoded_node_type(encoded_node) == "task"
 
-    @classmethod
-    def _encoded_node_is_checkpoint(cls, encoded_node):
-        return cls._encoded_node_type(encoded_node) == "checkpoint"
+    @staticmethod
+    def _encoded_node_is_checkpoint(encoded_node):
+        return WorkflowSpecification._encoded_node_type(encoded_node) == "checkpoint"
 
-    @classmethod
-    def _encoded_node_is_operator(cls, encoded_node):
-        return cls._encoded_node_type(encoded_node) == "operator"
+    @staticmethod
+    def _encoded_node_is_operator(encoded_node):
+        return WorkflowSpecification._encoded_node_type(encoded_node) == "operator"
 
-    @classmethod
-    def _encoded_node_type(cls, encoded_node):
+    @staticmethod
+    def _encoded_node_type(encoded_node):
         return encoded_node[0].split(":")[1]
