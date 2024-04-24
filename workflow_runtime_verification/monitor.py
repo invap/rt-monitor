@@ -119,23 +119,16 @@ class Monitor:
 
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
-
         if not self._workflow_specification.task_exists(task_name):
             raise TaskDoesNotExist(task_name)
-
         can_start = self._task_can_start(task_name)
-
-        task_specification = self._workflow_specification.task_specification_named(
-            task_name
-        )
+        task_specification = self._workflow_specification.task_specification_named(task_name)
         try:
             preconditions_are_met = self._are_all_properties_satisfied(
                 task_started_event.time(),
                 task_specification.preconditions(),
             )
-
             self._update_workflow_state_with_started_task(task_started_event)
-
             return can_start and preconditions_are_met
         except AnalysisFailed:
             logging.critical(f"Analysis FAILED.")
@@ -143,23 +136,16 @@ class Monitor:
 
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
-
         if not self._workflow_specification.task_exists(task_name):
             raise TaskDoesNotExist(task_name)
-
         had_previously_started = self._task_had_started(task_name)
-
-        task_specification = self._workflow_specification.task_specification_named(
-            task_name
-        )
+        task_specification = self._workflow_specification.task_specification_named(task_name)
         try:
             postconditions_are_met = self._are_all_properties_satisfied(
                 task_finished_event.time(),
                 task_specification.postconditions(),
             )
-
             self._update_workflow_state_with_finished_task(task_finished_event)
-
             return had_previously_started and postconditions_are_met
         except AnalysisFailed:
             logging.critical(f"Analysis FAILED.")
@@ -167,45 +153,33 @@ class Monitor:
 
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-
         if self._workflow_specification.global_checkpoint_exists(checkpoint_name):
             return self._process_global_checkpoint_reached(checkpoint_reached_event)
-
         if self._workflow_specification.local_checkpoint_exists(checkpoint_name):
             return self._process_local_checkpoint_reached(checkpoint_reached_event)
-
         raise CheckpointDoesNotExist(checkpoint_name)
 
     def process_declare_variable(self, declare_variable_event):
         variable_name = declare_variable_event.variable_name()
         variable_type = declare_variable_event.variable_type()
-
         if variable_name in self._execution_state:
             raise AlreadyDeclaredVariable(variable_name)
-
         self._execution_state[variable_name] = [variable_type, NoValue()]
         return True
 
     def process_variable_value_assigned(self, variable_value_assigned_event):
         variable_name = variable_value_assigned_event.variable_name()
         variable_value = variable_value_assigned_event.variable_value()
-
         if variable_name not in self._execution_state:
             raise UndeclaredVariable(variable_name)
-
-        self._execution_state[variable_name] = [
-            self._execution_state[variable_name][0],
-            variable_value,
-        ]
+        self._execution_state[variable_name] = [self._execution_state[variable_name][0],variable_value]
         return True
 
     def process_component_event(self, component_event):
         component_data = component_event.data()
         component_name = component_event.component_name()
-
         if component_name not in self._component_dictionary:
             raise ComponentDoesNotExist(component_name)
-
         try:
             component = self._component_dictionary[component_name]
             component.process_high_level_call(component_data)
@@ -218,46 +192,36 @@ class Monitor:
 
     def process_declare_clock(self, declare_clock_event):
         clock_name = declare_clock_event.clock_name()
-
         if clock_name in self._timed_state:
             raise AlreadyDeclaredClock(clock_name)
-
         self._timed_state[clock_name] = Clock(clock_name)
         return True
 
     def process_clock_start(self, clock_start_event):
         clock_name = clock_start_event.clock_name()
-
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-
         self._timed_state[clock_name].start(clock_start_event.time())
         return True
 
     def process_clock_pause(self, clock_pause_event):
         clock_name = clock_pause_event.clock_name()
-
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-
         self._timed_state[clock_name].pause(clock_pause_event.time())
         return True
 
     def process_clock_resume(self, clock_resume_event):
         clock_name = clock_resume_event.clock_name()
-
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-
         self._timed_state[clock_name].resume(clock_resume_event.time())
         return True
 
     def process_clock_reset(self, clock_reset_event):
         clock_name = clock_reset_event.clock_name()
-
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-
         self._timed_state[clock_name].reset(clock_reset_event.time())
         return True
 
@@ -270,21 +234,16 @@ class Monitor:
 
     def _update_workflow_state_with_started_task(self, task_started_event):
         task_name = task_started_event.name()
-
         self._workflow_state.clear()
         self._workflow_state.add(task_name + Monitor.TASK_STARTED_SUFFIX)
 
     def _update_workflow_state_with_finished_task(self, task_finished_event):
         task_name = task_finished_event.name()
-
         self._workflow_state.clear()
         self._workflow_state.add(task_name + Monitor.TASK_FINISHED_SUFFIX)
 
-    def _update_workflow_state_with_reached_global_checkpoint(
-            self, checkpoint_reached_event
-    ):
+    def _update_workflow_state_with_reached_global_checkpoint(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-
         self._workflow_state = {
             state_word
             for state_word in self._workflow_state
@@ -292,19 +251,14 @@ class Monitor:
         }
         self._workflow_state.add(checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
-    def _update_workflow_state_with_reached_local_checkpoint(
-            self, checkpoint_reached_event, task_name
-    ):
+    def _update_workflow_state_with_reached_local_checkpoint(self, checkpoint_reached_event, task_name):
         checkpoint_name = checkpoint_reached_event.name()
-
         self._workflow_state = {
             state_word
             for state_word in self._workflow_state
             if not state_word.endswith(Monitor.CHECKPOINT_REACHED_SUFFIX)
         }
-        self._workflow_state.add(
-            task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX
-        )
+        self._workflow_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
     def _is_property_satisfied(self, event_time, logic_property):
         Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
@@ -364,9 +318,7 @@ class Monitor:
                 if varname in variables:
                     # The value of the variable of the state might be iterable.
                     if isinstance(dictionary[varname][1], Iterable):
-                        if any(
-                                [isinstance(x, NoValue) for x in dictionary[varname][1]]
-                        ):
+                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
                             raise NoValueAssignedToVariable(varname)
                     elif isinstance(dictionary[varname][1], NoValue):
                         raise NoValueAssignedToVariable(varname)
