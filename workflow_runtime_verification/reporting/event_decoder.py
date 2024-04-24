@@ -1,17 +1,22 @@
 from workflow_runtime_verification.errors import InvalidEventError
-from workflow_runtime_verification.reporting.event.checkpoint_reached_event import \
-    CheckpointReachedEvent
+from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
+    CheckpointReachedEvent,
+)
 from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
-from workflow_runtime_verification.reporting.event.declare_variable_event import \
-    DeclareVariableEvent
+from workflow_runtime_verification.reporting.event.declare_variable_event import (
+    DeclareVariableEvent,
+)
 from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
 from workflow_runtime_verification.reporting.event.state_event import StateEvent
-from workflow_runtime_verification.reporting.event.task_finished_event import \
-    TaskFinishedEvent
-from workflow_runtime_verification.reporting.event.task_started_event import \
-    TaskStartedEvent
-from workflow_runtime_verification.reporting.event.variable_value_assigned_event import \
-    VariableValueAssignedEvent
+from workflow_runtime_verification.reporting.event.task_finished_event import (
+    TaskFinishedEvent,
+)
+from workflow_runtime_verification.reporting.event.task_started_event import (
+    TaskStartedEvent,
+)
+from workflow_runtime_verification.reporting.event.variable_value_assigned_event import (
+    VariableValueAssignedEvent,
+)
 from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
 
 
@@ -36,7 +41,9 @@ class EventDecoder:
             case "declare_variable":
                 return DeclareVariableEvent.decode_with(EventDecoder, encoded_event)
             case "variable_value_assigned":
-                return VariableValueAssignedEvent.decode_with(EventDecoder, encoded_event)
+                return VariableValueAssignedEvent.decode_with(
+                    EventDecoder, encoded_event
+                )
             case _:
                 raise InvalidEvent.decode_with(EventDecoder, encoded_event)
 
@@ -81,14 +88,14 @@ class EventDecoder:
     def decode_task_started_event(encoded_event):
         return TaskStartedEvent(
             EventDecoder._decode_task_name(encoded_event),
-            EventDecoder._decode_time(encoded_event)
+            EventDecoder._decode_time(encoded_event),
         )
 
     @staticmethod
     def decode_task_finished_event(encoded_event):
         return TaskFinishedEvent(
             EventDecoder._decode_task_name(encoded_event),
-            EventDecoder._decode_time(encoded_event)
+            EventDecoder._decode_time(encoded_event),
         )
 
     @staticmethod
