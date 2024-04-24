@@ -1,13 +1,18 @@
-from workflow_runtime_verification.errors import InvalidEventE
-from workflow_runtime_verification.reporting.event.state_event import StateEvent
+from workflow_runtime_verification.errors import InvalidEventError
+from workflow_runtime_verification.reporting.event.checkpoint_reached_event import \
+    CheckpointReachedEvent
 from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
-from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
-from workflow_runtime_verification.reporting.event.declare_variable_event import DeclareVariableEvent
-from workflow_runtime_verification.reporting.event.variable_value_assigned_event import VariableValueAssignedEvent
-from workflow_runtime_verification.reporting.event.task_started_event import TaskStartedEvent
-from workflow_runtime_verification.reporting.event.task_finished_event import TaskFinishedEvent
-from workflow_runtime_verification.reporting.event.checkpoint_reached_event import CheckpointReachedEvent
+from workflow_runtime_verification.reporting.event.declare_variable_event import \
+    DeclareVariableEvent
 from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
+from workflow_runtime_verification.reporting.event.state_event import StateEvent
+from workflow_runtime_verification.reporting.event.task_finished_event import \
+    TaskFinishedEvent
+from workflow_runtime_verification.reporting.event.task_started_event import \
+    TaskStartedEvent
+from workflow_runtime_verification.reporting.event.variable_value_assigned_event import \
+    VariableValueAssignedEvent
+from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
 
 
 class EventDecoder:
@@ -105,21 +110,21 @@ class EventDecoder:
         try:
             return encoded_event.split(",")[1]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_state_event_type(encoded_event):
         try:
             return encoded_event.split(",")[2]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_workflow_event_type(encoded_event):
         try:
             return encoded_event.split(",")[2]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_variable_name(encoded_event):
@@ -127,7 +132,7 @@ class EventDecoder:
         try:
             return encoded_parameters[1]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_variable_type(encoded_event):
@@ -135,7 +140,7 @@ class EventDecoder:
         try:
             return encoded_parameters[2].split(",")
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_variable_value(encoded_event):
@@ -143,14 +148,14 @@ class EventDecoder:
         try:
             return encoded_parameters[2]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_component_name(encoded_event):
         try:
             return encoded_event.split(",")[2]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_task_name(encoded_event):
@@ -158,7 +163,7 @@ class EventDecoder:
         try:
             return encoded_parameters[1]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_checkpoint_name(encoded_event):
@@ -166,7 +171,7 @@ class EventDecoder:
         try:
             return encoded_parameters[1]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
     @staticmethod
     def _decode_time(encoded_event):
@@ -174,7 +179,7 @@ class EventDecoder:
         try:
             t = encoded_parameters[0]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
         return int(t)
 
@@ -183,7 +188,7 @@ class EventDecoder:
         try:
             event_data_as_array = encoded_event.split(",")[3:]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
         event_data_with_escaped_characters = ",".join(event_data_as_array)
         event_data = bytes(event_data_with_escaped_characters, "utf-8").decode(
@@ -197,7 +202,7 @@ class EventDecoder:
             encoded_time = encoded_event.split(",")[0]
             encoded_parameters_without_time = encoded_event.split(",")[3:]
         except IndexError:
-            raise InvalidEventE(encoded_event)
+            raise InvalidEventError(encoded_event)
 
         encoded_parameters = [encoded_time] + encoded_parameters_without_time
         return encoded_parameters

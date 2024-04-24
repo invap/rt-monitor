@@ -1,4 +1,4 @@
-class InvalidEventE(Exception):
+class InvalidEventError(Exception):
     def __init__(self, event):
         super().__init__()
         self._event = event

@@ -1,7 +1,6 @@
 import unittest
 
-from workflow_runtime_verification.errors import AbortRun
-from workflow_runtime_verification.reporting.event_decoder import InvalidEvent
+from workflow_runtime_verification.errors import AbortRun, InvalidEventError
 from workflow_runtime_verification.specification.workflow_node.checkpoint import (
     Checkpoint,
 )
@@ -748,7 +747,7 @@ class VerificationTest(Test):
         self, event_report, monitor
     ):
         self._expect_error_to_be_raised_when_verifying(
-            InvalidEvent, event_report, monitor
+            InvalidEventError, event_report, monitor
         )
 
     def _expect_verification_to_be_aborted(self, event_report, monitor):

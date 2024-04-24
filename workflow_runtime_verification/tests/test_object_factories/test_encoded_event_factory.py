@@ -62,10 +62,14 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
         )
 
     def value_assignment_event_without_value_delimiter(self):
-        return (
-            f"{VariableValueAssignedEvent.event_type()}"
-            f"(no_value_delimiter@{self.time()})"
+        serialized_event = self.event_reporter().report_variable_value_assigned(
+            "variable_name",
+            "variable_value",
+            self.time(),
         )
+        split_serialized_event = serialized_event.split(",")
+        split_serialized_event.pop()
+        return ",".join(split_serialized_event)
 
     def component_encoded_event(self, component_name, data):
         return self.event_reporter().report_component_event(
