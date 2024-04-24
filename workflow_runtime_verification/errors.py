@@ -161,3 +161,48 @@ class NotImplementedPropertyType(Exception):
 
     def get_formula(self):
         return self._formula
+
+
+class VariableTypeError(Exception):
+    def __init__(self):
+        super().__init__()
+
+
+class UnsupportedVariableType(VariableTypeError):
+    def __init__(self, varname, vartype):
+        super().__init__()
+        self._varname = varname
+        self._vartype = vartype
+
+    def get_variable_type(self):
+        return self._vartype
+
+    def get_variable_name(self):
+        return self._varname
+
+
+class UnsupportedSMT2VariableType(UnsupportedVariableType):
+    def __init__(self, varname, vartype):
+        super().__init__(varname, vartype)
+
+    @staticmethod
+    def get_formula_type():
+        return "smt2"
+
+
+class UnsupportedSymPyVariableType(UnsupportedVariableType):
+    def __init__(self, varname, vartype):
+        super().__init__(varname, vartype)
+
+    @staticmethod
+    def get_formula_type():
+        return "sympy"
+
+
+class UnsupportedPyVariableType(UnsupportedVariableType):
+    def __init__(self, varname, vartype):
+        super().__init__(varname, vartype)
+
+    @staticmethod
+    def get_formula_type():
+        return "py"

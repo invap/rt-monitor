@@ -22,7 +22,13 @@ from workflow_runtime_verification.errors import (
     InvalidEventE,
     UnboundVariables,
     NoValueAssignedToVariable,
-    ClockWasNotStarted, ClockWasAlreadyStarted, ClockWasAlreadyPaused, ClockWasNotPaused,
+    ClockWasNotStarted,
+    ClockWasAlreadyStarted,
+    ClockWasAlreadyPaused,
+    ClockWasNotPaused,
+    UnsupportedSMT2VariableType,
+    UnsupportedSymPyVariableType,
+    UnsupportedPyVariableType,
 )
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
@@ -108,7 +114,6 @@ class Monitor:
         # Events related exceptions
         except EventError as e:
             logging.critical(f"Event [ {e.get_event()} ] produced an error.")
-
         logging.critical(f"Runtime monitoring process ABORTED.")
         raise AbortRun()
 
@@ -347,10 +352,10 @@ class Monitor:
                     raise NoValueAssignedToVariable(varname)
                 try:
                     declarations.append(
-                        f"{Monitor._smt2_c_type_2_smt2_type(varname, self._execution_state[varname][0])}")
-                except TypeError:
+                        f"{Monitor._smt2_hostlanguage_type_2_smt2_type(varname, self._execution_state[varname][0])}")
+                except UnsupportedSMT2VariableType as e:
                     logging.error(
-                        f"Variable type error [ {varname: self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
                     raise FormulaError(logic_property.formula())
                 variables.remove(varname)
         for device in self._component_dictionary:
@@ -366,10 +371,10 @@ class Monitor:
                     elif isinstance(dictionary[varname][1], NoValue):
                         raise NoValueAssignedToVariable(varname)
                     try:
-                        declarations.append(f"{Monitor._smt2_c_type_2_smt2_type(varname, dictionary[varname][0])}")
-                    except TypeError:
+                        declarations.append(f"{Monitor._smt2_hostlanguage_type_2_smt2_type(varname, dictionary[varname][0])}")
+                    except UnsupportedSMT2VariableType as e:
                         logging.error(
-                            f"Variable type error [ {varname: self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
                         raise FormulaError(logic_property.formula())
                     variables.remove(varname)
         if len(variables) != 0:
@@ -390,9 +395,9 @@ class Monitor:
                     assumptions.append(Monitor._smt2_build_assumption(
                         varname, self._execution_state[varname][0], self._execution_state[varname][1]
                     ))
-                except TypeError:
+                except UnsupportedSMT2VariableType as e:
                     logging.error(
-                        f"Variable type error [ {varname}: {self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
                     raise FormulaError(logic_property.formula())
                 variables.remove(varname)
         for device in self._component_dictionary:
@@ -409,9 +414,9 @@ class Monitor:
                         assumptions.append(Monitor._smt2_build_assumption(
                             varname, dictionary[varname][0], dictionary[varname][1]
                         ))
-                    except TypeError:
+                    except UnsupportedSMT2VariableType as e:
                         logging.error(
-                            f"Variable type error [ {varname}: {self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
                         raise FormulaError(logic_property.formula())
                     variables.remove(varname)
         if len(variables) != 0:
@@ -451,13 +456,15 @@ class Monitor:
                             )
                 assumption = assumption + ") )"
             case _:
-                raise TypeError()
-
+                raise UnsupportedSMT2VariableType(varname, vartype)
         return assumption
 
     @staticmethod
-    def _smt2_c_type_2_smt2_type(varname, var_c_type):
-        match var_c_type[0]:
+    def _smt2_hostlanguage_type_2_smt2_type(varname, var_hostlanguage_type):
+        match var_hostlanguage_type[0]:
+            # C supported types
+            case "bool":
+                return f"(declare-const {varname} Bool)"
             case "char_t":
                 return f"(declare-const {varname} Int)"
             case "uint8_t":
@@ -485,7 +492,7 @@ class Monitor:
             case "uint8_t[][][]":
                 return f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
             case _:
-                raise TypeError()
+                raise UnsupportedSMT2VariableType(varname, var_hostlanguage_type[0])
 
     @staticmethod
     def eval_py(event_time, spec, filename):
@@ -548,19 +555,39 @@ class Monitor:
                     raise NoValueAssignedToVariable(varname)
                 try:
                     declarations.append(
-                        f"{Monitor._sympy_c_type_2_sympy_type(varname, self._execution_state[varname][0])}")
-                except TypeError:
+                        f"{Monitor._sympy_hostlanguage_type_2_sympy_type(varname, self._execution_state[varname][0])}")
+                except UnsupportedSymPyVariableType as e:
                     logging.error(
-                        f"Variable type error [ {varname}: {self._execution_state[varname][0]} ] in formula [ {logic_property.filename()} ]")
+                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
                     raise FormulaError(logic_property.formula())
                 variables.remove(varname)
+        for device in self._component_dictionary:
+            dictionary = self._component_dictionary[device].state()
+            for varname in dictionary:
+                if varname in variables:
+                    # The value of the variable of the state might be iterable.
+                    if isinstance(dictionary[varname][1], Iterable):
+                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
+                    try:
+                        declarations.append(f"{Monitor._sympy_hostlanguage_type_2_sympy_type(varname, dictionary[varname][0])}")
+                    except UnsupportedSymPyVariableType as e:
+                        logging.error(
+                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
+                        raise FormulaError(logic_property.formula())
+                    variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
         return declarations
 
     @staticmethod
-    def _sympy_c_type_2_sympy_type(varname, var_c_type):
-        match var_c_type[0]:
+    def _sympy_hostlanguage_type_2_sympy_type(varname, var_hostlanguage_type):
+        match var_hostlanguage_type[0]:
+            # C supported types
+            case "bool":
+                return f"{varname} = Symbol('{varname}')"  # {true, false}}
             case "char_t":
                 return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # -128 <= varname < 128
             case "uint8_t":
@@ -580,7 +607,7 @@ class Monitor:
             case "double":
                 return f"{varname} = Symbol('{varname}', real=True)"  # 2.2250738585072014*10^(-308) <= varname <= 1.7976931348623158*10^308
             case _:
-                raise TypeError()
+                raise UnsupportedSymPyVariableType(varname, var_hostlanguage_type[0])
 
     def _py_build_assumptions(self, logic_property, now):
         assumptions = []
@@ -600,9 +627,53 @@ class Monitor:
                     raise NoValueAssignedToVariable(varname)
                 assumptions.append(f"{varname} = {self._execution_state[varname][1]}")
                 variables.remove(varname)
+        for device in self._component_dictionary:
+            dictionary = self._component_dictionary[device].state()
+            for varname in dictionary:
+                if varname in variables:
+                    # The value of the variable of the state might be iterable.
+                    if isinstance(dictionary[varname][1], Iterable):
+                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
+                            raise NoValueAssignedToVariable(varname)
+                    elif isinstance(dictionary[varname][1], NoValue):
+                        raise NoValueAssignedToVariable(varname)
+                    try:
+                        assumptions.append(Monitor._py_build_assumption(varname, self._component_dictionary[device][varname][0], self._component_dictionary[device][varname][1]))
+                    except UnsupportedPyVariableType as e:
+                        logging.error(
+                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
+                        raise FormulaError(logic_property.formula())
+                    variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
         return assumptions
+
+    @staticmethod
+    def _py_build_assumption(varname, vartype, varvalue):
+        match vartype:
+            # C supported types
+            case "bool":
+                return f"{varname} = {varvalue}"
+            case "char_t":
+                return f"{varname} = {varvalue}"
+            case "uint8_t":
+                return f"{varname} = {varvalue}"
+            case "int8_t":
+                return f"{varname} = {varvalue}"
+            case "uint16_t":
+                return f"{varname} = {varvalue}"
+            case "int16_t":
+                return f"{varname} = {varvalue}"
+            case "int":
+                return f"{varname} = {varvalue}"
+            case "unsigned int":
+                return f"{varname} = {varvalue}"
+            case "float":
+                return f"{varname} = {varvalue}"
+            case "double":
+                return f"{varname} = {varvalue}"
+            case _:
+                raise UnsupportedSymPyVariableType(varname, vartype)
 
     def _are_all_properties_satisfied(self, event_time, logic_properties):
         neg_properties_sat = False
