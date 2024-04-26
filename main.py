@@ -36,12 +36,14 @@ class ControlPanel(wx.Notebook):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        self.monitoring_panel = MonitoringPanel(parent=self)
+        self.monitor_configuration_panel = MonitorConfigurationPanel(parent=self)
         self.logging_configuration_panel = LoggingConfigurationPanel(parent=self)
-        self.monitoring_panel.SetFocus()
+        self.monitoring_panel = MonitoringPanel(parent=self)
+        self.monitor_configuration_panel.SetFocus()
 
-        self.AddPage(self.monitoring_panel, "Monitoring")
+        self.AddPage(self.monitor_configuration_panel, "Monitor configuration")
         self.AddPage(self.logging_configuration_panel, "Log configuration")
+        self.AddPage(self.monitoring_panel, "Monitoring status")
 
     def close(self):
         self.monitoring_panel.close()
@@ -59,14 +61,26 @@ class ControlPanel(wx.Notebook):
         self.logging_configuration_panel.Enable()
 
 
-# noinspection PyPropertyAccess
-class MonitoringPanel(wx.Panel):
+class MonitorConfigurationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
 
-        self._verification = None
-        self._set_up_initial_verification_status()
         self._render()
+
+    def select_specification(self, event):
+        # Open Dialog
+        dialog = wx.FileDialog(
+            self,
+            "Select analysis framework file (.zip):",
+            "",
+            "",
+            "All files (*.*)|*.*",
+            wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        )
+        if dialog.ShowModal() == wx.ID_OK:
+            self.framework_specification_file_path_field.SetValue(dialog.GetPath())
+            wx.CallAfter(self.log_folder_button.Enable)
+        dialog.Destroy()
 
     def select_report(self, event):
         # Open Dialog
@@ -81,34 +95,216 @@ class MonitoringPanel(wx.Panel):
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
             self._update_amount_of_events_to_verify()
-            self._update_start_button()
+            self.Parent.monitoring_panel.update_start_button()
         dialog.Destroy()
 
-    def select_specification(self, event):
-        # Open Dialog
-        dialog = wx.FileDialog(
-            self,
-            "Select analysis framework file (.zip):",
-            "",
-            "",
-            "All files (*.*)|*.*",
-            wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+    def _set_up_workflow_selection_components(self):
+        action_label = "Select analysis framework file (.zip):"
+        action = self.select_specification
+        self.framework_specification_file_path_field = wx.TextCtrl(
+            self, -1, "", size=(600, 33), style=wx.TE_READONLY
         )
-        if dialog.ShowModal() == wx.ID_OK:
-            self.framework_specification_file_path_field.SetValue(dialog.GetPath())
-            self._update_start_button()
-        dialog.Destroy()
+        action_label_component = wx.StaticText(self, label=action_label)
+        self.main_sizer.Add(action_label_component, 0, wx.LEFT | wx.TOP, border=15)
+
+        folder_icon = wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, (16, 16))
+        folder_selection_button = wx.BitmapButton(self, bitmap=folder_icon)
+        folder_selection_button.Bind(wx.EVT_BUTTON, action)
+
+        folder_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        folder_selection_sizer.Add(self.framework_specification_file_path_field, 0, wx.ALL, border=10)
+        folder_selection_sizer.Add(
+            folder_selection_button, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=10
+        )
+        self.main_sizer.Add(folder_selection_sizer, 0)
+
+    def _set_up_log_file_selection_components(self):
+        action_label = "Select event report file (.txt):"
+        action = self.select_report
+        self.event_report_file_path_field = wx.TextCtrl(
+            self, -1, "", size=(600, 33), style=wx.TE_READONLY
+        )
+        action_label_component = wx.StaticText(self, label=action_label)
+        self.main_sizer.Add(action_label_component, 0, wx.LEFT | wx.TOP, border=15)
+
+        folder_icon = wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, (16, 16))
+        folder_selection_button = wx.BitmapButton(self, bitmap=folder_icon)
+        folder_selection_button.Bind(wx.EVT_BUTTON, action)
+        self.log_folder_button = folder_selection_button
+        wx.CallAfter(self.log_folder_button.Disable)
+
+        folder_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        folder_selection_sizer.Add(self.event_report_file_path_field, 0, wx.ALL, border=10)
+        folder_selection_sizer.Add(
+            folder_selection_button, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=10
+        )
+        self.main_sizer.Add(folder_selection_sizer, 0)
+
+    def _add_dividing_line(self):
+        self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
+
+    def _set_up_components(self):
+        self._set_up_workflow_selection_components()
+        self._add_dividing_line()
+        self._set_up_log_file_selection_components()
+
+    def _render(self):
+        self.main_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._set_up_components()
+        self.SetSizer(self.main_sizer)
+
+    def _update_amount_of_events_to_verify(self):
+        with open(self.event_report_file_path_field.GetValue(), "r") as file:
+            self.Parent.monitoring_panel._amount_of_events_to_verify = len(file.readlines())
+            file.close()
+        self.Parent.monitoring_panel.amount_of_events_to_verify_text_label.SetLabel(
+            self.Parent.monitoring_panel._amount_of_events_to_verify_label()
+        )
+        self.Parent.monitoring_panel._progress_bar.SetRange(self.Parent.monitoring_panel._amount_of_events_to_verify)
+
+
+class LoggingConfigurationPanel(wx.Panel):
+    def __init__(self, parent):
+        super().__init__(parent=parent)
+
+        self._set_up_components()
+
+    def _set_up_components(self):
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self._set_up_logging_configuration_components()
+
+        self.SetSizer(self.sizer)
+
+    def _set_up_logging_configuration_components(self):
+        logging_configuration_label_component = wx.StaticText(
+            self, label="Log configuration"
+        )
+        self.sizer.Add(
+            logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
+        )
+        self.sizer.AddStretchSpacer()
+        self._set_up_logging_verbosity_configuration_components()
+        self._set_up_logging_destination_configuration_components()
+        self.sizer.AddStretchSpacer()
+
+    def _set_up_logging_verbosity_configuration_components(self):
+        label = wx.StaticText(self, label="Type of log entries to register:")
+
+        self._logging_verbosity_selector = wx.Choice(
+            self, choices=self._logging_verbosity_options(), size=(200, 35)
+        )
+        self._logging_verbosity_selector.Bind(
+            wx.EVT_CHOICE, self._select_logging_verbosity
+        )
+        self._select_default_logging_verbosity(self._logging_verbosity_selector)
+
+        logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        logging_verbosity_selection_sizer.Add(
+            label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
+        )
+        logging_verbosity_selection_sizer.Add(
+            self._logging_verbosity_selector, 0, wx.LEFT | wx.RIGHT, border=15
+        )
+
+        self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.CENTER)
+
+    def _set_up_logging_destination_configuration_components(self):
+        label = wx.StaticText(self, label="Log destination:")
+
+        self._logging_destination_selector = wx.Choice(
+            self, choices=self._logging_destination_options(), size=(200, 35)
+        )
+        self._logging_destination_selector.Bind(
+            wx.EVT_CHOICE, self._select_logging_destination
+        )
+        self._select_default_logging_destination(self._logging_destination_selector)
+
+        logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        logging_destination_selection_sizer.Add(
+            label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
+        )
+        logging_destination_selection_sizer.Add(
+            self._logging_destination_selector,
+            0,
+            wx.LEFT | wx.TOP | wx.BOTTOM | wx.RIGHT,
+            border=15,
+        )
+
+        self.sizer.Add(logging_destination_selection_sizer, 0, wx.CENTER)
+
+    def _select_default_logging_verbosity(self, selector):
+        default_selection_index = 0
+        selector.SetSelection(default_selection_index)
+        self._logging_verbosity = self._logging_verbosity_from_text(
+            selector.GetString(default_selection_index)
+        )
+
+    def _select_logging_verbosity(self, event):
+        selected_option = event.GetString()
+        self._logging_verbosity = self._logging_verbosity_from_text(selected_option)
+
+    def _logging_verbosity_from_text(self, selected_option):
+        return self._text_to_logging_verbosity_map()[selected_option]
+
+    def _text_to_logging_verbosity_map(self):
+        return {
+            "All entries": LoggingLevel.INFO,
+            "Analysis related entries": LoggingLevel.PROPERTY_ANALYSIS,
+            "Error and warning entries": LoggingLevel.WARNING,
+            "Error entries": LoggingLevel.ERROR,
+        }
+
+    def _logging_verbosity_options(self):
+        return list(self._text_to_logging_verbosity_map().keys())
+
+    def _select_default_logging_destination(self, selector):
+        default_selection_index = 0
+        selector.SetSelection(default_selection_index)
+        self._logging_destination = selector.GetString(default_selection_index)
+
+    def _select_logging_destination(self, event):
+        self._logging_destination = event.GetString()
+
+    def _logging_destination_options(self):
+        return LoggingDestination.all()
+
+    def logging_destination(self):
+        return self._logging_destination
+
+    def logging_verbosity(self):
+        return self._logging_verbosity
+
+
+class MonitoringPanel(wx.Panel):
+    def __init__(self, parent):
+        super().__init__(parent=parent)
+
+        self._verification = None
+        self._set_up_initial_verification_status()
+        self._render()
+
+    def update_start_button(self):
+        specification_file_path = self.Parent.monitor_configuration_panel.framework_specification_file_path_field.Value
+        specification_file_was_selected = specification_file_path.endswith(".zip")
+
+        report_file_path = self.Parent.monitor_configuration_panel.event_report_file_path_field.Value
+        report_file_was_selected = report_file_path.endswith(".txt")
+
+        if report_file_was_selected and specification_file_was_selected:
+            self._enable_multi_action_button()
+        else:
+            self._disable_multi_action_button()
 
     def on_start(self, _event):
-        specification_path = self.framework_specification_file_path_field.Value
-        event_report_path = self.event_report_file_path_field.Value
-
         self._set_up_initial_verification_status()
-        self._update_amount_of_events_to_verify()
-
-        self._verification = Verification.new_for_workflow_in_file(specification_path)
+        # "specification_path" y la lista de event reports que tiene que suplantar a "event_report_path" hay que
+        # sacarlos de la Page "Monitoring configuration"
+        self._verification = Verification.new_for_workflow_in_file(
+            self.Parent.monitor_configuration_panel.framework_specification_file_path_field.Value,
+        )
         self._verification.run_for_report(
-            event_report_path,
+            self.Parent.monitor_configuration_panel.event_report_file_path_field.Value,
             self.Parent.logging_destination(),
             self.Parent.logging_verbosity(),
             self._pause_event,
@@ -180,15 +376,6 @@ class MonitoringPanel(wx.Panel):
         self._amount_of_processed_events = 0
         self._elapsed_seconds = 0
 
-    def _update_amount_of_events_to_verify(self):
-        with open(self.event_report_file_path_field.Value, "r") as file:
-            self._amount_of_events_to_verify = len(file.readlines())
-            file.close()
-        self.amount_of_events_to_verify_text_label.SetLabel(
-            self._amount_of_events_to_verify_label()
-        )
-        self._progress_bar.SetRange(self._amount_of_events_to_verify)
-
     def _stop_verification(self):
         self._disable_stop_button()
         self._timer.Stop()
@@ -204,9 +391,6 @@ class MonitoringPanel(wx.Panel):
         self.SetSizer(self.main_sizer)
 
     def _set_up_components(self):
-        self._set_up_log_file_selection_components()
-        self._set_up_workflow_selection_components()
-        self._add_dividing_line()
         self._set_up_monitoring_status_components()
         self._add_dividing_line()
         self._set_up_action_components()
@@ -214,48 +398,7 @@ class MonitoringPanel(wx.Panel):
     def _add_dividing_line(self):
         self.main_sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
 
-    def _set_up_log_file_selection_components(self):
-        action_label = "Select event report file (.txt):"
-        action = self.select_report
-        self.event_report_file_path_field = wx.TextCtrl(
-            self, -1, "", size=(600, 33), style=wx.TE_READONLY
-        )
-
-        self._set_up_file_selection_components_with(
-            action, action_label, self.event_report_file_path_field
-        )
-
-    def _set_up_workflow_selection_components(self):
-        action_label = "Select analysis framework file (.zip):"
-        action = self.select_specification
-        self.framework_specification_file_path_field = wx.TextCtrl(
-            self, -1, "", size=(600, 33), style=wx.TE_READONLY
-        )
-
-        self._set_up_file_selection_components_with(
-            action, action_label, self.framework_specification_file_path_field
-        )
-
-    def _set_up_file_selection_components_with(self, action, action_label, text_field):
-        action_label_component = wx.StaticText(self, label=action_label)
-        self.main_sizer.Add(action_label_component, 0, wx.LEFT | wx.TOP, border=15)
-
-        folder_icon = wx.ArtProvider.GetBitmap(wx.ART_FOLDER, wx.ART_OTHER, (16, 16))
-        folder_selection_button = wx.BitmapButton(self, bitmap=folder_icon)
-        folder_selection_button.Bind(wx.EVT_BUTTON, action)
-
-        folder_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        folder_selection_sizer.Add(text_field, 0, wx.ALL, border=10)
-        folder_selection_sizer.Add(
-            folder_selection_button, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=10
-        )
-
-        self.main_sizer.Add(folder_selection_sizer, 0)
-
     def _set_up_monitoring_status_components(self):
-        monitoring_status_label = wx.StaticText(self, label="Monitoring state")
-        self.main_sizer.Add(monitoring_status_label, 0, wx.TOP | wx.LEFT, border=15)
-
         upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
         lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -423,18 +566,6 @@ class MonitoringPanel(wx.Panel):
     def _current_time(self):
         return wx.DateTime.Now()
 
-    def _update_start_button(self):
-        report_file_path = self.event_report_file_path_field.Value
-        report_file_was_selected = report_file_path.endswith(".txt")
-
-        specification_file_path = self.framework_specification_file_path_field.Value
-        specification_file_was_selected = specification_file_path.endswith(".zip")
-
-        if report_file_was_selected and specification_file_was_selected:
-            self._enable_multi_action_button()
-        else:
-            self._disable_multi_action_button()
-
     def _show_multi_action_button_as_start(self):
         self.multi_action_button.SetLabel("Start")
         self.multi_action_button.Bind(wx.EVT_BUTTON, self.on_start)
@@ -470,118 +601,6 @@ class MonitoringPanel(wx.Panel):
 
     def _add_horizontal_stretching_space(self, sizer):
         sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
-
-
-class LoggingConfigurationPanel(wx.Panel):
-    def __init__(self, parent):
-        super().__init__(parent=parent)
-        self._set_up_components()
-
-    def _set_up_components(self):
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-
-        self._set_up_logging_configuration_components()
-
-        self.SetSizer(self.sizer)
-
-    def _set_up_logging_configuration_components(self):
-        logging_configuration_label_component = wx.StaticText(
-            self, label="Log configuration"
-        )
-        self.sizer.Add(
-            logging_configuration_label_component, 0, wx.LEFT | wx.TOP, border=15
-        )
-        self.sizer.AddStretchSpacer()
-        self._set_up_logging_verbosity_configuration_components()
-        self._set_up_logging_destination_configuration_components()
-        self.sizer.AddStretchSpacer()
-
-    def _set_up_logging_verbosity_configuration_components(self):
-        label = wx.StaticText(self, label="Type of log entries to register:")
-
-        self._logging_verbosity_selector = wx.Choice(
-            self, choices=self._logging_verbosity_options(), size=(200, 35)
-        )
-        self._logging_verbosity_selector.Bind(
-            wx.EVT_CHOICE, self._select_logging_verbosity
-        )
-        self._select_default_logging_verbosity(self._logging_verbosity_selector)
-
-        logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        logging_verbosity_selection_sizer.Add(
-            label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
-        )
-        logging_verbosity_selection_sizer.Add(
-            self._logging_verbosity_selector, 0, wx.LEFT | wx.RIGHT, border=15
-        )
-
-        self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.CENTER)
-
-    def _set_up_logging_destination_configuration_components(self):
-        label = wx.StaticText(self, label="Log destination:")
-
-        self._logging_destination_selector = wx.Choice(
-            self, choices=self._logging_destination_options(), size=(200, 35)
-        )
-        self._logging_destination_selector.Bind(
-            wx.EVT_CHOICE, self._select_logging_destination
-        )
-        self._select_default_logging_destination(self._logging_destination_selector)
-
-        logging_destination_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        logging_destination_selection_sizer.Add(
-            label, 0, wx.LEFT | wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER_VERTICAL, border=15
-        )
-        logging_destination_selection_sizer.Add(
-            self._logging_destination_selector,
-            0,
-            wx.LEFT | wx.TOP | wx.BOTTOM | wx.RIGHT,
-            border=15,
-        )
-
-        self.sizer.Add(logging_destination_selection_sizer, 0, wx.CENTER)
-
-    def _select_default_logging_verbosity(self, selector):
-        default_selection_index = 0
-        selector.SetSelection(default_selection_index)
-        self._logging_verbosity = self._logging_verbosity_from_text(
-            selector.GetString(default_selection_index)
-        )
-
-    def _select_logging_verbosity(self, event):
-        selected_option = event.GetString()
-        self._logging_verbosity = self._logging_verbosity_from_text(selected_option)
-
-    def _logging_verbosity_from_text(self, selected_option):
-        return self._text_to_logging_verbosity_map()[selected_option]
-
-    def _text_to_logging_verbosity_map(self):
-        return {
-            "All entries": LoggingLevel.INFO,
-            "Analysis related entries": LoggingLevel.PROPERTY_ANALYSIS,
-            "Error and warning entries": LoggingLevel.WARNING,
-            "Error entries": LoggingLevel.ERROR,
-        }
-
-    def _logging_verbosity_options(self):
-        return list(self._text_to_logging_verbosity_map().keys())
-
-    def _select_default_logging_destination(self, selector):
-        default_selection_index = 0
-        selector.SetSelection(default_selection_index)
-        self._logging_destination = selector.GetString(default_selection_index)
-
-    def _select_logging_destination(self, event):
-        self._logging_destination = event.GetString()
-
-    def _logging_destination_options(self):
-        return LoggingDestination.all()
-
-    def logging_destination(self):
-        return self._logging_destination
-
-    def logging_verbosity(self):
-        return self._logging_verbosity
 
 
 if __name__ == "__main__":
