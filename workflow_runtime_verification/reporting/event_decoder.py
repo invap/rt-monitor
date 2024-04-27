@@ -58,7 +58,7 @@ class EventDecoder:
             case "checkpoint_reached":
                 return CheckpointReachedEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
+                raise InvalidEventError(encoded_event)
 
     @staticmethod
     def decode_component_event(encoded_event):
