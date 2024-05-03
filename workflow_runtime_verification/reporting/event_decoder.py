@@ -30,7 +30,7 @@ class EventDecoder:
             case "workflow_event":
                 return WorkflowEvent.decode_with(EventDecoder, encoded_event)
             case "invalid":
-                return InvalidEvent.decode_with(EventDecoder, encoded_event)
+                raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
 
     @staticmethod
     def decode_timed_event(encoded_event):
@@ -47,7 +47,7 @@ class EventDecoder:
             case "clock_reset":
                 return ClockResetEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
+                raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
 
     @staticmethod
     def decode_state_event(encoded_event):
@@ -58,7 +58,7 @@ class EventDecoder:
             case "variable_value_assigned":
                 return VariableValueAssignedEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
+                raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
 
     @staticmethod
     def decode_workflow_event(encoded_event):
@@ -71,7 +71,7 @@ class EventDecoder:
             case "checkpoint_reached":
                 return CheckpointReachedEvent.decode_with(EventDecoder, encoded_event)
             case _:
-                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
+                raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
 
     @staticmethod
     def decode_declare_clock_event(encoded_event):

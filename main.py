@@ -1,19 +1,20 @@
 import logging
 import threading
+import os
+import shutil
 
 import wx
 
 from logging_configuration import LoggingLevel, LoggingDestination
 from verification import Verification
+from workflow_runtime_verification.errors import AbortRun, EventLogFileMissing
 
 
 class MainWindow(wx.Frame):
     def __init__(self):
         super().__init__(parent=None, title="Runtime Monitor")
         self.Bind(wx.EVT_CLOSE, self.on_close)
-
         self._set_up_control_panel()
-
         self._adjust_size_and_show()
 
     def _set_up_control_panel(self):
@@ -64,7 +65,9 @@ class ControlPanel(wx.Notebook):
 class MonitorConfigurationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
-
+        self.framework_specification_chosen = False
+        self.event_report_file_chosen = False
+        self.specification_dir = ""
         self._render()
 
     def select_specification(self, event):
@@ -79,6 +82,10 @@ class MonitorConfigurationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.framework_specification_file_path_field.SetValue(dialog.GetPath())
+            self.framework_specification_chosen = True
+            self.specification_dir = MonitorConfigurationPanel._unpack_specification_file(
+                self.framework_specification_file_path_field.Value
+            )
             wx.CallAfter(self.log_folder_button.Enable)
         dialog.Destroy()
 
@@ -86,7 +93,7 @@ class MonitorConfigurationPanel(wx.Panel):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Select event report file",
+            "Select event report file list",
             "",
             "",
             "All files (*.*)|*.*",
@@ -94,6 +101,7 @@ class MonitorConfigurationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
+            self.event_report_file_chosen = True
             self._update_amount_of_events_to_verify()
             self.Parent.monitoring_panel.update_start_button()
         dialog.Destroy()
@@ -119,7 +127,7 @@ class MonitorConfigurationPanel(wx.Panel):
         self.main_sizer.Add(folder_selection_sizer, 0)
 
     def _set_up_log_file_selection_components(self):
-        action_label = "Select event report file (.txt):"
+        action_label = "Select event report files (.txt):"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
@@ -154,26 +162,51 @@ class MonitorConfigurationPanel(wx.Panel):
         self.SetSizer(self.main_sizer)
 
     def _update_amount_of_events_to_verify(self):
+        main_log_path = None
         with open(self.event_report_file_path_field.GetValue(), "r") as file:
+            for line in file:
+                split_line = line.strip().split(",")
+                device_name = split_line[0]
+                if device_name == "main":
+                    main_log_path = split_line[1]
+            if main_log_path is None:
+                raise EventLogFileMissing("main")
+        with open(main_log_path, "r") as file:
             self.Parent.monitoring_panel._amount_of_events_to_verify = len(file.readlines())
             file.close()
         self.Parent.monitoring_panel.amount_of_events_to_verify_text_label.SetLabel(
-            self.Parent.monitoring_panel._amount_of_events_to_verify_label()
+            self.Parent.monitoring_panel.amount_of_events_to_verify_label()
         )
-        self.Parent.monitoring_panel._progress_bar.SetRange(self.Parent.monitoring_panel._amount_of_events_to_verify)
+        self.Parent.monitoring_panel.progress_bar.SetRange(self.Parent.monitoring_panel._amount_of_events_to_verify)
+
+    @staticmethod
+    def _unpack_specification_file(file_path):
+        split_file_path = os.path.split(file_path)
+        file_directory = split_file_path[0]
+        file_name = split_file_path[1]
+
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        specification_directory = os.path.join(
+            file_directory, file_name_without_extension
+        )
+        try:
+            os.mkdir(specification_directory)
+        except FileExistsError:
+            shutil.rmtree(specification_directory)
+            os.mkdir(specification_directory)
+
+        shutil.unpack_archive(file_path, specification_directory)
+        return specification_directory
 
 
 class LoggingConfigurationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
-
         self._set_up_components()
 
     def _set_up_components(self):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-
         self._set_up_logging_configuration_components()
-
         self.SetSizer(self.sizer)
 
     def _set_up_logging_configuration_components(self):
@@ -190,15 +223,13 @@ class LoggingConfigurationPanel(wx.Panel):
 
     def _set_up_logging_verbosity_configuration_components(self):
         label = wx.StaticText(self, label="Type of log entries to register:")
-
         self._logging_verbosity_selector = wx.Choice(
-            self, choices=self._logging_verbosity_options(), size=(200, 35)
+            self, choices=LoggingConfigurationPanel._logging_verbosity_options(), size=(200, 35)
         )
         self._logging_verbosity_selector.Bind(
             wx.EVT_CHOICE, self._select_logging_verbosity
         )
         self._select_default_logging_verbosity(self._logging_verbosity_selector)
-
         logging_verbosity_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
         logging_verbosity_selection_sizer.Add(
             label, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border=15
@@ -206,14 +237,13 @@ class LoggingConfigurationPanel(wx.Panel):
         logging_verbosity_selection_sizer.Add(
             self._logging_verbosity_selector, 0, wx.LEFT | wx.RIGHT, border=15
         )
-
         self.sizer.Add(logging_verbosity_selection_sizer, 0, wx.CENTER)
 
     def _set_up_logging_destination_configuration_components(self):
         label = wx.StaticText(self, label="Log destination:")
 
         self._logging_destination_selector = wx.Choice(
-            self, choices=self._logging_destination_options(), size=(200, 35)
+            self, choices=LoggingConfigurationPanel._logging_destination_options(), size=(200, 35)
         )
         self._logging_destination_selector.Bind(
             wx.EVT_CHOICE, self._select_logging_destination
@@ -242,12 +272,14 @@ class LoggingConfigurationPanel(wx.Panel):
 
     def _select_logging_verbosity(self, event):
         selected_option = event.GetString()
-        self._logging_verbosity = self._logging_verbosity_from_text(selected_option)
+        self._logging_verbosity = LoggingConfigurationPanel._logging_verbosity_from_text(selected_option)
 
-    def _logging_verbosity_from_text(self, selected_option):
-        return self._text_to_logging_verbosity_map()[selected_option]
+    @staticmethod
+    def _logging_verbosity_from_text(selected_option):
+        return LoggingConfigurationPanel._text_to_logging_verbosity_map()[selected_option]
 
-    def _text_to_logging_verbosity_map(self):
+    @staticmethod
+    def _text_to_logging_verbosity_map():
         return {
             "All entries": LoggingLevel.INFO,
             "Analysis related entries": LoggingLevel.PROPERTY_ANALYSIS,
@@ -255,8 +287,9 @@ class LoggingConfigurationPanel(wx.Panel):
             "Error entries": LoggingLevel.ERROR,
         }
 
-    def _logging_verbosity_options(self):
-        return list(self._text_to_logging_verbosity_map().keys())
+    @staticmethod
+    def _logging_verbosity_options():
+        return list(LoggingConfigurationPanel._text_to_logging_verbosity_map().keys())
 
     def _select_default_logging_destination(self, selector):
         default_selection_index = 0
@@ -266,7 +299,8 @@ class LoggingConfigurationPanel(wx.Panel):
     def _select_logging_destination(self, event):
         self._logging_destination = event.GetString()
 
-    def _logging_destination_options(self):
+    @staticmethod
+    def _logging_destination_options():
         return LoggingDestination.all()
 
     def logging_destination(self):
@@ -285,33 +319,29 @@ class MonitoringPanel(wx.Panel):
         self._render()
 
     def update_start_button(self):
-        specification_file_path = self.Parent.monitor_configuration_panel.framework_specification_file_path_field.Value
-        specification_file_was_selected = specification_file_path.endswith(".zip")
-
-        report_file_path = self.Parent.monitor_configuration_panel.event_report_file_path_field.Value
-        report_file_was_selected = report_file_path.endswith(".txt")
-
-        if report_file_was_selected and specification_file_was_selected:
+        if (self.Parent.monitor_configuration_panel.framework_specification_chosen and
+                self.Parent.monitor_configuration_panel.event_report_file_chosen):
             self._enable_multi_action_button()
         else:
             self._disable_multi_action_button()
 
     def on_start(self, _event):
-        self._set_up_initial_verification_status()
-        # "specification_path" y la lista de event reports que tiene que suplantar a "event_report_path" hay que
-        # sacarlos de la Page "Monitoring configuration"
-        self._verification = Verification.new_for_workflow_in_file(
-            self.Parent.monitor_configuration_panel.framework_specification_file_path_field.Value,
-        )
-        self._verification.run_for_report(
-            self.Parent.monitor_configuration_panel.event_report_file_path_field.Value,
-            self.Parent.logging_destination(),
-            self.Parent.logging_verbosity(),
-            self._pause_event,
-            self._stop_event,
-            self,
-        )
-        self._start_timer()
+        try:
+            self._set_up_initial_verification_status()
+            self._verification = Verification.new_from_files(
+                self.Parent.monitor_configuration_panel.specification_dir
+            )
+            self._verification.run_for_report(
+                self.Parent.monitor_configuration_panel.event_report_file_path_field.Value,
+                self.Parent.logging_destination(),
+                self.Parent.logging_verbosity(),
+                self._pause_event,
+                self._stop_event,
+                self,
+            )
+            self._start_timer()
+        except AbortRun():
+            logging.critical(f"Runtime monitoring process ABORTED.")
 
     def on_pause(self, event):
         self._pause_event.set()
@@ -403,11 +433,11 @@ class MonitoringPanel(wx.Panel):
         lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self._set_up_events_to_process(upper_sizer)
-        self._add_horizontal_stretching_space(upper_sizer)
+        MonitoringPanel._add_horizontal_stretching_space(upper_sizer)
         self._set_up_elapsed_time(upper_sizer)
 
         self._set_up_processed_events(lower_sizer)
-        self._add_horizontal_stretching_space(lower_sizer)
+        MonitoringPanel._add_horizontal_stretching_space(lower_sizer)
         self._set_up_estimated_remaining_time(lower_sizer)
 
         self.main_sizer.Add(upper_sizer, 0, wx.EXPAND)
@@ -417,7 +447,7 @@ class MonitoringPanel(wx.Panel):
 
     def _set_up_events_to_process(self, sizer):
         self.amount_of_events_to_verify_text_label = wx.StaticText(
-            self, label=self._amount_of_events_to_verify_label()
+            self, label=self.amount_of_events_to_verify_label()
         )
         sizer.Add(
             self.amount_of_events_to_verify_text_label,
@@ -441,9 +471,9 @@ class MonitoringPanel(wx.Panel):
         self._percentage_of_processed_events_label = wx.StaticText(
             self, label=self._percentage_of_processed_events_label_text()
         )
-        self._progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
+        self.progress_bar = wx.Gauge(self, range=self._amount_of_events_to_verify)
         progress_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        progress_bar_sizer.Add(self._progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
+        progress_bar_sizer.Add(self.progress_bar, 1, wx.ALIGN_CENTER_VERTICAL)
         progress_bar_sizer.Add(
             self._percentage_of_processed_events_label,
             0,
@@ -490,7 +520,7 @@ class MonitoringPanel(wx.Panel):
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
-    def _amount_of_events_to_verify_label(self):
+    def amount_of_events_to_verify_label(self):
         return f"Events to process: {self._amount_of_events_to_verify}\n"
 
     def _amount_of_processed_events_label(self):
@@ -546,7 +576,7 @@ class MonitoringPanel(wx.Panel):
             self._update_status()
 
     def _update_status(self):
-        current_time = self._current_time()
+        current_time = MonitoringPanel._current_time()
         self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
         self._last_updated_time = current_time
 
@@ -558,12 +588,13 @@ class MonitoringPanel(wx.Panel):
         self.amount_of_processed_events_text_label.SetLabel(
             self._amount_of_processed_events_label()
         )
-        self._progress_bar.SetValue(self._amount_of_processed_events)
+        self.progress_bar.SetValue(self._amount_of_processed_events)
         self._percentage_of_processed_events_label.SetLabel(
             self._percentage_of_processed_events_label_text()
         )
 
-    def _current_time(self):
+    @staticmethod
+    def _current_time():
         return wx.DateTime.Now()
 
     def _show_multi_action_button_as_start(self):
@@ -599,7 +630,8 @@ class MonitoringPanel(wx.Panel):
     def _enable_logging_configuration_components(self):
         self.Parent.enable_logging_configuration_components()
 
-    def _add_horizontal_stretching_space(self, sizer):
+    @staticmethod
+    def _add_horizontal_stretching_space(sizer):
         sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
 
 

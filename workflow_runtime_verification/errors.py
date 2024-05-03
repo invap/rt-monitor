@@ -16,7 +16,7 @@ class InvalidEventE(Exception):
         super().__init__()
         self._event = event
 
-    def event(self):
+    def get_event(self):
         return self._event
 
 
@@ -115,12 +115,12 @@ class TaskDoesNotExist(Exception):
 
 
 class ComponentDoesNotExist(Exception):
-    def __init__(self, device_name):
+    def __init__(self, component_name):
         super().__init__()
-        self._device_name = device_name
+        self._component_name = component_name
 
-    def get_device_name(self):
-        return self._device_name
+    def get_component_name(self):
+        return self._component_name
 
 
 class FunctionNotImplemented(Exception):
@@ -148,6 +148,15 @@ class EventError(Exception):
 
     def get_event(self):
         return self._event
+
+
+class EventLogFileMissing(Exception):
+    def __init__(self, filename):
+        super().__init__()
+        self._filename = filename
+
+    def get_filename(self):
+        return self._filename
 
 
 class AbortRun(Exception):
@@ -206,3 +215,4 @@ class UnsupportedPyVariableType(UnsupportedVariableType):
     @staticmethod
     def get_formula_type():
         return "py"
+

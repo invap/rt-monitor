@@ -2,19 +2,19 @@ import inspect
 
 import numpy as np
 
+from workflow_runtime_verification.component import Component
 from workflow_runtime_verification.components.rt_monitor_example_app import (
     ex_adcVisual,
 )
 from workflow_runtime_verification.errors import NoValue, FunctionNotImplemented
 
 
-class adc:
+class adc(Component):
     def __init__(self):
         AcumCalib = 0
         Calib = 0
         ContCalib = 0
         self._adc_read = NoValue()
-
         # statistics variables
         self.__total_values_read = 0
         self.__current_value = 0
@@ -79,5 +79,19 @@ class adc:
                     print(
                         f"Error: Can't convert the arg '{name}' al tipo {exp_type.__name__}"
                     )
-
         return function(*new_args)
+
+    def process_log(self, log_file, mark):
+        current_pos = log_file.tell()
+        line = log_file.readline()
+        while line:
+            split_line = line.strip().split(",")
+            if mark <= int(split_line[0]):
+                break
+            self._process_event(split_line[1:])
+            current_pos = log_file.tell()
+            line = log_file.readline()
+        log_file.seek(current_pos)
+
+    def _process_event(self, event):
+        self._adc_read = event[0]

@@ -13,7 +13,7 @@ class LogicProperty:
     def formula(self):
         return self._formula
 
-    def eval_with(self, monitor, now):
+    def eval_with(self, event_time, monitor):
         raise NotImplementedError
 
 
@@ -22,7 +22,9 @@ class SMT2Property(LogicProperty):
         super().__init__(variables, formula, filename)
 
     def eval_with(self, event_time, monitor):
-        return monitor.eval_smt2(event_time, self)
+        return monitor.eval_smt2(event_time,
+                                 monitor.smt2_build_spec(event_time, self),
+                                 self.filename())
 
 
 class SymPyProperty(LogicProperty):

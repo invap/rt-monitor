@@ -23,7 +23,7 @@ class Clock:
             self._isPaused = False
             self._pauseStart = 0
         else:
-            raise ClockWasAlreadyStarted(self)
+            raise ClockWasAlreadyStarted(self.get_clockname())
 
     def pause(self, pause_time):
         if self._hasStarted:
@@ -31,9 +31,9 @@ class Clock:
                 self._isPaused = True
                 self._pauseStart = pause_time
             else:
-                raise ClockWasAlreadyPaused(self)
+                raise ClockWasAlreadyPaused(self.get_clockname())
         else:
-            raise ClockWasNotStarted(self)
+            raise ClockWasNotStarted(self.get_clockname())
 
     def resume(self, resume_time):
         if self._hasStarted:
@@ -42,9 +42,9 @@ class Clock:
                 self._pauseStart = 0
                 self._isPaused = False
             else:
-                raise ClockWasNotPaused(self)
+                raise ClockWasNotPaused(self.get_clockname())
         else:
-            raise ClockWasNotStarted(self)
+            raise ClockWasNotStarted(self.get_clockname())
 
     def reset(self, start_time):
         if self._hasStarted:
@@ -54,10 +54,10 @@ class Clock:
             self._isPaused = False
             self._pauseStart = 0
         else:
-            raise ClockWasNotStarted(self)
+            raise ClockWasNotStarted(self.get_clockname())
 
     def get_time(self, now):
         if self._hasStarted:
             return now - self._startTime - self._dragTime
         else:
-            raise ClockWasNotStarted(self)
+            raise ClockWasNotStarted(self.get_clockname())

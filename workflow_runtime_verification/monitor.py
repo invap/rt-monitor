@@ -30,6 +30,8 @@ from workflow_runtime_verification.errors import (
     UnsupportedSymPyVariableType,
     UnsupportedPyVariableType,
 )
+from workflow_runtime_verification.reporting.event.event import Event
+from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
@@ -50,34 +52,36 @@ class Monitor:
 
     def run(
             self,
-            event_report_file,
+            log_files_map,
             pause_event=None,
             stop_event=None,
             event_processed_callback=None,
     ):
+        decoded_event = Event(0)
         try:
             is_a_valid_report = True
-            for line in event_report_file:
+            for line in log_files_map["main"]:
                 if not is_a_valid_report:
                     break
-
                 Monitor._pause_verification_if_requested(pause_event, stop_event)
                 if Monitor._event_was_set(stop_event):
                     break
-
                 decoded_event = EventDecoder.decode(line.strip())
                 logging.info(f"Processing: {decoded_event.serialized()}")
+                mark = decoded_event.time()
+                # Process the events of all self-logged components until time mark
+                for component in log_files_map:
+                    if not component == "main":
+                        self._component_dictionary[component].process_log(log_files_map[component], mark)
+                #
                 is_a_valid_report = decoded_event.process_with(self)
-
                 if event_processed_callback is not None:
                     event_processed_callback()
-
                 if not is_a_valid_report:
                     logging.info(
                         f"The following event resulted in an invalid verification: "
                         f"[ {decoded_event.serialized()} ]"
                     )
-
             if Monitor._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
             elif not is_a_valid_report:
@@ -92,30 +96,46 @@ class Monitor:
         # Clock related exceptions
         except AlreadyDeclaredClock as e:
             logging.error(f"Clock [ {e.get_clockname()} ] was already declared.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except UndeclaredClock as e:
-            logging.error(f"Clock [ {e.get_clockname()} ] has not been declared.")
+            logging.error(f"Clock [ {e.get_clockname()} ] was not declared.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except ClockWasAlreadyStarted as e:
+            logging.error(f"Clock [ {e.get_clockname()} ] was already started.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+        except ClockWasNotStarted as e:
             logging.error(f"Clock [ {e.get_clockname()} ] was not started.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except ClockWasAlreadyPaused as e:
             logging.error(f"Clock [ {e.get_clockname()} ] was already paused.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except ClockWasNotPaused as e:
             logging.error(f"Clock [ {e.get_clockname()} ] was not paused.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Task related exceptions
         except TaskDoesNotExist as e:
             logging.error(f"Task [ {e.get_task_name()} ] does not exist.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Checkpoint related exceptions
         except CheckpointDoesNotExist as e:
             logging.error(f"Checkpoint [ {e.get_checkpoint_name()} ] does not exist.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Execution state related exceptions
         except AlreadyDeclaredVariable as e:
             logging.error(f"Variable [ {e.get_varnames()} ] is already declared.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except UndeclaredVariable as e:
             logging.error(f"Variable [ {e.get_varnames()} ] was not declared.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+        # Component related exceptions
+        except ComponentDoesNotExist as e:
+            logging.error(f"Component [ {e.get_component_name()} ] does not exist.")
+            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Events related exceptions
         except EventError as e:
-            logging.critical(f"Event [ {e.get_event()} ] produced an error.")
-        logging.critical(f"Runtime monitoring process ABORTED.")
-        raise AbortRun()
+            logging.critical(f"Event [ {e.get_event().serialized()} ] produced an error.")
+        except InvalidEventE as e:
+            logging.critical(f"Invalid event [ {e.get_event().serialized()} ].")
 
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
@@ -153,11 +173,35 @@ class Monitor:
 
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-        if self._workflow_specification.global_checkpoint_exists(checkpoint_name):
-            return self._process_global_checkpoint_reached(checkpoint_reached_event)
-        if self._workflow_specification.local_checkpoint_exists(checkpoint_name):
-            return self._process_local_checkpoint_reached(checkpoint_reached_event)
-        raise CheckpointDoesNotExist(checkpoint_name)
+        if (not self._workflow_specification.global_checkpoint_exists(checkpoint_name) and
+                not self._workflow_specification.local_checkpoint_exists(checkpoint_name)):
+            raise CheckpointDoesNotExist(checkpoint_name)
+        else:
+            try:
+                if self._workflow_specification.global_checkpoint_exists(checkpoint_name):
+                    return self._process_global_checkpoint_reached(checkpoint_reached_event)
+                if self._workflow_specification.local_checkpoint_exists(checkpoint_name):
+                    return self._process_local_checkpoint_reached(checkpoint_reached_event)
+            except AnalysisFailed:
+                logging.critical(f"Analysis FAILED.")
+                raise EventError(checkpoint_reached_event)
+
+    def _process_global_checkpoint_reached(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+        can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
+        checkpoint = self._workflow_specification.global_checkpoint_named(checkpoint_name)
+        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(), checkpoint.properties())
+        self._update_workflow_state_with_reached_global_checkpoint(checkpoint_reached_event)
+        return can_be_reached and properties_are_met
+
+    def _process_local_checkpoint_reached(self, checkpoint_reached_event):
+        checkpoint_name = checkpoint_reached_event.name()
+        can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
+        checkpoint = self._workflow_specification.local_checkpoint_named(checkpoint_name)
+        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(), checkpoint.properties())
+        started_task_name = self._started_task_name_from_state()
+        self._update_workflow_state_with_reached_local_checkpoint(checkpoint_reached_event, started_task_name)
+        return can_be_reached and properties_are_met
 
     def process_declare_variable(self, declare_variable_event):
         variable_name = declare_variable_event.variable_name()
@@ -172,7 +216,7 @@ class Monitor:
         variable_value = variable_value_assigned_event.variable_value()
         if variable_name not in self._execution_state:
             raise UndeclaredVariable(variable_name)
-        self._execution_state[variable_name] = [self._execution_state[variable_name][0],variable_value]
+        self._execution_state[variable_name] = [self._execution_state[variable_name][0], variable_value]
         return True
 
     def process_component_event(self, component_event):
@@ -261,32 +305,40 @@ class Monitor:
         self._workflow_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
     def _is_property_satisfied(self, event_time, logic_property):
-        Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
-        negation_is_sat = logic_property.eval_with(event_time, self)
-        if not negation_is_sat:
-            Monitor._log_property_analysis(f"Property {logic_property.filename()} PASSED")
-        else:
-            Monitor._log_property_analysis(f"Property {logic_property.filename()} FAILED")
+        try:
+            Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
+            negation_is_sat = logic_property.eval_with(event_time, self)
+            if not negation_is_sat:
+                Monitor._log_property_analysis(f"Property {logic_property.filename()} PASSED")
+            else:
+                Monitor._log_property_analysis(f"Property {logic_property.filename()} FAILED")
+            return negation_is_sat
+        except FormulaError as e:
+            logging.error(f"Error in formula [ {logic_property.filename()} ]")
+            raise e
+
+    @staticmethod
+    def eval_smt2(event_time, spec, filename):
+        temp_solver = z3.Solver()
+        temp_solver.from_string(spec)
+        negation_is_sat = z3.sat == temp_solver.check()
+        if negation_is_sat:
+            # Output counterexample as specification
+            spec_filename = filename + "@" + str(event_time) + ".smt2"
+            spec_file = open(spec_filename, "w")
+            spec_file.write(spec)
+            spec_file.close()
+            logging.info(f"Specification dumped: [ {spec_filename} ]")
         return negation_is_sat
 
-    def eval_smt2(self, event_time, logic_property):
+    def smt2_build_spec(self, event_time, logic_property):
         try:
             declarations = self._smt2_build_declarations(logic_property)
             assumptions = self._smt2_build_assumptions(logic_property)
             spec = (f"{"".join([decl + "\n" for decl in declarations])}\n" +
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"(assert (not {logic_property.formula()}))\n")
-            temp_solver = z3.Solver()
-            temp_solver.from_string(spec)
-            negation_is_sat = z3.sat == temp_solver.check()
-            if negation_is_sat:
-                # Output counterexample as specification
-                spec_filename = logic_property.filename() + "@" + str(event_time) + ".smt2"
-                spec_file = open(spec_filename, "w")
-                spec_file.write(spec)
-                spec_file.close()
-                logging.info(f"Specification dumped: [ {spec_filename} ]")
-            return negation_is_sat
+            return spec
         except NoValueAssignedToVariable as e:
             logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
             raise FormulaError(logic_property.formula())
@@ -633,61 +685,10 @@ class Monitor:
             if neg_properties_sat:
                 break
             try:
-                neg_properties_sat = self._is_property_satisfied(
-                    event_time, logic_property
-                )
-            except FormulaError as e:
-                logging.error(f"Error in formula [ {e.get_formula} ]")
+                neg_properties_sat = self._is_property_satisfied(event_time, logic_property)
+            except FormulaError:
                 raise AnalysisFailed()
-
         return not neg_properties_sat
-
-    def _process_global_checkpoint_reached(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-
-        can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
-
-        checkpoint = self._workflow_specification.global_checkpoint_named(
-            checkpoint_name
-        )
-        try:
-            properties_are_met = self._are_all_properties_satisfied(
-                checkpoint_reached_event.time(),
-                checkpoint.properties(),
-            )
-
-            self._update_workflow_state_with_reached_global_checkpoint(
-                checkpoint_reached_event
-            )
-
-            return can_be_reached and properties_are_met
-        except AnalysisFailed:
-            logging.critical(f"Analysis FAILED.")
-            raise EventError(checkpoint_reached_event)
-
-    def _process_local_checkpoint_reached(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-
-        can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
-
-        checkpoint = self._workflow_specification.local_checkpoint_named(
-            checkpoint_name
-        )
-        try:
-            properties_are_met = self._are_all_properties_satisfied(
-                checkpoint_reached_event.time(),
-                checkpoint.properties(),
-            )
-
-            started_task_name = self._started_task_name_from_state()
-            self._update_workflow_state_with_reached_local_checkpoint(
-                checkpoint_reached_event, started_task_name
-            )
-
-            return can_be_reached and properties_are_met
-        except AnalysisFailed:
-            logging.critical(f"Analysis FAILED.")
-            raise EventError(checkpoint_reached_event)
 
     def _task_can_start(self, task_name):
         return self._is_workflow_state_valid_for_reaching_element_named(task_name)
@@ -699,30 +700,18 @@ class Monitor:
         there_is_a_task_in_progress = self._there_is_a_task_in_progress()
         if not there_is_a_task_in_progress:
             return False
-
         task_in_progress_name = self._started_task_name_from_state()
-        task_in_progress = self._workflow_specification.task_specification_named(
-            task_in_progress_name
-        )
-
-        task_in_progress_has_that_checkpoint = any(
-            checkpoint.is_named(checkpoint_name)
-            for checkpoint in task_in_progress.checkpoints()
-        )
-
+        task_in_progress = self._workflow_specification.task_specification_named(task_in_progress_name)
+        task_in_progress_has_that_checkpoint = any(checkpoint.is_named(checkpoint_name)
+                                                   for checkpoint in task_in_progress.checkpoints())
         return task_in_progress_has_that_checkpoint
 
     def _is_workflow_state_valid_for_reaching_element_named(self, element_name):
         preceding_elements = (
-            self._workflow_specification.immediately_preceding_elements_for(
-                element_name
-            )
+            self._workflow_specification.immediately_preceding_elements_for(element_name)
         )
-
-        follows_a_corresponding_finishing_task = any(
-            self._task_had_finished(preceding_element.name())
-            for preceding_element in preceding_elements
-        )
+        follows_a_corresponding_finishing_task = any(self._task_had_finished(preceding_element.name())
+                                                     for preceding_element in preceding_elements)
         follows_a_corresponding_reached_checkpoint = any(
             self._checkpoint_had_been_reached(preceding_element.name())
             for preceding_element in preceding_elements
@@ -731,7 +720,6 @@ class Monitor:
                 self._workflow_specification.is_starting_element(element_name)
                 and self._workflow_state == set()
         )
-
         return (
                 follows_a_corresponding_finishing_task
                 or follows_a_corresponding_reached_checkpoint
@@ -765,11 +753,9 @@ class Monitor:
         # This is busy waiting. There are better solutions.
         if Monitor._event_was_set(pause_event):
             logging.info(f"Verification paused.")
-
             while pause_event.is_set():
                 if stop_event.is_set():
                     return
-
             logging.info(f"Verification resumed.")
 
     @staticmethod
