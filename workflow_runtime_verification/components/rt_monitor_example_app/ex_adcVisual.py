@@ -13,20 +13,16 @@ class adcVisual(wx.Frame):
 
     def close(self):
         self.timer.Stop()
-        self.Destroy()
+        self.Hide()
 
     def on_timer(self):
-        if not self.timer.IsRunning():
-            return
-
         self.counter_display_number.SetLabel(self._counter_value())
         self.measured_value_display.SetLabel(self._measured_value())
         self.measured_binary_value_display.SetLabel(self._measured_binary_value())
 
         self.Refresh()
         self.Update()
-
-        self.timer.Restart(50)
+        self.timer.Restart()
 
     def _render(self):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
