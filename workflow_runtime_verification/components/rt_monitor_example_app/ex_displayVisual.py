@@ -20,15 +20,12 @@ class displayVisual(wx.Frame):
 
     def close(self):
         self.timer.Stop()
-        self.Destroy()
+        self.Hide()
 
     def on_timer(self):
-        if not self.timer.IsRunning():
-            return
-
         self.Refresh()
         self.Update()
-        self.timer.Restart(50)
+        self.timer.Restart()
 
     def on_paint(self, event):
         dc = wx.PaintDC(self.visual_lcd)
