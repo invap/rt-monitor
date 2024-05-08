@@ -290,7 +290,7 @@ class MonitoringPanel(wx.Panel):
         sizer.Add(
             self.amount_of_processed_events_text_label,
             0,
-            wx.EXPAND | wx.LEFT,
+            wx.LEFT,
             border=25,
         )
 
@@ -420,6 +420,8 @@ class MonitoringPanel(wx.Panel):
             self._percentage_of_processed_events_label_text()
         )
 
+        self.Update()
+
     def _current_time(self):
         return wx.DateTime.Now()
 
@@ -469,7 +471,7 @@ class MonitoringPanel(wx.Panel):
         self.Parent.enable_logging_configuration_components()
 
     def _add_horizontal_stretching_space(self, sizer):
-        sizer.Add((0, 0), 1, wx.EXPAND | wx.ALL)
+        sizer.Add((0, 0), 1, wx.ALL)
 
 
 class LoggingConfigurationPanel(wx.Panel):
