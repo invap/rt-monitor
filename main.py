@@ -411,12 +411,17 @@ class MonitoringPanel(wx.Panel):
         self.amount_of_processed_events_text_label.SetLabel(
             self._amount_of_processed_events_label()
         )
-        self._progress_bar.SetValue(self._amount_of_processed_events)
+
+        self._update_progress_bar()
         self._percentage_of_processed_events_label.SetLabel(
             self._percentage_of_processed_events_label_text()
         )
 
         self.Update()
+
+    def _update_progress_bar(self):
+        wx.Yield()
+        self._progress_bar.SetValue(self._amount_of_processed_events)
 
     def _current_time(self):
         return wx.DateTime.Now()
