@@ -256,43 +256,15 @@ class MonitoringPanel(wx.Panel):
         monitoring_status_label = wx.StaticText(self, label="Monitoring state")
         self.main_sizer.Add(monitoring_status_label, 0, wx.TOP | wx.LEFT, border=15)
 
-        upper_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        lower_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        grid = wx.GridSizer(2, 2, 5, 5)
+        self._set_up_events_to_verify(grid)
+        self._set_up_elapsed_time(grid)
+        self._set_up_processed_events(grid)
+        self._set_up_estimated_remaining_time(grid)
 
-        self._set_up_events_to_process(upper_sizer)
-        self._add_horizontal_stretching_space(upper_sizer)
-        self._set_up_elapsed_time(upper_sizer)
-
-        self._set_up_processed_events(lower_sizer)
-        self._add_horizontal_stretching_space(lower_sizer)
-        self._set_up_estimated_remaining_time(lower_sizer)
-
-        self.main_sizer.Add(upper_sizer, 0, wx.EXPAND)
-        self.main_sizer.Add(lower_sizer, 0, wx.EXPAND)
+        self.main_sizer.Add(grid, 0, wx.EXPAND)
 
         self._set_up_progress_bar()
-
-    def _set_up_events_to_process(self, sizer):
-        self.amount_of_events_to_verify_text_label = wx.StaticText(
-            self, label=self._amount_of_events_to_verify_label()
-        )
-        sizer.Add(
-            self.amount_of_events_to_verify_text_label,
-            0,
-            wx.EXPAND | wx.TOP | wx.LEFT,
-            border=25,
-        )
-
-    def _set_up_processed_events(self, sizer):
-        self.amount_of_processed_events_text_label = wx.StaticText(
-            self, label=self._amount_of_processed_events_label()
-        )
-        sizer.Add(
-            self.amount_of_processed_events_text_label,
-            0,
-            wx.LEFT,
-            border=25,
-        )
 
     def _set_up_progress_bar(self):
         self._percentage_of_processed_events_label = wx.StaticText(
@@ -311,23 +283,47 @@ class MonitoringPanel(wx.Panel):
             progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=25
         )
 
-    def _set_up_elapsed_time(self, sizer):
-        self._timer = wx.Timer(self)
+    def _add_to_grid(self, grid, text_label, numeric_label):
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
+        sizer.Add(text_label, 0, wx.ALIGN_LEFT)
+        sizer.Add(numeric_label, 0, wx.EXPAND)
+
+        grid.Add(sizer, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, border=25)
+
+    def _set_up_processed_events(self, grid):
+        text_label = wx.StaticText(self, label="Processed events:")
+        self.amount_of_processed_events_text_label = wx.StaticText(
+            self, label=self._amount_of_processed_events_label()
+        )
+
+        self._add_to_grid(grid, text_label, self.amount_of_processed_events_text_label)
+
+    def _set_up_events_to_verify(self, grid):
+        text_label = wx.StaticText(self, label="Events to process:")
+        self.amount_of_events_to_verify_text_label = wx.StaticText(
+            self, label=self._amount_of_events_to_verify_label()
+        )
+
+        self._add_to_grid(grid, text_label, self.amount_of_events_to_verify_text_label)
+
+    def _set_up_elapsed_time(self, grid):
+        self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._update_timer, source=self._timer)
 
+        text_label = wx.StaticText(self, label="Elapsed time of analysis:")
         self._elapsed_time_label = wx.StaticText(
             self, label=self._elapsed_time_label_text()
         )
-        sizer.Add(self._elapsed_time_label, 0, wx.RIGHT | wx.TOP, border=25)
 
-    def _set_up_estimated_remaining_time(self, sizer):
+        self._add_to_grid(grid, text_label, self._elapsed_time_label)
+
+    def _set_up_estimated_remaining_time(self, grid):
+        text_label = wx.StaticText(self, label="Estimated time to completion:")
         self._estimated_remaining_time_label = wx.StaticText(
             self, label=self._estimated_remaining_time_label_text()
         )
-        sizer.Add(
-            self._estimated_remaining_time_label, 0, wx.RIGHT | wx.BOTTOM, border=25
-        )
+        self._add_to_grid(grid, text_label, self._estimated_remaining_time_label)
 
     def _set_up_action_components(self):
         self._pause_event = threading.Event()
@@ -348,10 +344,10 @@ class MonitoringPanel(wx.Panel):
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
     def _amount_of_events_to_verify_label(self):
-        return f"Events to process: {self._amount_of_events_to_verify}\n"
+        return f"{self._amount_of_events_to_verify}\n"
 
     def _amount_of_processed_events_label(self):
-        return f"Processed events: {self._amount_of_processed_events}\n"
+        return f"{self._amount_of_processed_events}\n"
 
     def _percentage_of_processed_events_label_text(self):
         if self._amount_of_events_to_verify == 0:
@@ -368,7 +364,7 @@ class MonitoringPanel(wx.Panel):
         minutes = (self._elapsed_seconds % 3600) // 60
         seconds = self._elapsed_seconds % 60
 
-        return f"Elapsed time of analysis: {hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def _estimated_remaining_time_label_text(self):
         if (
@@ -387,7 +383,7 @@ class MonitoringPanel(wx.Panel):
         minutes = (estimated_remaining_seconds % 3600) // 60
         seconds = estimated_remaining_seconds % 60
 
-        return f"Estimated time to completion: {hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def _start_timer(self):
         self._last_updated_time = self._current_time()
