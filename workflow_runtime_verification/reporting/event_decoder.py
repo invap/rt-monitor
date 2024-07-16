@@ -7,7 +7,6 @@ from workflow_runtime_verification.reporting.event.declare_variable_event import
     DeclareVariableEvent,
 )
 from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
-from workflow_runtime_verification.reporting.event.state_event import StateEvent
 from workflow_runtime_verification.reporting.event.task_finished_event import (
     TaskFinishedEvent,
 )
@@ -25,27 +24,12 @@ class EventDecoder:
     def decode(encoded_event):
         event_type = EventDecoder._decode_event_type(encoded_event)
         match event_type:
-            case "state_event":
-                return StateEvent.decode_with(EventDecoder, encoded_event)
             case "component_event":
                 return ComponentEvent.decode_with(EventDecoder, encoded_event)
             case "workflow_event":
                 return WorkflowEvent.decode_with(EventDecoder, encoded_event)
             case "invalid":
                 return InvalidEvent.decode_with(EventDecoder, encoded_event)
-
-    @staticmethod
-    def decode_state_event(encoded_event):
-        state_event_type = EventDecoder._decode_state_event_type(encoded_event)
-        match state_event_type:
-            case "declare_variable":
-                return DeclareVariableEvent.decode_with(EventDecoder, encoded_event)
-            case "variable_value_assigned":
-                return VariableValueAssignedEvent.decode_with(
-                    EventDecoder, encoded_event
-                )
-            case _:
-                raise InvalidEvent.decode_with(EventDecoder, encoded_event)
 
     @staticmethod
     def decode_workflow_event(encoded_event):
@@ -57,6 +41,10 @@ class EventDecoder:
                 return TaskFinishedEvent.decode_with(EventDecoder, encoded_event)
             case "checkpoint_reached":
                 return CheckpointReachedEvent.decode_with(EventDecoder, encoded_event)
+            case "declare_variable":
+                return DeclareVariableEvent.decode_with(EventDecoder, encoded_event)
+            case "variable_value_assigned":
+                return VariableValueAssignedEvent.decode_with(EventDecoder, encoded_event)
             case _:
                 raise InvalidEventError(encoded_event)
 
@@ -116,13 +104,6 @@ class EventDecoder:
     def _decode_event_type(encoded_event):
         try:
             return encoded_event.split(",")[1]
-        except IndexError:
-            raise InvalidEventError(encoded_event)
-
-    @staticmethod
-    def _decode_state_event_type(encoded_event):
-        try:
-            return encoded_event.split(",")[2]
         except IndexError:
             raise InvalidEventError(encoded_event)
 

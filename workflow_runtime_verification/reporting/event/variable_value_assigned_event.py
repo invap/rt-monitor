@@ -1,7 +1,7 @@
-from workflow_runtime_verification.reporting.event.state_event import StateEvent
+from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
 
 
-class VariableValueAssignedEvent(StateEvent):
+class VariableValueAssignedEvent(WorkflowEvent):
     def __init__(self, variable_name, variable_value, time) -> None:
         super().__init__(time)
         self._variable_name = variable_name

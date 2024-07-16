@@ -8,6 +8,9 @@ class Event:
     def process_with(self, monitor):
         raise NotImplementedError
 
+    def serialized(self):
+        raise NotImplementedError
+
     @staticmethod
     def event_type():
         raise NotImplementedError
@@ -18,7 +21,4 @@ class Event:
 
     @staticmethod
     def decode_with(decoder, encoded_event):
-        raise NotImplementedError
-
-    def serialized(self):
         raise NotImplementedError

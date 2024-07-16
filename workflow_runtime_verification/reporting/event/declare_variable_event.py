@@ -1,7 +1,7 @@
-from workflow_runtime_verification.reporting.event.state_event import StateEvent
+from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
 
 
-class DeclareVariableEvent(StateEvent):
+class DeclareVariableEvent(WorkflowEvent):
     def __init__(self, variable_name, variable_type, time) -> None:
         super().__init__(time)
         self._variable_name = variable_name
