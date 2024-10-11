@@ -6,10 +6,11 @@ import os
 
 from igraph import Graph
 
-from workflow_runtime_verification.errors import PropertyTypeError
 from workflow_runtime_verification.specification.Py_property import PyProperty
 from workflow_runtime_verification.specification.SMT2_property import SMT2Property
 from workflow_runtime_verification.specification.SymPy_property import SymPyProperty
+from workflow_runtime_verification.specification.specification_errors import UnsupportedNodeType, PropertyTypeError, \
+    InconsistentVariableDeclaration
 from workflow_runtime_verification.specification.workflow_node.checkpoint import (
     Checkpoint,
 )
@@ -20,10 +21,6 @@ from workflow_runtime_verification.specification.workflow_node.task_specificatio
 
 
 class WorkflowSpecification:
-    @staticmethod
-    def new_with(ordered_task_specifications, dependencies):
-        return WorkflowSpecification(ordered_task_specifications, dependencies)
-
     @staticmethod
     def new_from_file(specification_file_path):
         with open(specification_file_path, "r") as specification_file:
@@ -46,14 +43,13 @@ class WorkflowSpecification:
         return WorkflowSpecification(
             ordered_nodes,
             dependencies,
-            start_node_index=start_node_index,
-            end_node_index=(len(ordered_nodes) - 1),
+            start_node_index=start_node_index
         )
 
-    def __init__(self, ordered_elements, dependencies, start_node_index=None, end_node_index=None,):
+    def __init__(self, ordered_elements, dependencies, start_node_index):
         super().__init__()
         self._build_workflow_graph(
-            ordered_elements, dependencies, start_node_index, end_node_index
+            ordered_elements, dependencies, start_node_index
         )
 
     def task_exists(self, task_name):
@@ -99,10 +95,8 @@ class WorkflowSpecification:
             if task.has_checkpoint_named(checkpoint_name):
                 return task.checkpoint_named(checkpoint_name)
 
-    def get_variables (self):
-        variables = {}
-
-        return variables
+    def get_variables(self):
+        return self._variables
 
     @staticmethod
     def _ordered_nodes_from_file(encoded_specification, specification_file_directory):
@@ -257,7 +251,7 @@ class WorkflowSpecification:
         nodes = self._graph.vs[WorkflowSpecification._workflow_node_attribute_name()]
         return [node for node in nodes if isinstance(node, Checkpoint)]
 
-    def _build_workflow_graph(self, ordered_elements, dependencies, start_node_index, end_node_index):
+    def _build_workflow_graph(self, ordered_elements, dependencies, start_node_index):
         amount_of_elements = len(ordered_elements)
         list_of_edges = list(dependencies)
 
@@ -267,26 +261,10 @@ class WorkflowSpecification:
             vertex_attrs={self._workflow_node_attribute_name(): ordered_elements},
             directed=True,
         )
-
-        self._wrap_graph_in_cycle(start_node_index, end_node_index)
-
-    def _wrap_graph_in_cycle(self, start_node_index, end_node_index):
-        if start_node_index is None:
-            graph_start_node = [
-                node for node in self._graph.vs if node.indegree() == 0
-            ][0]
-        else:
-            graph_start_node = self._graph.vs[start_node_index]
-
-        if end_node_index is None:
-            graph_end_node = [node for node in self._graph.vs if node.outdegree() == 0][
-                0
-            ]
-        else:
-            graph_end_node = self._graph.vs[end_node_index]
-
-        self._graph.add_edge(graph_end_node, graph_start_node)
-        self._starting_element = graph_start_node[self._workflow_node_attribute_name()]
+        self._starting_element = self._graph.vs[start_node_index][self._workflow_node_attribute_name()]
+        self._variables = get_variables_from_nodes([ordered_elements[node] for node in range(0, amount_of_elements) if
+                                                    not isinstance(ordered_elements[node], Operator)])
+        i = 1
 
     def _immediately_preceding_elements_for_graph_node(self, current_graph_node):
         immediate_graph_node_predecessors = current_graph_node.predecessors()
@@ -325,3 +303,31 @@ class WorkflowSpecification:
     @staticmethod
     def _encoded_node_type(encoded_node):
         return encoded_node[0].split(":")[1]
+
+
+def get_variables_from_nodes(nodes):
+    variables = {}
+    for node in nodes:
+        if isinstance(node, TaskSpecification):
+            for formula in node.preconditions():
+                for variable in formula.variables():
+                    if variable in variables and not variables[variable] == formula.variables()[variable]:
+                        raise InconsistentVariableDeclaration(variable, formula.variables()[variable])
+                    variables[variable] = formula.variables()[variable]
+            for formula in node.postconditions():
+                for variable in formula.variables():
+                    if variable in variables and not variables[variable] == formula.variables()[variable]:
+                        raise InconsistentVariableDeclaration(variable, formula.variables()[variable])
+                    variables[variable] = formula.variables()[variable]
+            for checkpoint in node.checkpoints():
+                for formula in checkpoint.properties():
+                    for variable in formula.variables():
+                        if variable in variables and not variables[variable] == formula.variables()[variable]:
+                            raise InconsistentVariableDeclaration(variable, formula.variables()[variable])
+                        variables[variable] = formula.variables()[variable]
+        elif isinstance(node, Checkpoint):
+            for formula in node.properties():
+                variables.update(formula.variables())
+        else:
+            raise UnsupportedNodeType(node.__class__)
+    return variables

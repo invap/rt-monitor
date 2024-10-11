@@ -5,9 +5,14 @@ from collections.abc import Iterable
 import numpy as np
 import z3
 
-from workflow_runtime_verification.errors import NoValueAssignedToVariable, UnboundVariables, FormulaError, NoValue, \
-    UnsupportedSMT2VariableType
+from workflow_runtime_verification.errors import (
+    NoValueAssignedToVariable,
+    UnboundVariables,
+    FormulaError,
+    NoValue
+)
 from workflow_runtime_verification.specification.logic_property import LogicProperty
+from workflow_runtime_verification.specification.specification_errors import UnsupportedSMT2VariableType
 
 
 class SMT2Property(LogicProperty):

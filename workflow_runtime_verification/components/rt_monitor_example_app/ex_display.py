@@ -162,12 +162,9 @@ class display:
         """state.__display_pixels is a 3d (heigth, width, 3) matrix where the last axis
         is interpreted 0 = red (R), 1 = green (G) and 2 = blue (B)"""
         state = {
-            "height": [["int"], self.height],
-            "width": [["int"], self.width],
-            "pixels": [
-                ["uint8_t[][][]", self.width, self.height, 3],
-                self.__display_pixels,
-            ],
+            "height": ("Int", self.height),
+            "width": ("Int", self.width),
+            "pixels": ("(Array Int (Array Int (Array Int Int)))", self.__display_pixels)
         }
         return state
 

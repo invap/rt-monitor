@@ -15,20 +15,14 @@ from workflow_runtime_verification.errors import (
     TaskDoesNotExist,
     ComponentDoesNotExist,
     FunctionNotImplemented,
-    FormulaError,
     EventError,
-    AbortRun,
     AlreadyDeclaredClock,
     UndeclaredClock,
     InvalidEventE,
-    UnboundVariables,
-    NoValueAssignedToVariable,
     ClockWasNotStarted,
     ClockWasAlreadyStarted,
     ClockWasAlreadyPaused,
-    ClockWasNotPaused,
-    UnsupportedSymPyVariableType,
-    UnsupportedPyVariableType,
+    ClockWasNotPaused, FormulaError,
 )
 from workflow_runtime_verification.reporting.event.event import Event
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
@@ -47,7 +41,16 @@ class Monitor:
         self._workflow_specification = workflow_specification
         self._workflow_state = set()
         self._timed_state = {}
-        self._execution_state = workflow_specification.get_variables()
+        self._execution_state = {}
+        for variable in workflow_specification.get_variables():
+            self._execution_state[variable] = (workflow_specification.get_variables()[variable], NoValue())
+        # _execution_state might contain variable symbols used in properties from the state of the components and must
+        # be removed.
+        for component in component_dictionary:
+            dictionary = component_dictionary[component].state()
+            for variable in dictionary:
+                if variable in self._execution_state:
+                    self._execution_state.pop(variable)
 
     def run(
             self,
@@ -204,20 +207,20 @@ class Monitor:
         self._update_workflow_state_with_reached_local_checkpoint(checkpoint_reached_event, started_task_name)
         return can_be_reached and properties_are_met
 
-    def process_declare_variable(self, declare_variable_event):
-        variable_name = declare_variable_event.variable_name()
-        variable_type = declare_variable_event.variable_type()
-        if variable_name in self._execution_state:
-            raise AlreadyDeclaredVariable(variable_name)
-        self._execution_state[variable_name] = [variable_type, NoValue()]
-        return True
+    # def process_declare_variable(self, declare_variable_event):
+    #     variable_name = declare_variable_event.variable_name()
+    #     variable_type = declare_variable_event.variable_type()
+    #     if variable_name in self._execution_state:
+    #         raise AlreadyDeclaredVariable(variable_name)
+    #     self._execution_state[variable_name] = (variable_type, NoValue())
+    #     return True
 
     def process_variable_value_assigned(self, variable_value_assigned_event):
         variable_name = variable_value_assigned_event.variable_name()
         variable_value = variable_value_assigned_event.variable_value()
         if variable_name not in self._execution_state:
             raise UndeclaredVariable(variable_name)
-        self._execution_state[variable_name] = [self._execution_state[variable_name][0], variable_value]
+        self._execution_state[variable_name] = (self._execution_state[variable_name][0], variable_value)
         return True
 
     def process_component_event(self, component_event):

@@ -117,8 +117,7 @@ class Verification:
     def _read_workflow_specification_from(specification_directory):
         file_name = "workflow.desc"
         path = os.path.join(specification_directory, file_name)
-        file = open(path, "r")
-        return WorkflowSpecification.new_from_open_file(file)
+        return WorkflowSpecification.new_from_file(path)
 
     @staticmethod
     def _read_components_specification_from(specification_path):

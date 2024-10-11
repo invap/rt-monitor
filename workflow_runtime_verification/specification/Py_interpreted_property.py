@@ -1,9 +1,16 @@
 import logging
 from collections.abc import Iterable
 
-from workflow_runtime_verification.errors import NoValue, NoValueAssignedToVariable, ClockWasNotStarted, \
-    UnsupportedPyVariableType, FormulaError, UnboundVariables, UnsupportedSymPyVariableType
+from workflow_runtime_verification.errors import (
+    NoValue,
+    NoValueAssignedToVariable,
+    ClockWasNotStarted,
+    FormulaError,
+    UnboundVariables
+)
 from workflow_runtime_verification.specification.logic_property import LogicProperty
+from workflow_runtime_verification.specification.specification_errors import UnsupportedPyVariableType, \
+    UnsupportedSymPyVariableType
 
 
 class PyInterpretedProperty(LogicProperty):

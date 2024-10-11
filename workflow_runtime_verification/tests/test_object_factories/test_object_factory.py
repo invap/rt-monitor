@@ -44,14 +44,14 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ordered_nodes = [task_specification]
         dependencies = set()
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_one_task_without_conditions(self):
         task_specification = self.task_specification_without_conditions()
         ordered_nodes = [task_specification]
         dependencies = set()
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_one_task_before_checkpoint(self, checkpoint):
         task_specification = self.task_specification()
@@ -74,28 +74,28 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ordered_nodes = [task_specification]
         dependencies = set()
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_task_with_satisfied_precondition(self):
         task_specification = self.task_specification_with_satisfied_precondition()
         ordered_nodes = [task_specification]
         dependencies = set()
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_task_with_unsatisfied_postcondition(self):
         task_specification = self.task_specification_with_unsatisfied_postcondition()
         ordered_nodes = [task_specification]
         dependencies = set()
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_task_with_satisfied_postcondition(self):
         task_specification = self.task_specification_with_satisfied_postcondition()
         ordered_nodes = [task_specification]
         dependencies = set()
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_many_tasks(self):
         starting_task_specification = self.starting_task_specification()
@@ -103,7 +103,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ordered_nodes = [starting_task_specification, final_task_specification]
         dependencies = {(0, 1)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_cycle(self):
         starting_task = self.starting_task_specification()
@@ -121,7 +121,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ]
         dependencies = {(0, 1), (1, 2), (2, 3), (3, 4), (3, 1)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_nested_cycles(self):
         starting_task = self.starting_task_specification()
@@ -139,7 +139,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ]
         dependencies = {(0, 1), (1, 2), (2, 3), (3, 4), (2, 2), (3, 1)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_ending_in_parallel(self):
         starting_node = self.starting_task_specification()
@@ -155,7 +155,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ]
         dependencies = {(0, 1), (0, 2), (2, 3)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_ending_in_choice(self):
         starting_node = self.starting_task_specification()
@@ -171,7 +171,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ]
         dependencies = {(0, 1), (0, 2), (2, 3)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_many_tasks_and_parallel(self):
         starting_node = self.starting_task_specification()
@@ -189,7 +189,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ]
         dependencies = {(0, 1), (0, 2), (2, 3), (1, 4), (3, 4)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_many_tasks_and_choice(self):
         starting_node = self.starting_task_specification()
@@ -207,7 +207,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         ]
         dependencies = {(0, 1), (0, 2), (2, 3), (1, 4), (3, 4)}
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_cycle_inside_a_choice(self):
         starting_node = self.starting_task_specification()
@@ -232,7 +232,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
             (3, 4),
         }
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_choice_nested_in_parallel(self):
         starting_node = self.starting_task_specification()
@@ -257,7 +257,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
             (3, 4),
         }
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def workflow_specification_with_parallel_nested_in_choice(self):
         starting_node = self.starting_task_specification()
@@ -282,7 +282,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
             (3, 4),
         }
 
-        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+        return WorkflowSpecification(ordered_nodes, dependencies)
 
     def task_specification(self):
         return TaskSpecification.new_named(self.task_name())

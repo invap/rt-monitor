@@ -30,7 +30,7 @@ class adc(Component):
         self.__visualADC.close()
 
     def state(self):
-        state = {"adc_read": [["uint16_t"], self._adc_read]}
+        state = {"adc_read": ("Int", self._adc_read)}
         return state
 
     def adc_init(self):
