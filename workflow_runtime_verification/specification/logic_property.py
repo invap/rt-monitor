@@ -17,35 +17,26 @@ class LogicProperty:
     def formula(self):
         return self._formula
 
-    def eval_with(self, event_time, monitor):
+    def eval(self, event_time, component_dictionary, timed_state, execution_state):
         raise NotImplementedError
 
+    @staticmethod
+    def property_from_file(file_name, specification_file_directory):
+        raise NotImplementedError
 
-class SMT2Property(LogicProperty):
-    def __init__(self, variables, formula, filename):
-        super().__init__(variables, formula, filename)
-
-    def eval_with(self, event_time, monitor):
-        return monitor.eval_smt2(event_time,
-                                 monitor.smt2_build_spec(event_time, self),
-                                 self.filename())
-
-
-class SymPyProperty(LogicProperty):
-    def __init__(self, filename, variables, formula):
-        super().__init__(filename, variables, formula)
-
-    def eval_with(self, event_time, monitor):
-        return monitor.eval_py(event_time,
-                               monitor.sympy_build_spec(event_time, self),
-                               self.filename())
-
-
-class PyProperty(LogicProperty):
-    def __init__(self, filename, variables, formula):
-        super().__init__(filename, variables, formula)
-
-    def eval_with(self, event_time, monitor):
-        return monitor.eval_py(event_time,
-                               monitor.py_build_spec(event_time, self),
-                               self.filename())
+    @staticmethod
+    def prespec_from_file(file_path):
+        with open(file_path, "r") as file:
+            variable_decls = {}
+            split_readline = (file.readline().split("\n")[0]).split(",")
+            if split_readline[0] != "None":
+                variable_decl_list = [((variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[0],
+                                       (variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[1]) for
+                                      variable_name_type in split_readline]
+                for variable_decl in variable_decl_list:
+                    variable_decls[variable_decl[0]] = variable_decl[1]
+            formula = ""
+            for line in file:
+                formula = formula + line
+        file.close()
+        return variable_decls, formula

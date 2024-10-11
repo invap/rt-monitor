@@ -6,7 +6,7 @@ from workflow_runtime_verification.reporting.event.checkpoint_reached_event impo
     CheckpointReachedEvent,
 )
 from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
-from workflow_runtime_verification.reporting.event.declare_variable_event import (
+from workflow_runtime_verification.reporting.event.attic.declare_variable_event import (
     DeclareVariableEvent,
 )
 from workflow_runtime_verification.reporting.event.task_finished_event import (

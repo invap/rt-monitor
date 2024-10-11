@@ -7,7 +7,9 @@ import os
 from igraph import Graph
 
 from workflow_runtime_verification.errors import PropertyTypeError
-from workflow_runtime_verification.specification.logic_property import SymPyProperty, SMT2Property, PyProperty
+from workflow_runtime_verification.specification.Py_property import PyProperty
+from workflow_runtime_verification.specification.SMT2_property import SMT2Property
+from workflow_runtime_verification.specification.SymPy_property import SymPyProperty
 from workflow_runtime_verification.specification.workflow_node.checkpoint import (
     Checkpoint,
 )
@@ -48,13 +50,7 @@ class WorkflowSpecification:
             end_node_index=(len(ordered_nodes) - 1),
         )
 
-    def __init__(
-        self,
-        ordered_elements,
-        dependencies,
-        start_node_index=None,
-        end_node_index=None,
-    ):
+    def __init__(self, ordered_elements, dependencies, start_node_index=None, end_node_index=None,):
         super().__init__()
         self._build_workflow_graph(
             ordered_elements, dependencies, start_node_index, end_node_index
@@ -102,6 +98,11 @@ class WorkflowSpecification:
         for task in self._task_specifications():
             if task.has_checkpoint_named(checkpoint_name):
                 return task.checkpoint_named(checkpoint_name)
+
+    def get_variables (self):
+        variables = {}
+
+        return variables
 
     @staticmethod
     def _ordered_nodes_from_file(encoded_specification, specification_file_directory):
@@ -207,9 +208,7 @@ class WorkflowSpecification:
     def _properties_from_files(file_names, specification_file_directory):
         properties = set()
         for file_name in file_names:
-            properties.add(
-                WorkflowSpecification._property_from_file(file_name, specification_file_directory)
-            )
+            properties.add(WorkflowSpecification._property_from_file(file_name, specification_file_directory))
         return properties
 
     @staticmethod
@@ -219,48 +218,13 @@ class WorkflowSpecification:
         filename = decoded_filename[1]
         match property_type:
             case "smt2":
-                return WorkflowSpecification._smt2_property_from_file(filename, specification_file_directory)
+                return SMT2Property.property_from_file(filename, specification_file_directory)
             case "sympy":
-                return WorkflowSpecification._sympy_property_from_file(filename, specification_file_directory)
+                return SymPyProperty.property_from_file(filename, specification_file_directory)
             case "py":
-                return WorkflowSpecification._py_property_from_file(filename, specification_file_directory)
+                return PyProperty.property_from_file(filename, specification_file_directory)
             case _:
                 raise PropertyTypeError(property_type, filename)
-
-    @staticmethod
-    def _smt2_property_from_file(file_name, specification_file_directory):
-        file_name_ext = file_name + ".protosmt2"
-        file_path = os.path.join(specification_file_directory, file_name_ext)
-        spec_vars, spec = WorkflowSpecification._spec_from_file(file_path)
-        return SMT2Property(frozenset(spec_vars), spec, file_name)
-
-    @staticmethod
-    def _sympy_property_from_file(file_name, specification_file_directory):
-        file_name_ext = file_name + ".protosympy"
-        file_path = os.path.join(specification_file_directory, file_name_ext)
-        spec_vars, spec = WorkflowSpecification._spec_from_file(file_path)
-        return SymPyProperty(frozenset(spec_vars), spec, file_name)
-
-    @staticmethod
-    def _py_property_from_file(file_name, specification_file_directory):
-        file_name_ext = file_name + ".protopy"
-        file_path = os.path.join(specification_file_directory, file_name_ext)
-        spec_vars, spec = WorkflowSpecification._spec_from_file(file_path)
-        return PyProperty(frozenset(spec_vars), spec, file_name)
-
-    @staticmethod
-    def _spec_from_file(file_path):
-        with open(file_path, "r") as file:
-            varnames = (file.readline().split("\n")[0]).split(",")
-            spec_vars = set()
-            if varnames[0] != "None":
-                for var in varnames:
-                    spec_vars.add(var)
-            spec = ""
-            for line in file:
-                spec = spec + line
-        file.close()
-        return spec_vars, spec
 
     @staticmethod
     def _dependencies_from_file(encoded_specification):
@@ -293,9 +257,7 @@ class WorkflowSpecification:
         nodes = self._graph.vs[WorkflowSpecification._workflow_node_attribute_name()]
         return [node for node in nodes if isinstance(node, Checkpoint)]
 
-    def _build_workflow_graph(
-        self, ordered_elements, dependencies, start_node_index, end_node_index
-    ):
+    def _build_workflow_graph(self, ordered_elements, dependencies, start_node_index, end_node_index):
         amount_of_elements = len(ordered_elements)
         list_of_edges = list(dependencies)
 

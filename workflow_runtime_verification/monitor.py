@@ -3,9 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-from collections.abc import Iterable
-
-from z3 import z3
 
 from logging_configuration import LoggingLevel
 from workflow_runtime_verification.clock import Clock
@@ -30,12 +27,10 @@ from workflow_runtime_verification.errors import (
     ClockWasAlreadyStarted,
     ClockWasAlreadyPaused,
     ClockWasNotPaused,
-    UnsupportedSMT2VariableType,
     UnsupportedSymPyVariableType,
     UnsupportedPyVariableType,
 )
 from workflow_runtime_verification.reporting.event.event import Event
-from workflow_runtime_verification.reporting.event.invalid_event import InvalidEvent
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
 
 
@@ -52,7 +47,7 @@ class Monitor:
         self._workflow_specification = workflow_specification
         self._workflow_state = set()
         self._timed_state = {}
-        self._execution_state = {}
+        self._execution_state = workflow_specification.get_variables()
 
     def run(
             self,
@@ -194,7 +189,8 @@ class Monitor:
         checkpoint_name = checkpoint_reached_event.name()
         can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
         checkpoint = self._workflow_specification.global_checkpoint_named(checkpoint_name)
-        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(), checkpoint.properties())
+        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(),
+                                                                checkpoint.properties())
         self._update_workflow_state_with_reached_global_checkpoint(checkpoint_reached_event)
         return can_be_reached and properties_are_met
 
@@ -202,7 +198,8 @@ class Monitor:
         checkpoint_name = checkpoint_reached_event.name()
         can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
         checkpoint = self._workflow_specification.local_checkpoint_named(checkpoint_name)
-        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(), checkpoint.properties())
+        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(),
+                                                                checkpoint.properties())
         started_task_name = self._started_task_name_from_state()
         self._update_workflow_state_with_reached_local_checkpoint(checkpoint_reached_event, started_task_name)
         return can_be_reached and properties_are_met
@@ -228,15 +225,15 @@ class Monitor:
         component_name = component_event.component_name()
         if component_name not in self._component_dictionary:
             raise ComponentDoesNotExist(component_name)
+        component = self._component_dictionary[component_name]
         try:
-            component = self._component_dictionary[component_name]
             component.process_high_level_call(component_data)
-            return True
         except FunctionNotImplemented as e:
             logging.error(
                 f"Function [ {e.get_function_name()} ] is not implemented for component [ {component_name} ]."
             )
             raise EventError(component_event)
+        return True
 
     def process_declare_clock(self, declare_clock_event):
         clock_name = declare_clock_event.clock_name()
@@ -309,379 +306,17 @@ class Monitor:
         self._workflow_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
     def _is_property_satisfied(self, event_time, logic_property):
+        Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
         try:
-            Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
-            negation_is_sat = logic_property.eval_with(event_time, self)
-            if not negation_is_sat:
-                Monitor._log_property_analysis(f"Property {logic_property.filename()} PASSED")
-            else:
-                Monitor._log_property_analysis(f"Property {logic_property.filename()} FAILED")
-            return negation_is_sat
+            negation_is_sat = logic_property.eval(event_time, self._component_dictionary, self._timed_state, self._execution_state)
         except FormulaError as e:
             logging.error(f"Error in formula [ {logic_property.filename()} ]")
             raise e
-
-    @staticmethod
-    def eval_smt2(event_time, spec, filename):
-        temp_solver = z3.Solver()
-        temp_solver.from_string(spec)
-        negation_is_sat = z3.sat == temp_solver.check()
-        if negation_is_sat:
-            # Output counterexample as specification
-            spec_filename = filename + "@" + str(event_time) + ".smt2"
-            spec_file = open(spec_filename, "w")
-            spec_file.write(spec)
-            spec_file.close()
-            logging.info(f"Specification dumped: [ {spec_filename} ]")
+        if not negation_is_sat:
+            Monitor._log_property_analysis(f"Property {logic_property.filename()} PASSED")
+        else:
+            Monitor._log_property_analysis(f"Property {logic_property.filename()} FAILED")
         return negation_is_sat
-
-    def smt2_build_spec(self, event_time, logic_property):
-        try:
-            declarations = self._smt2_build_declarations(logic_property)
-            assumptions = self._smt2_build_assumptions(logic_property)
-            spec = (f"{"".join([decl + "\n" for decl in declarations])}\n" +
-                    f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"(assert (not {logic_property.formula()}))\n")
-            return spec
-        except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
-            raise FormulaError(logic_property.formula())
-        except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {logic_property.filename()} ]")
-            raise FormulaError(logic_property.formula())
-
-    def _smt2_build_declarations(self, logic_property):
-        declarations = []
-        # Building a set from the frozen set containing the variables occurring in the formula
-        variables = set()
-        for var in logic_property.variables():
-            variables.add(var)
-        for varname in self._execution_state:
-            if varname in variables:
-                if isinstance(self._execution_state[varname][1], NoValue):
-                    raise NoValueAssignedToVariable(varname)
-                try:
-                    declarations.append(
-                        f"{Monitor._smt2_hostlanguage_type_2_smt2_type(varname, self._execution_state[varname][0])}")
-                except UnsupportedSMT2VariableType as e:
-                    logging.error(
-                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                    raise FormulaError(logic_property.formula())
-                variables.remove(varname)
-        for device in self._component_dictionary:
-            dictionary = self._component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
-                    try:
-                        declarations.append(f"{Monitor._smt2_hostlanguage_type_2_smt2_type(varname, dictionary[varname][0])}")
-                    except UnsupportedSMT2VariableType as e:
-                        logging.error(
-                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                        raise FormulaError(logic_property.formula())
-                    variables.remove(varname)
-        if len(variables) != 0:
-            raise UnboundVariables(str(variables))
-        return declarations
-
-    def _smt2_build_assumptions(self, logic_property):
-        assumptions = []
-        # Building a set from the frozen set containing the variables occurring in the formula
-        variables = set()
-        for var in logic_property.variables():
-            variables.add(var)
-        for varname in self._execution_state:
-            if varname in variables:
-                if isinstance(self._execution_state[varname][1], NoValue):
-                    raise NoValueAssignedToVariable(varname)
-                try:
-                    assumptions.append(Monitor._smt2_build_assumption(
-                        varname, self._execution_state[varname][0], self._execution_state[varname][1]
-                    ))
-                except UnsupportedSMT2VariableType as e:
-                    logging.error(
-                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                    raise FormulaError(logic_property.formula())
-                variables.remove(varname)
-        for device in self._component_dictionary:
-            dictionary = self._component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
-                    try:
-                        assumptions.append(Monitor._smt2_build_assumption(
-                            varname, dictionary[varname][0], dictionary[varname][1]
-                        ))
-                    except UnsupportedSMT2VariableType as e:
-                        logging.error(
-                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                        raise FormulaError(logic_property.formula())
-                    variables.remove(varname)
-        if len(variables) != 0:
-            raise UnboundVariables(str(variables))
-        return assumptions
-
-    @staticmethod
-    def _smt2_build_assumption(varname, vartype, varvalue):
-        assumption = ""
-        match len(vartype):
-            case 1:
-                assumption = assumption + f"(assert (= {varname} {varvalue}))"
-            case 2:
-                assumption = "(assert (and\n"
-                for i in range(0, int(vartype[1])):
-                    assumption = (
-                            assumption + f"(= (select {varname} {i}) {varvalue[i]})\n"
-                    )
-                assumption = assumption + ") )"
-            case 3:
-                assumption = "(assert (and\n"
-                for i in range(0, int(vartype[1])):
-                    for j in range(0, int(vartype[2])):
-                        assumption = (
-                                assumption
-                                + f"(= (select (select {varname} {i}) {j}) {varvalue[i][j]})\n"
-                        )
-                assumption = assumption + ") )"
-            case 4:
-                assumption = "(assert (and\n"
-                for i in range(0, int(vartype[1])):
-                    for j in range(0, int(vartype[2])):
-                        for k in range(0, int(vartype[3])):
-                            assumption = (
-                                    assumption
-                                    + f"(= (select (select (select {varname} {i}) {j}) {k}) {varvalue[i][j][k]})\n"
-                            )
-                assumption = assumption + ") )"
-            case _:
-                raise UnsupportedSMT2VariableType(varname, vartype)
-        return assumption
-
-    @staticmethod
-    def _smt2_hostlanguage_type_2_smt2_type(varname, var_hostlanguage_type):
-        match var_hostlanguage_type[0]:
-            # C supported types
-            case "bool":
-                return f"(declare-const {varname} Bool)"
-            case "char_t":
-                return f"(declare-const {varname} Int)"
-            case "uint8_t":
-                return f"(declare-const {varname} Int)"
-            case "int8_t":
-                return f"(declare-const {varname} Int)"
-            case "uint16_t":
-                return f"(declare-const {varname} Int)"
-            case "int16_t":
-                return f"(declare-const {varname} Int)"
-            case "int":
-                return f"(declare-const {varname} Int)"
-            case "unsigned int":
-                return f"(declare-const {varname} Int)"
-            case "float":
-                return f"(declare-const {varname} Real)"
-            case "double":
-                return f"(declare-const {varname} Real)"
-            case "char*":
-                return f"(declare-const {varname} String)"
-            case "uint8_t[]":
-                return f"(declare-const {varname} (Array Int Int))"
-            case "uint8_t[][]":
-                return f"(declare-const {varname} (Array Int (Array Int Int)))"
-            case "uint8_t[][][]":
-                return f"(declare-const {varname} (Array Int (Array Int (Array Int Int))))"
-            case _:
-                raise UnsupportedSMT2VariableType(varname, var_hostlanguage_type[0])
-
-    @staticmethod
-    def eval_py(event_time, spec, filename):
-        locs = {}
-        exec(spec, globals(), locs)
-        negation_is_true = locs['result']
-        if negation_is_true:
-            # Output counterexample as specification
-            spec_filename = filename + "@" + str(event_time) + ".py"
-            spec_file = open(spec_filename, "w")
-            spec_file.write(spec)
-            spec_file.close()
-            logging.info(f"Specification dumped: [ {spec_filename} ]")
-        return negation_is_true
-
-    def sympy_build_spec(self, event_time, logic_property):
-        try:
-            declarations = self._sympy_build_declarations(logic_property, event_time)
-            assumptions = self._py_build_assumptions(logic_property, event_time)
-            spec = (f"from sympy import Symbol\n" +
-                    f"{"".join([decl + "\n" for decl in declarations])}\n" +
-                    f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"result = not {logic_property.formula()}\n")
-            return spec
-        except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
-            raise FormulaError(logic_property.formula())
-        except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {logic_property.filename()} ]")
-            raise FormulaError(logic_property.formula())
-
-    def py_build_spec(self, event_time, logic_property):
-        try:
-            assumptions = self._py_build_assumptions(logic_property, event_time)
-            spec = (f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"result = not {logic_property.formula()}\n")
-            return spec
-        except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
-            raise FormulaError(logic_property.formula())
-        except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {logic_property.filename()} ]")
-            raise FormulaError(logic_property.formula())
-
-    def _sympy_build_declarations(self, logic_property, now):
-        declarations = []
-        # Building a set from the frozen set containing the variables occurring in the formula
-        variables = set()
-        for var in logic_property.variables():
-            variables.add(var)
-        for clock_name in self._timed_state:
-            if clock_name in variables:
-                if isinstance(self._timed_state[clock_name].get_time(now), NoValue):
-                    raise ClockWasNotStarted(clock_name)
-                declarations.append(f"{clock_name} = Symbol('{clock_name}', integer=True, positive=True)")
-                variables.remove(clock_name)
-        for varname in self._execution_state:
-            if varname in variables:
-                if isinstance(self._execution_state[varname][1], NoValue):
-                    raise NoValueAssignedToVariable(varname)
-                try:
-                    declarations.append(
-                        f"{Monitor._sympy_hostlanguage_type_2_sympy_type(varname, self._execution_state[varname][0])}")
-                except UnsupportedSymPyVariableType as e:
-                    logging.error(
-                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                    raise FormulaError(logic_property.formula())
-                variables.remove(varname)
-        for device in self._component_dictionary:
-            dictionary = self._component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
-                    try:
-                        declarations.append(f"{Monitor._sympy_hostlanguage_type_2_sympy_type(varname, dictionary[varname][0])}")
-                    except UnsupportedSymPyVariableType as e:
-                        logging.error(
-                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                        raise FormulaError(logic_property.formula())
-                    variables.remove(varname)
-        if len(variables) != 0:
-            raise UnboundVariables(str(variables))
-        return declarations
-
-    @staticmethod
-    def _sympy_hostlanguage_type_2_sympy_type(varname, var_hostlanguage_type):
-        match var_hostlanguage_type[0]:
-            # C supported types
-            case "bool":
-                return f"{varname} = Symbol('{varname}')"  # {true, false}}
-            case "char_t":
-                return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # -128 <= varname < 128
-            case "uint8_t":
-                return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # 0 <= varname < 255
-            case "int8_t":
-                return f"{varname} = Symbol('{varname}', integer=True)"  # -128 <= varname < 128
-            case "uint16_t":
-                return f"{varname} = Symbol('{varname}', integer=True, positive=True)\n"  # 0 <= varname < 65535
-            case "int16_t":
-                return f"{varname} = Symbol('{varname}', integer=True)"  # -32768 <= varname < 32768
-            case "int":
-                return f"{varname} = Symbol('{varname}', integer=True)"  # -32768 <= varname < 32768
-            case "unsigned int":
-                return f"{varname} = Symbol('{varname}', integer=True, positive=True)"  # 0 <= varname < 65535
-            case "float":
-                return f"{varname} = Symbol('{varname}', real=True)"  # 1.175494351*10^(-38) <= varname <= 3.402823466*10^38
-            case "double":
-                return f"{varname} = Symbol('{varname}', real=True)"  # 2.2250738585072014*10^(-308) <= varname <= 1.7976931348623158*10^308
-            case _:
-                raise UnsupportedSymPyVariableType(varname, var_hostlanguage_type[0])
-
-    def _py_build_assumptions(self, logic_property, now):
-        assumptions = []
-        # Building a set from the frozen set containing the variables occurring in the formula
-        variables = set()
-        for var in logic_property.variables():
-            variables.add(var)
-        for clock_name in self._timed_state:
-            if clock_name in variables:
-                if isinstance(self._timed_state[clock_name].get_time(now), NoValue):
-                    raise ClockWasNotStarted(clock_name)
-                assumptions.append(f"{clock_name} = {self._timed_state[clock_name].get_time(now)}")
-                variables.remove(clock_name)
-        for varname in self._execution_state:
-            if varname in variables:
-                if isinstance(self._execution_state[varname][1], NoValue):
-                    raise NoValueAssignedToVariable(varname)
-                assumptions.append(f"{varname} = {self._execution_state[varname][1]}")
-                variables.remove(varname)
-        for device in self._component_dictionary:
-            dictionary = self._component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
-                    try:
-                        assumptions.append(Monitor._py_build_assumption(varname, self._component_dictionary[device][varname][0], self._component_dictionary[device][varname][1]))
-                    except UnsupportedPyVariableType as e:
-                        logging.error(
-                            f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in {e.get_formula_type()} formula [ {logic_property.filename()} ]")
-                        raise FormulaError(logic_property.formula())
-                    variables.remove(varname)
-        if len(variables) != 0:
-            raise UnboundVariables(str(variables))
-        return assumptions
-
-    @staticmethod
-    def _py_build_assumption(varname, vartype, varvalue):
-        match vartype:
-            # C supported types
-            case "bool":
-                return f"{varname} = {varvalue}"
-            case "char_t":
-                return f"{varname} = {varvalue}"
-            case "uint8_t":
-                return f"{varname} = {varvalue}"
-            case "int8_t":
-                return f"{varname} = {varvalue}"
-            case "uint16_t":
-                return f"{varname} = {varvalue}"
-            case "int16_t":
-                return f"{varname} = {varvalue}"
-            case "int":
-                return f"{varname} = {varvalue}"
-            case "unsigned int":
-                return f"{varname} = {varvalue}"
-            case "float":
-                return f"{varname} = {varvalue}"
-            case "double":
-                return f"{varname} = {varvalue}"
-            case _:
-                raise UnsupportedSymPyVariableType(varname, vartype)
 
     def _are_all_properties_satisfied(self, event_time, logic_properties):
         neg_properties_sat = False
