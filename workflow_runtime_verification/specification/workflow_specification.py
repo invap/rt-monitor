@@ -9,19 +9,14 @@ from igraph import Graph
 from workflow_runtime_verification.specification.Py_property import PyProperty
 from workflow_runtime_verification.specification.SMT2_property import SMT2Property
 from workflow_runtime_verification.specification.SymPy_property import SymPyProperty
-from workflow_runtime_verification.specification.specification_errors import UnsupportedNodeType, PropertyTypeError, \
+from workflow_runtime_verification.specification.specification_errors import (
+    UnsupportedNodeType,
+    PropertyTypeError,
     InconsistentVariableDeclaration
-from workflow_runtime_verification.specification.workflow_node.checkpoint import (
-    Checkpoint,
 )
+from workflow_runtime_verification.specification.workflow_node.checkpoint import Checkpoint
 from workflow_runtime_verification.specification.workflow_node.operator import Operator
-from workflow_runtime_verification.specification.workflow_node.task_specification import (
-    TaskSpecification,
-)
-
-
-class NoValue:
-    pass
+from workflow_runtime_verification.specification.workflow_node.task_specification import TaskSpecification
 
 
 class WorkflowSpecification:

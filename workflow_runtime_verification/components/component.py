@@ -9,7 +9,7 @@ class Component:
     def stop(self):
         raise NotImplementedError
 
-    def state(self, log_file, mark):
+    def state(self):
         raise NotImplementedError
 
     def get_status(self):
@@ -24,7 +24,7 @@ class Component:
 
 class SelfLoggableComponent(Component):
     def __init__(self):
-        super.__init__()
+        super().__init__()
 
     def process_log(self, log_file, mark):
         raise NotImplementedError

@@ -11,15 +11,16 @@ from workflow_runtime_verification.components.rt_monitor_example_app import (
     ex_adcVisual,
 )
 from workflow_runtime_verification.errors import FunctionNotImplemented
-from workflow_runtime_verification.specification.workflow_specification import NoValue
+from workflow_runtime_verification.specification.novalue import NoValue
 
 
 class adc(SelfLoggableComponent):
     def __init__(self):
+        super().__init__()
         AcumCalib = 0
         Calib = 0
         ContCalib = 0
-        self._adc_read = NoValue()
+        self._adc_read = NoValue
         # statistics variables
         self.__total_values_read = 0
         self.__current_value = 0

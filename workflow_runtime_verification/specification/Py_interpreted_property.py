@@ -1,16 +1,22 @@
+# Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
+# Copyright (c) 2024 INVAP, open@invap.com.ar
+# SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import logging
 from collections.abc import Iterable
 
+from workflow_runtime_verification.clock_errors import ClockWasNotStarted
 from workflow_runtime_verification.errors import (
-    NoValue,
     NoValueAssignedToVariable,
-    ClockWasNotStarted,
     FormulaError,
     UnboundVariables
 )
 from workflow_runtime_verification.specification.logic_property import LogicProperty
-from workflow_runtime_verification.specification.specification_errors import UnsupportedPyVariableType, \
+from workflow_runtime_verification.specification.novalue import NoValue
+from workflow_runtime_verification.specification.specification_errors import (
+    UnsupportedPyVariableType,
     UnsupportedSymPyVariableType
+)
 
 
 class PyInterpretedProperty(LogicProperty):

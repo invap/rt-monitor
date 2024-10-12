@@ -28,7 +28,7 @@ from workflow_runtime_verification.errors import (
 )
 from workflow_runtime_verification.reporting.event.event import Event
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
-from workflow_runtime_verification.specification.workflow_specification import NoValue
+from workflow_runtime_verification.specification.novalue import NoValue
 
 
 class Monitor:
@@ -50,7 +50,7 @@ class Monitor:
             # (i.e., workflow_specification.get_variables()[variable][0]) {State|Component|Clock}.
             match workflow_specification.get_variables()[variable][0]:
                 case "State":
-                    self._execution_state[variable] = (workflow_specification.get_variables()[variable][1], NoValue())
+                    self._execution_state[variable] = (workflow_specification.get_variables()[variable][1], NoValue)
                 case "Component":
                     # check whether all component variables appearing in the formulas in the workflow
                     if not any([variable in component_dictionary[component].state() for component in

@@ -114,6 +114,7 @@ class display(Component):
         # in this prototype we assume the display configuration
         # set the default width and height of the display, note that some drivers can update the size with the
         # respective command
+        super().__init__()
         self.width = 480
         self.height = 200
         # create and initialize the display's information with (0,0,0) RGB
