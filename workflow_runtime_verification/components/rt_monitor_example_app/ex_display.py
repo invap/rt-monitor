@@ -8,6 +8,7 @@ from enum import Enum
 
 import numpy as np
 
+from workflow_runtime_verification.components.component import Component
 from workflow_runtime_verification.components.rt_monitor_example_app import (
     ex_displayVisual,
 )
@@ -107,7 +108,7 @@ class TextConfiguration:
       uint8_t scale;    /**< Text scale */   """
 
 
-class display:
+class display(Component):
     def __init__(self):
         # TODO driver must have the base configuration of the display, such as the commands codes, etc.
         # in this prototype we assume the display configuration

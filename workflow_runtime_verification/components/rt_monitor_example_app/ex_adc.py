@@ -6,14 +6,15 @@ import inspect
 
 import numpy as np
 
-from workflow_runtime_verification.component import Component
+from workflow_runtime_verification.components.component import SelfLoggableComponent
 from workflow_runtime_verification.components.rt_monitor_example_app import (
     ex_adcVisual,
 )
-from workflow_runtime_verification.errors import NoValue, FunctionNotImplemented
+from workflow_runtime_verification.errors import FunctionNotImplemented
+from workflow_runtime_verification.specification.workflow_specification import NoValue
 
 
-class adc(Component):
+class adc(SelfLoggableComponent):
     def __init__(self):
         AcumCalib = 0
         Calib = 0

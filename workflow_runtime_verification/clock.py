@@ -2,8 +2,12 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from workflow_runtime_verification.errors import ClockWasNotStarted, ClockWasAlreadyStarted, ClockWasAlreadyPaused, \
+from workflow_runtime_verification.errors import (
+    ClockWasNotStarted,
+    ClockWasAlreadyStarted,
+    ClockWasAlreadyPaused,
     ClockWasNotPaused
+)
 
 
 class Clock:
@@ -15,6 +19,12 @@ class Clock:
         self._startTime = 0
         self._isPaused = False
         self._hasStarted = False
+
+    def has_started(self):
+        return self._hasStarted
+
+    def is_paused(self):
+        return self._isPaused
 
     def get_clockname(self):
         return self._clockname

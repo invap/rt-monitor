@@ -20,6 +20,20 @@ class VariableException(Exception):
         return self._varnames
 
 
+class UndeclaredComponentVariable(VariableException):
+    def __init__(self, varname):
+        super().__init__(varname)
+
+
+class UnknownVariableClass(VariableException):
+    def __init__(self, varname, varclass):
+        super().__init__(varname)
+        self._varclass = varclass
+
+    def get_varclass(self):
+        return self._varclass
+
+
 class UndeclaredVariable(VariableException):
     def __init__(self, varname):
         super().__init__(varname)
@@ -30,57 +44,9 @@ class UnboundVariables(VariableException):
         super().__init__(varnames)
 
 
-class AlreadyDeclaredVariable(VariableException):
-    def __init__(self, var_names):
-        super().__init__(var_names)
-
-
 class NoValueAssignedToVariable(VariableException):
     def __init__(self, var_names):
         super().__init__(var_names)
-
-
-class ClockException(Exception):
-    def __init__(self, clockname):
-        super().__init__()
-        self._clockname = clockname
-
-    def get_clockname(self):
-        return self._clockname
-
-
-class AlreadyDeclaredClock(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
-
-
-class UndeclaredClock(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
-
-
-class ClockWasNotStarted(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
-
-
-class ClockWasAlreadyStarted(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
-
-
-class ClockWasAlreadyPaused(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
-
-
-class ClockWasNotPaused(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
-
-
-class NoValue:
-    pass
 
 
 class AnalysisFailed(Exception):

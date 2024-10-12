@@ -20,6 +20,10 @@ from workflow_runtime_verification.specification.workflow_node.task_specificatio
 )
 
 
+class NoValue:
+    pass
+
+
 class WorkflowSpecification:
     @staticmethod
     def new_from_file(specification_file_path):
@@ -105,7 +109,6 @@ class WorkflowSpecification:
             encoded_task_specification.split(",")
             for encoded_task_specification in nodes_as_text
         ]
-
         return [
             WorkflowSpecification._decode_node(encoded_node, specification_file_directory)
             for encoded_node in nodes_as_text
@@ -264,7 +267,6 @@ class WorkflowSpecification:
         self._starting_element = self._graph.vs[start_node_index][self._workflow_node_attribute_name()]
         self._variables = get_variables_from_nodes([ordered_elements[node] for node in range(0, amount_of_elements) if
                                                     not isinstance(ordered_elements[node], Operator)])
-        i = 1
 
     def _immediately_preceding_elements_for_graph_node(self, current_graph_node):
         immediate_graph_node_predecessors = current_graph_node.predecessors()

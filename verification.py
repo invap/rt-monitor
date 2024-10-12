@@ -9,7 +9,8 @@ import sys
 import threading
 
 from logging_configuration import LoggingLevel, LoggingDestination
-from workflow_runtime_verification.errors import AbortRun, EventLogFileMissing
+from workflow_runtime_verification.errors import AbortRun, EventLogFileMissing, UndeclaredComponentVariable, \
+    UnknownVariableClass
 from workflow_runtime_verification.monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
@@ -19,8 +20,15 @@ from workflow_runtime_verification.specification.workflow_specification import (
 class Verification:
     def __init__(self, workflow_specification, components_specification):
         super().__init__()
-        self._monitor = Monitor(workflow_specification, components_specification)
         Verification._set_up_logging()
+        try:
+            self._monitor = Monitor(workflow_specification, components_specification)
+        except UndeclaredComponentVariable as e:
+            logging.critical(f"The variables [ {e.get_varnames()} ] is not declared in any component.")
+            raise AbortRun()
+        except UnknownVariableClass as e:
+            logging.critical(f"The variable class [ {e.get_varclass()} ] of variable [ {e.get_varnames()} ] is unknown.")
+            raise AbortRun()
 
     def run_for_report(
         self,

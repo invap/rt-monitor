@@ -7,12 +7,12 @@ from workflow_runtime_verification.reporting.event.timed_event import TimedEvent
 from workflow_runtime_verification.reporting.event.state_event import StateEvent
 from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
 from workflow_runtime_verification.reporting.event.workflow_event import WorkflowEvent
-from workflow_runtime_verification.reporting.event.declare_clock_event import DeclareClockEvent
+# from workflow_runtime_verification.reporting.event.declare_clock_event import DeclareClockEvent
 from workflow_runtime_verification.reporting.event.clock_start_event import ClockStartEvent
 from workflow_runtime_verification.reporting.event.clock_pause_event import ClockPauseEvent
 from workflow_runtime_verification.reporting.event.clock_resume_event import ClockResumeEvent
 from workflow_runtime_verification.reporting.event.clock_reset_event import ClockResetEvent
-#from workflow_runtime_verification.reporting.event.attic.declare_variable_event import DeclareVariableEvent
+# from workflow_runtime_verification.reporting.event.attic.declare_variable_event import DeclareVariableEvent
 from workflow_runtime_verification.reporting.event.variable_value_assigned_event import VariableValueAssignedEvent
 from workflow_runtime_verification.reporting.event.task_started_event import TaskStartedEvent
 from workflow_runtime_verification.reporting.event.task_finished_event import TaskFinishedEvent
@@ -40,8 +40,6 @@ class EventDecoder:
     def decode_timed_event(encoded_event):
         timed_event_type = EventDecoder._decode_timed_event_type(encoded_event)
         match timed_event_type:
-            case "declare_clock":
-                return DeclareClockEvent.decode_with(EventDecoder, encoded_event)
             case "clock_start":
                 return ClockStartEvent.decode_with(EventDecoder, encoded_event)
             case "clock_pause":
@@ -57,8 +55,6 @@ class EventDecoder:
     def decode_state_event(encoded_event):
         state_event_type = EventDecoder._decode_state_event_type(encoded_event)
         match state_event_type:
-            # case "declare_variable":
-            #     return DeclareVariableEvent.decode_with(EventDecoder, encoded_event)
             case "variable_value_assigned":
                 return VariableValueAssignedEvent.decode_with(EventDecoder, encoded_event)
             case _:
@@ -76,13 +72,6 @@ class EventDecoder:
                 return CheckpointReachedEvent.decode_with(EventDecoder, encoded_event)
             case _:
                 raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
-
-    @staticmethod
-    def decode_declare_clock_event(encoded_event):
-        return DeclareClockEvent(
-            EventDecoder._decode_clock_name(encoded_event),
-            EventDecoder._decode_time(encoded_event),
-        )
 
     @staticmethod
     def decode_clock_start_event(encoded_event):
@@ -111,14 +100,6 @@ class EventDecoder:
             EventDecoder._decode_clock_name(encoded_event),
             EventDecoder._decode_time(encoded_event),
         )
-
-    # @staticmethod
-    # def decode_declare_variable_event(encoded_event):
-    #     return DeclareVariableEvent(
-    #         EventDecoder._decode_variable_name(encoded_event),
-    #         EventDecoder._decode_variable_type(encoded_event),
-    #         EventDecoder._decode_time(encoded_event),
-    #     )
 
     @staticmethod
     def decode_variable_value_assignment_event(encoded_event):

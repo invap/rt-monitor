@@ -16,7 +16,7 @@ class PyProperty(PyInterpretedProperty):
                                self.filename())
 
     @staticmethod
-    def _property_from_file(file_name, specification_file_directory):
+    def property_from_file(file_name, specification_file_directory):
         file_name_ext = file_name + ".protopy"
         file_path = os.path.join(specification_file_directory, file_name_ext)
         variables, spec = LogicProperty.prespec_from_file(file_path)

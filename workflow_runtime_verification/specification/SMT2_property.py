@@ -9,7 +9,7 @@ from workflow_runtime_verification.errors import (
     NoValueAssignedToVariable,
     UnboundVariables,
     FormulaError,
-    NoValue
+    NoValue, ClockWasNotStarted
 )
 from workflow_runtime_verification.specification.logic_property import LogicProperty
 from workflow_runtime_verification.specification.specification_errors import UnsupportedSMT2VariableType
@@ -26,8 +26,8 @@ class SMT2Property(LogicProperty):
         variables, formula = LogicProperty.prespec_from_file(file_path)
         return SMT2Property(variables, formula, file_name)
 
-    def eval(self, event_time, component_dictionary, timed_state, execution_state):
-        spec = self._build_spec(component_dictionary, timed_state, execution_state)
+    def eval(self, component_dictionary, execution_state, timed_state, event_time):
+        spec = self._build_spec(component_dictionary, execution_state, timed_state, event_time)
         filename = self.filename()
         temp_solver = z3.Solver()
         temp_solver.from_string(spec)
@@ -41,10 +41,10 @@ class SMT2Property(LogicProperty):
             logging.info(f"Specification dumped: [ {spec_filename} ]")
         return negation_is_sat
 
-    def _build_spec(self, component_dictionary, timed_state, execution_state):
+    def _build_spec(self, component_dictionary, execution_state, timed_state, now):
         try:
-            declarations = self._build_declarations(component_dictionary, timed_state, execution_state)
-            assumptions = self._build_assumptions(component_dictionary, timed_state, execution_state)
+            declarations = self._build_declarations(component_dictionary, execution_state, timed_state)
+            assumptions = self._build_assumptions(component_dictionary, execution_state, timed_state, now)
             spec = (f"{"".join([decl + "\n" for decl in declarations])}\n" +
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"(assert (not {self.formula()}))\n")
@@ -56,15 +56,35 @@ class SMT2Property(LogicProperty):
             logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {self.filename()} ]")
             raise FormulaError(self.formula())
 
-    def _build_declarations(self, component_dictionary, timed_state, execution_state):
+    def _build_declarations(self, component_dictionary, execution_state, timed_state):
         declarations = []
         variables = list((self.variables()).keys())
+        # building declarations for variables in the components state
+        for component in component_dictionary:
+            dictionary = component_dictionary[component].state()
+            for varname in dictionary:
+                if varname in variables:
+                    declarations.append(f"(declare-const {varname} {self.variables()[varname][1]})")
+                    variables.remove(varname)
+        # building declarations for variables in the execution state
         for varname in execution_state:
             if varname in variables:
-                if isinstance(execution_state[varname][1], NoValue):
-                    raise NoValueAssignedToVariable(varname)
-                declarations.append(f"(declare-const {varname} {self.variables()[varname]})")
+                declarations.append(f"(declare-const {varname} {self.variables()[varname][1]})")
                 variables.remove(varname)
+        # building declarations for clocks in the timed state
+        for varname in timed_state:
+            if varname in variables:
+                declarations.append(f"(declare-const {varname} {self.variables()[varname][1]})")
+                variables.remove(varname)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return declarations
+
+    def _build_assumptions(self, component_dictionary, execution_state, timed_state, now):
+        assumptions = []
+        # Building a set from the frozen set containing the variables occurring in the formula
+        variables = list((self.variables()).keys())
+        # building assumptions for variables in the components state
         for component in component_dictionary:
             dictionary = component_dictionary[component].state()
             for varname in dictionary:
@@ -75,50 +95,40 @@ class SMT2Property(LogicProperty):
                             raise NoValueAssignedToVariable(varname)
                     elif isinstance(dictionary[varname][1], NoValue):
                         raise NoValueAssignedToVariable(varname)
-                    declarations.append(f"(declare-const {varname} {self.variables()[varname]})")
-                    variables.remove(varname)
-        if len(variables) != 0:
-            raise UnboundVariables(str(variables))
-        return declarations
-
-    def _build_assumptions(self, component_dictionary, timed_state, execution_state):
-        assumptions = []
-        # Building a set from the frozen set containing the variables occurring in the formula
-        variables = list((self.variables()).keys())
-        for varname in execution_state:
-            if varname in variables:
-                if isinstance(execution_state[varname][1], NoValue):
-                    raise NoValueAssignedToVariable(varname)
-                try:
-                    assumptions.append(_build_assumption(
-                        varname, execution_state[varname][1]
-                    ))
-                except UnsupportedSMT2VariableType as e:
-                    logging.error(
-                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in "
-                        f"{e.get_formula_type()} formula [ {self.filename()} ]")
-                    raise FormulaError(self.formula())
-                variables.remove(varname)
-        for device in component_dictionary:
-            dictionary = component_dictionary[device].state()
-            for varname in dictionary:
-                if varname in variables:
-                    # The value of the variable of the state might be iterable.
-                    if isinstance(dictionary[varname][1], Iterable):
-                        if any([isinstance(x, NoValue) for x in dictionary[varname][1]]):
-                            raise NoValueAssignedToVariable(varname)
-                    elif isinstance(dictionary[varname][1], NoValue):
-                        raise NoValueAssignedToVariable(varname)
                     try:
-                        assumptions.append(_build_assumption(
-                            varname, dictionary[varname][1]
-                        ))
+                        assumptions.append(_build_assumption(varname, dictionary[varname][1]))
                     except UnsupportedSMT2VariableType as e:
                         logging.error(
                             f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in "
                             f"{e.get_formula_type()} formula [ {self.filename()} ]")
                         raise FormulaError(self.formula())
                     variables.remove(varname)
+        # building assumptions for variables in the execution state
+        for varname in execution_state:
+            if varname in variables:
+                if isinstance(execution_state[varname][1], NoValue):
+                    raise NoValueAssignedToVariable(varname)
+                try:
+                    assumptions.append(_build_assumption(varname, execution_state[varname][1]))
+                except UnsupportedSMT2VariableType as e:
+                    logging.error(
+                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in "
+                        f"{e.get_formula_type()} formula [ {self.filename()} ]")
+                    raise FormulaError(self.formula())
+                variables.remove(varname)
+        # building assumptions for clocks in the timed state
+        for varname in timed_state:
+            if varname in variables:
+                if not timed_state[varname][1].has_started():
+                    raise ClockWasNotStarted(varname)
+                try:
+                    assumptions.append(_build_time_assumption(varname, timed_state[varname][1], now))
+                except UnsupportedSMT2VariableType as e:
+                    logging.error(
+                        f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in "
+                        f"{e.get_formula_type()} formula [ {self.filename()} ]")
+                    raise FormulaError(self.formula())
+                variables.remove(varname)
         if len(variables) != 0:
             raise UnboundVariables(str(variables))
         return assumptions
@@ -176,3 +186,9 @@ def _build_assumption(var_name, var_value):
         assumption = assumption + ")\n"
     assumption = assumption + ")"
     return assumption
+
+
+def _build_time_assumption(varname, clock, now):
+    assumption = f"(assert (= {varname} {clock.get_time(now)}))\n"
+    return assumption
+

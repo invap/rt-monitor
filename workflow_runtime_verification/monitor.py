@@ -6,26 +6,29 @@ import logging
 
 from logging_configuration import LoggingLevel
 from workflow_runtime_verification.clock import Clock
+from workflow_runtime_verification.clock_errors import (
+    UndeclaredClock,
+    ClockWasNotStarted,
+    ClockWasAlreadyPaused,
+    ClockWasNotPaused,
+    ClockWasAlreadyStarted
+)
 from workflow_runtime_verification.errors import (
-    UndeclaredVariable,
-    AlreadyDeclaredVariable,
-    NoValue,
+    FunctionNotImplemented,
     AnalysisFailed,
     CheckpointDoesNotExist,
     TaskDoesNotExist,
     ComponentDoesNotExist,
-    FunctionNotImplemented,
     EventError,
-    AlreadyDeclaredClock,
-    UndeclaredClock,
     InvalidEventE,
-    ClockWasNotStarted,
-    ClockWasAlreadyStarted,
-    ClockWasAlreadyPaused,
-    ClockWasNotPaused, FormulaError,
+    FormulaError,
+    UndeclaredVariable,
+    UndeclaredComponentVariable,
+    UnknownVariableClass,
 )
 from workflow_runtime_verification.reporting.event.event import Event
 from workflow_runtime_verification.reporting.event_decoder import EventDecoder
+from workflow_runtime_verification.specification.workflow_specification import NoValue
 
 
 class Monitor:
@@ -43,14 +46,20 @@ class Monitor:
         self._timed_state = {}
         self._execution_state = {}
         for variable in workflow_specification.get_variables():
-            self._execution_state[variable] = (workflow_specification.get_variables()[variable], NoValue())
-        # _execution_state might contain variable symbols used in properties from the state of the components and must
-        # be removed.
-        for component in component_dictionary:
-            dictionary = component_dictionary[component].state()
-            for variable in dictionary:
-                if variable in self._execution_state:
-                    self._execution_state.pop(variable)
+            # building the execution state dictionary discarding the variable class
+            # (i.e., workflow_specification.get_variables()[variable][0]) {State|Component|Clock}.
+            match workflow_specification.get_variables()[variable][0]:
+                case "State":
+                    self._execution_state[variable] = (workflow_specification.get_variables()[variable][1], NoValue())
+                case "Component":
+                    # check whether all component variables appearing in the formulas in the workflow
+                    if not any([variable in component_dictionary[component].state() for component in
+                                component_dictionary]):
+                        raise UndeclaredComponentVariable(variable)
+                case "Clock":
+                    self._timed_state[variable] = (workflow_specification.get_variables()[variable][1], Clock(variable))
+                case _:
+                    raise UnknownVariableClass(variable, workflow_specification.get_variables()[variable][0])
 
     def run(
             self,
@@ -96,9 +105,6 @@ class Monitor:
                 )
             return is_a_valid_report
         # Clock related exceptions
-        except AlreadyDeclaredClock as e:
-            logging.error(f"Clock [ {e.get_clockname()} ] was already declared.")
-            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except UndeclaredClock as e:
             logging.error(f"Clock [ {e.get_clockname()} ] was not declared.")
             logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
@@ -123,9 +129,6 @@ class Monitor:
             logging.error(f"Checkpoint [ {e.get_checkpoint_name()} ] does not exist.")
             logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Execution state related exceptions
-        except AlreadyDeclaredVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ] is already declared.")
-            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         except UndeclaredVariable as e:
             logging.error(f"Variable [ {e.get_varnames()} ] was not declared.")
             logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
@@ -207,14 +210,6 @@ class Monitor:
         self._update_workflow_state_with_reached_local_checkpoint(checkpoint_reached_event, started_task_name)
         return can_be_reached and properties_are_met
 
-    # def process_declare_variable(self, declare_variable_event):
-    #     variable_name = declare_variable_event.variable_name()
-    #     variable_type = declare_variable_event.variable_type()
-    #     if variable_name in self._execution_state:
-    #         raise AlreadyDeclaredVariable(variable_name)
-    #     self._execution_state[variable_name] = (variable_type, NoValue())
-    #     return True
-
     def process_variable_value_assigned(self, variable_value_assigned_event):
         variable_name = variable_value_assigned_event.variable_name()
         variable_value = variable_value_assigned_event.variable_value()
@@ -238,39 +233,32 @@ class Monitor:
             raise EventError(component_event)
         return True
 
-    def process_declare_clock(self, declare_clock_event):
-        clock_name = declare_clock_event.clock_name()
-        if clock_name in self._timed_state:
-            raise AlreadyDeclaredClock(clock_name)
-        self._timed_state[clock_name] = Clock(clock_name)
-        return True
-
     def process_clock_start(self, clock_start_event):
         clock_name = clock_start_event.clock_name()
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-        self._timed_state[clock_name].start(clock_start_event.time())
+        self._timed_state[clock_name][1].start(clock_start_event.time())
         return True
 
     def process_clock_pause(self, clock_pause_event):
         clock_name = clock_pause_event.clock_name()
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-        self._timed_state[clock_name].pause(clock_pause_event.time())
+        self._timed_state[clock_name][1].pause(clock_pause_event.time())
         return True
 
     def process_clock_resume(self, clock_resume_event):
         clock_name = clock_resume_event.clock_name()
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-        self._timed_state[clock_name].resume(clock_resume_event.time())
+        self._timed_state[clock_name][1].resume(clock_resume_event.time())
         return True
 
     def process_clock_reset(self, clock_reset_event):
         clock_name = clock_reset_event.clock_name()
         if clock_name not in self._timed_state:
             raise UndeclaredClock(clock_name)
-        self._timed_state[clock_name].reset(clock_reset_event.time())
+        self._timed_state[clock_name][1].reset(clock_reset_event.time())
         return True
 
     def process_invalid_event(self, invalid_event):
@@ -311,7 +299,7 @@ class Monitor:
     def _is_property_satisfied(self, event_time, logic_property):
         Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
         try:
-            negation_is_sat = logic_property.eval(event_time, self._component_dictionary, self._timed_state, self._execution_state)
+            negation_is_sat = logic_property.eval(self._component_dictionary, self._execution_state, self._timed_state, event_time)
         except FormulaError as e:
             logging.error(f"Error in formula [ {logic_property.filename()} ]")
             raise e

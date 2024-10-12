@@ -30,11 +30,12 @@ class LogicProperty:
             variable_decls = {}
             split_readline = (file.readline().split("\n")[0]).split(",")
             if split_readline[0] != "None":
-                variable_decl_list = [((variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[0],
-                                       (variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[1]) for
+                variable_decl_list = [(((variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[0]).split(":", 1)[0],
+                                       ((variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[0]).split(":", 1)[1],
+                                        (variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[1]) for
                                       variable_name_type in split_readline]
                 for variable_decl in variable_decl_list:
-                    variable_decls[variable_decl[0]] = variable_decl[1]
+                    variable_decls[variable_decl[0]] = (variable_decl[1], variable_decl[2])
             formula = ""
             for line in file:
                 formula = formula + line
