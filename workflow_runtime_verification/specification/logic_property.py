@@ -26,16 +26,15 @@ class LogicProperty:
 
     @staticmethod
     def prespec_from_file(file_path):
-        with open(file_path, "r") as file:
+        with (open(file_path, "r") as file):
             variable_decls = {}
             split_readline = (file.readline().split("\n")[0]).split(",")
             if split_readline[0] != "None":
-                variable_decl_list = [(((variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[0]).split(":", 1)[0],
-                                       ((variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[0]).split(":", 1)[1],
-                                        (variable_name_type.removeprefix("(").removesuffix(")")).split(" ", 1)[1]) for
-                                      variable_name_type in split_readline]
-                for variable_decl in variable_decl_list:
-                    variable_decls[variable_decl[0]] = (variable_decl[1], variable_decl[2])
+                for variable_name_class_type_with_parenthesis in split_readline:
+                    variable_name_class_type = variable_name_class_type_with_parenthesis.removeprefix("(").removesuffix(")")
+                    split_variable_name_class_type = variable_name_class_type.split(" ", 1)
+                    split_variable_name_class = split_variable_name_class_type[0].split(":")
+                    variable_decls[split_variable_name_class[0]] = (split_variable_name_class[1], split_variable_name_class_type[1])
             formula = ""
             for line in file:
                 formula = formula + line
