@@ -26,9 +26,9 @@ class PyProperty(PyInterpretedProperty):
         variables, spec = LogicProperty.prespec_from_file(file_path)
         return PyProperty(variables, spec, file_name)
 
-    def _build_spec(self, component_dictionary, timed_state, execution_state):
+    def _build_spec(self, component_dictionary, execution_state, timed_state, now):
         try:
-            assumptions = self._build_assumptions(component_dictionary, timed_state, execution_state)
+            assumptions = self._build_assumptions(component_dictionary, execution_state, timed_state, now)
             spec = (f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"result = not {self.formula()}\n")
             return spec

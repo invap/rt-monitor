@@ -1,6 +1,8 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+from workflow_runtime_verification.errors import UnboundVariables
+
 
 class LogicProperty:
     def __init__(self, variables, formula, filename):
@@ -17,7 +19,7 @@ class LogicProperty:
     def formula(self):
         return self._formula
 
-    def eval(self, event_time, component_dictionary, timed_state, execution_state):
+    def eval(self, component_dictionary, execution_state, timed_state, now):
         raise NotImplementedError
 
     @staticmethod
@@ -40,3 +42,66 @@ class LogicProperty:
                 formula = formula + line
         file.close()
         return variable_decls, formula
+
+    def _build_spec(self, component_dictionary, execution_state, timed_state, now):
+        raise NotImplementedError
+
+    def _build_declarations(self, component_dictionary, execution_state, timed_state):
+        declarations = []
+        variables = list((self.variables()).keys())
+        # building declarations for variables in the components state
+        for component in component_dictionary:
+            dictionary = component_dictionary[component].state()
+            for variable in dictionary:
+                if variable in variables:
+                    declarations.append(self._build_declaration(variable, self.variables()[variable][1]))
+                    variables.remove(variable)
+        # building declarations for variables in the execution state
+        for variable in execution_state:
+            if variable in variables:
+                declarations.append(self._build_declaration(variable, self.variables()[variable][1]))
+                variables.remove(variable)
+        # building declarations for clocks in the timed state
+        for variable in timed_state:
+            if variable in variables:
+                declarations.append(self._build_declaration(variable, self.variables()[variable][1]))
+                variables.remove(variable)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return declarations
+
+    def _build_assumptions(self, component_dictionary, execution_state, timed_state, now):
+        assumptions = []
+        variables = list((self.variables()).keys())
+        # building assumptions for variables in the components state
+        for component in component_dictionary:
+            dictionary = component_dictionary[component].state()
+            for variable in dictionary:
+                if variable in variables:
+                    assumptions.append(self._build_assumption(variable, dictionary[variable][1]))
+                    variables.remove(variable)
+        # building assumptions for variables in the execution state
+        for variable in execution_state:
+            if variable in variables:
+                assumptions.append(self._build_assumption(variable, execution_state[variable][1]))
+                variables.remove(variable)
+        # building assumptions for clocks in the timed state
+        for variable in timed_state:
+            if variable in variables:
+                assumptions.append(self._build_time_assumption(variable, timed_state[variable][1], now))
+                variables.remove(variable)
+        if len(variables) != 0:
+            raise UnboundVariables(str(variables))
+        return assumptions
+
+    @staticmethod
+    def _build_declaration(variable, variable_type):
+        raise NotImplementedError
+
+    @staticmethod
+    def _build_assumption(variable, variable_value):
+        raise NotImplementedError
+
+    @staticmethod
+    def _build_time_assumption(variable, clock, now):
+        raise NotImplementedError
