@@ -78,7 +78,7 @@ class MonitorConfigurationPanel(wx.Panel):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Select analysis framework file (.zip):",
+            "Select analysis framework file (.toml):",
             "",
             "",
             "All files (*.*)|*.*",
@@ -87,9 +87,7 @@ class MonitorConfigurationPanel(wx.Panel):
         if dialog.ShowModal() == wx.ID_OK:
             self.framework_specification_file_path_field.SetValue(dialog.GetPath())
             self.framework_specification_chosen = True
-            self.specification_dir = MonitorConfigurationPanel._unpack_specification_file(
-                self.framework_specification_file_path_field.Value
-            )
+            self.specification_dir = self.framework_specification_file_path_field.Value
             wx.CallAfter(self.log_folder_button.Enable)
         dialog.Destroy()
 
@@ -111,7 +109,7 @@ class MonitorConfigurationPanel(wx.Panel):
         dialog.Destroy()
 
     def _set_up_workflow_selection_components(self):
-        action_label = "Select analysis framework file (.zip):"
+        action_label = "Select analysis framework file (.toml):"
         action = self.select_specification
         self.framework_specification_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
@@ -332,7 +330,7 @@ class MonitoringPanel(wx.Panel):
     def on_start(self, _event):
         try:
             self._set_up_initial_verification_status()
-            self._verification = Verification.new_from_files(
+            self._verification = Verification.new_from_toml_file(
                 self.Parent.monitor_configuration_panel.specification_dir
             )
             self._verification.run_for_report(

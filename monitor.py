@@ -297,16 +297,16 @@ class Monitor:
         self._workflow_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
     def _is_property_satisfied(self, event_time, logic_property):
-        Monitor._log_property_analysis(f"Checking property {logic_property.filename()}...")
+        Monitor._log_property_analysis(f"Checking property {logic_property.property_name()}...")
         try:
             negation_is_sat = logic_property.eval(self._component_dictionary, self._execution_state, self._timed_state, event_time)
         except FormulaError as e:
             logging.error(f"Error in formula [ {logic_property.filename()} ]")
             raise e
         if not negation_is_sat:
-            Monitor._log_property_analysis(f"Property {logic_property.filename()} PASSED")
+            Monitor._log_property_analysis(f"Property {logic_property.property_name()} PASSED")
         else:
-            Monitor._log_property_analysis(f"Property {logic_property.filename()} FAILED")
+            Monitor._log_property_analysis(f"Property {logic_property.property_name()} FAILED")
         return negation_is_sat
 
     def _are_all_properties_satisfied(self, event_time, logic_properties):

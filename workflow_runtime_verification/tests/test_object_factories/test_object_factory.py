@@ -2,7 +2,7 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from workflow_runtime_verification.monitor import Monitor
+from monitor import Monitor
 from workflow_runtime_verification.specification.workflow_node.task_specification import (
     TaskSpecification,
 )

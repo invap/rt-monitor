@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 from workflow_runtime_verification.errors import AbortRun
-from workflow_runtime_verification.monitor import Monitor
+from monitor import Monitor
 from workflow_runtime_verification.specification.workflow_specification import (
     WorkflowSpecification,
 )

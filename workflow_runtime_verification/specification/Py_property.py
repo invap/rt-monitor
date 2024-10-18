@@ -11,8 +11,8 @@ from workflow_runtime_verification.specification.logic_property import LogicProp
 
 
 class PyProperty(PyInterpretedProperty):
-    def __init__(self, filename, variables, formula):
-        super().__init__(filename, variables, formula)
+    def __init__(self, property_name, variables, formula, filename):
+        super().__init__(property_name, variables, formula, filename)
 
     def eval_with(self, event_time, monitor):
         return monitor.eval_py(event_time,
@@ -20,11 +20,14 @@ class PyProperty(PyInterpretedProperty):
                                self.filename())
 
     @staticmethod
-    def property_from_file(file_name, specification_file_directory):
-        file_name_ext = file_name + ".protopy"
-        file_path = os.path.join(specification_file_directory, file_name_ext)
-        variables, spec = LogicProperty.prespec_from_file(file_path)
-        return PyProperty(variables, spec, file_name)
+    def property_from_file(property_name, file_name):
+        variables, spec = LogicProperty.prespec_from_file(file_name)
+        return PyProperty(property_name, variables, spec, file_name)
+
+    @staticmethod
+    def property_from_str(property_name, property_variables, property_formula):
+        variables, formula = LogicProperty.prespec_from_str(property_variables, property_formula)
+        return PyProperty(property_name, variables, formula, "")
 
     def _build_spec(self, component_dictionary, execution_state, timed_state, now):
         try:

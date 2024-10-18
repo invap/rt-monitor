@@ -21,15 +21,18 @@ from workflow_runtime_verification.specification.specification_errors import Uns
 
 
 class SMT2Property(LogicProperty):
-    def __init__(self, variables, formula, filename):
-        super().__init__(variables, formula, filename)
+    def __init__(self, property_name, variables, formula, filename):
+        super().__init__(property_name, variables, formula, filename)
 
     @staticmethod
-    def property_from_file(file_name, specification_file_directory):
-        file_name_ext = file_name + ".protosmt2"
-        file_path = os.path.join(specification_file_directory, file_name_ext)
-        variables, formula = LogicProperty.prespec_from_file(file_path)
-        return SMT2Property(variables, formula, file_name)
+    def property_from_file(property_name, file_name):
+        variables, formula = LogicProperty.prespec_from_file(file_name)
+        return SMT2Property(property_name, variables, formula, file_name)
+
+    @staticmethod
+    def property_from_str(property_name, property_variables, property_formula):
+        variables, formula = LogicProperty.prespec_from_str(property_variables, property_formula)
+        return SMT2Property(property_name, variables, formula, "")
 
     def eval(self, component_dictionary, execution_state, timed_state, now):
         spec = self._build_spec(component_dictionary, execution_state, timed_state, now)
@@ -38,7 +41,7 @@ class SMT2Property(LogicProperty):
         temp_solver.from_string(spec)
         negation_is_sat = z3.sat == temp_solver.check()
         if negation_is_sat:
-            # Output counterexample as specification
+            # Output counterexample as toml_tasks_list
             spec_filename = filename + "@" + str(now) + ".smt2"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)

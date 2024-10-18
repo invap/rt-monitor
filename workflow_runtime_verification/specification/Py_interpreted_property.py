@@ -20,8 +20,8 @@ from workflow_runtime_verification.specification.specification_errors import (
 
 
 class PyInterpretedProperty(LogicProperty):
-    def __init__(self, filename, variables, formula):
-        super().__init__(filename, variables, formula)
+    def __init__(self, property_name, variables, formula, filename):
+        super().__init__(property_name, variables, formula, filename)
 
     def eval(self, component_dictionary, execution_state, timed_state, now):
         spec = self._build_spec(component_dictionary, execution_state, timed_state, now)
@@ -30,20 +30,13 @@ class PyInterpretedProperty(LogicProperty):
         exec(spec, globals(), locs)
         negation_is_true = locs['result']
         if negation_is_true:
-            # Output counterexample as specification
+            # Output counterexample as toml_tasks_list
             spec_filename = filename + "@" + str(now) + ".py"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)
             spec_file.close()
             logging.info(f"Specification dumped: [ {spec_filename} ]")
         return negation_is_true
-
-    def _build_spec(self, component_dictionary, execution_state, timed_state, now):
-        raise NotImplementedError
-
-    @staticmethod
-    def _build_declaration(variable, variable_type):
-        raise NotImplementedError
 
     @staticmethod
     def _build_assumption(variable, variable_value):

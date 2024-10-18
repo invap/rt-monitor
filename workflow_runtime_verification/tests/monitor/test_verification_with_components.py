@@ -7,7 +7,7 @@ import wx
 from workflow_runtime_verification.components.rt_monitor_example_app.ex_adc import (
     adc,
 )
-from workflow_runtime_verification.monitor import Monitor
+from monitor import Monitor
 from workflow_runtime_verification.tests.test import Test
 
 

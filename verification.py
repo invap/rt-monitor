@@ -2,19 +2,17 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import importlib
 import logging
-import os
 import sys
 import threading
 
+from toml.decoder import TomlDecodeError
+
 from logging_configuration import LoggingLevel, LoggingDestination
-from workflow_runtime_verification.errors import AbortRun, EventLogFileMissing, UndeclaredComponentVariable, \
-    UnknownVariableClass
-from workflow_runtime_verification.monitor import Monitor
-from workflow_runtime_verification.specification.workflow_specification import (
-    WorkflowSpecification,
-)
+from workflow_runtime_verification.errors import AbortRun, UndeclaredComponentVariable, \
+    UnknownVariableClass, FormulaError
+from monitor import Monitor
+from workflow_runtime_verification.specification.TOMLParser import TOMLParser
 
 
 class Verification:
@@ -112,32 +110,11 @@ class Verification:
         return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
 
     @staticmethod
-    def new_from_files(specification_path):
+    def new_from_toml_file(toml_specification_file):
         try:
-            workflow_specification = Verification._read_workflow_specification_from(specification_path)
-            components_specification = Verification._read_components_specification_from(specification_path)
-            return Verification(workflow_specification, components_specification)
-        except EventLogFileMissing as e:
-            logging.error(f"Missing log file [ {e.get_filename()} ].")
-            raise AbortRun()
-
-    @staticmethod
-    def _read_workflow_specification_from(specification_directory):
-        file_name = "workflow.desc"
-        path = os.path.join(specification_directory, file_name)
-        return WorkflowSpecification.new_from_file(path)
-
-    @staticmethod
-    def _read_components_specification_from(specification_path):
-        file_name = "components.desc"
-        components_file = open(os.path.join(specification_path, file_name), "r")
-        component_map = {}
-        for line in components_file:
-            split_line = line.strip().split(",")
-            device_name = split_line[0]
-            component_class_path = split_line[1]
-            split_component_class_path = component_class_path.rsplit(".", 1)
-            component_module = importlib.import_module(split_component_class_path[0])
-            component_class = getattr(component_module, split_component_class_path[1])
-            component_map[device_name] = component_class()
-        return component_map
+            parser = TOMLParser(toml_specification_file)
+            return Verification(parser.workflow(), parser.components())
+        except TomlDecodeError as e:
+            logging.error(f"TOML error in file: {toml_specification_file}, line: {e.lineno}, column: {e.colno} - [ {e.msg} ].")
+        except FormulaError as e:
+            logging.error(f"Variables for formula [ {e.get_formula()} ] have not been declared.")

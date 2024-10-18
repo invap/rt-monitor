@@ -65,29 +65,17 @@ class UnsupportedPyVariableType(UnsupportedVariableType):
         return "Python"
 
 
-class InconsistentVariableDeclaration(Exception):
-    def __init__(self, varname, vartype):
+class PropertySourceError(Exception):
+    def __init__(self):
         super().__init__()
-        self._varname = varname
-        self._vartype = vartype
-
-    def get_variable_type(self):
-        return self._vartype
-
-    def get_variable_name(self):
-        return self._varname
 
 
-class PropertyTypeError(Exception):
-    def __init__(self, property_type, filename):
+class PropertyFormatError(Exception):
+    def __init__(self, property_format):
         super().__init__()
-        self._property_type = property_type
-        self._filename = filename
+        self._property_format = property_format
 
-    def property_type(self):
-        return self._property_type
-
-    def filename(self):
-        return self._filename
+    def property_format(self):
+        return self._property_format
 
 

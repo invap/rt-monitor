@@ -5,10 +5,14 @@ from workflow_runtime_verification.errors import UnboundVariables
 
 
 class LogicProperty:
-    def __init__(self, variables, formula, filename):
+    def __init__(self, property_name, variables, formula, filename):
+        self._property_name = property_name
         self._filename = filename
         self._variables = variables
         self._formula = formula
+
+    def property_name(self):
+        return self._property_name
 
     def filename(self):
         return self._filename
@@ -23,7 +27,11 @@ class LogicProperty:
         raise NotImplementedError
 
     @staticmethod
-    def property_from_file(file_name, specification_file_directory):
+    def property_from_file(property_name, file_name):
+        raise NotImplementedError
+
+    @staticmethod
+    def property_from_str(property_name, property_variables, property_formula):
         raise NotImplementedError
 
     @staticmethod
@@ -42,6 +50,18 @@ class LogicProperty:
                 formula = formula + line
         file.close()
         return variable_decls, formula
+
+    @staticmethod
+    def prespec_from_str(property_variables, property_formula):
+        variable_decls = {}
+        split_property_variables = property_variables.split(",")
+        if split_property_variables[0] != "None":
+            for variable_name_class_type_with_parenthesis in split_property_variables:
+                variable_name_class_type = variable_name_class_type_with_parenthesis.removeprefix("(").removesuffix(")")
+                split_variable_name_class_type = variable_name_class_type.split(" ", 1)
+                split_variable_name_class = split_variable_name_class_type[0].split(":")
+                variable_decls[split_variable_name_class[0]] = (split_variable_name_class[1], split_variable_name_class_type[1])
+        return variable_decls, property_formula
 
     def _build_spec(self, component_dictionary, execution_state, timed_state, now):
         raise NotImplementedError
@@ -105,3 +125,4 @@ class LogicProperty:
     @staticmethod
     def _build_time_assumption(variable, clock, now):
         raise NotImplementedError
+
