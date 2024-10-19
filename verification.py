@@ -9,18 +9,24 @@ import threading
 from toml.decoder import TomlDecodeError
 
 from logging_configuration import LoggingLevel, LoggingDestination
-from workflow_runtime_verification.errors import AbortRun, UndeclaredComponentVariable, \
+from process_rt_monitor.errors import AbortRun, UndeclaredComponentVariable, \
     UnknownVariableClass, FormulaError
 from monitor import Monitor
-from workflow_runtime_verification.specification.framework import Framework
+from process_rt_monitor.process.framework import Framework
 
 
 class Verification:
-    def __init__(self, workflow_specification, components_specification):
+    def __init__(self, framework_file):
         super().__init__()
         Verification._set_up_logging()
         try:
-            self._monitor = Monitor(workflow_specification, components_specification)
+            framework = Framework(framework_file)
+            self._monitor = Monitor(framework.process(), framework.components())
+        except TomlDecodeError as e:
+            logging.error(f"TOML error in file: {framework_file}, line: {e.lineno}, column: {e.colno} - [ {e.msg} ].")
+        except FormulaError as e:
+            logging.error(f"Variables for formula [ {e.get_formula()} ] have not been declared.")
+
         except UndeclaredComponentVariable as e:
             logging.critical(f"The variables [ {e.get_varnames()} ] is not declared in any component.")
             raise AbortRun()
@@ -108,13 +114,3 @@ class Verification:
     @staticmethod
     def _logging_format():
         return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
-
-    @staticmethod
-    def new_from_toml_file(toml_specification_file):
-        try:
-            parser = Framework(toml_specification_file)
-            return Verification(parser.workflow(), parser.components())
-        except TomlDecodeError as e:
-            logging.error(f"TOML error in file: {toml_specification_file}, line: {e.lineno}, column: {e.colno} - [ {e.msg} ].")
-        except FormulaError as e:
-            logging.error(f"Variables for formula [ {e.get_formula()} ] have not been declared.")

@@ -11,7 +11,7 @@ import wx
 
 from logging_configuration import LoggingLevel, LoggingDestination
 from verification import Verification
-from workflow_runtime_verification.errors import AbortRun, EventLogFileMissing
+from process_rt_monitor.errors import AbortRun, EventLogFileMissing
 
 
 class MainWindow(wx.Frame):
@@ -330,9 +330,7 @@ class MonitoringPanel(wx.Panel):
     def on_start(self, _event):
         try:
             self._set_up_initial_verification_status()
-            self._verification = Verification.new_from_toml_file(
-                self.Parent.monitor_configuration_panel.specification_dir
-            )
+            self._verification = Verification(self.Parent.monitor_configuration_panel.specification_dir)
             self._verification.run_for_report(
                 self.Parent.monitor_configuration_panel.event_report_file_path_field.Value,
                 self.Parent.logging_destination(),
