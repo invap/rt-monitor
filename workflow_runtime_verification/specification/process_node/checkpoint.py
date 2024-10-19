@@ -2,12 +2,12 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from workflow_runtime_verification.specification.workflow_node.workflow_element import (
-    WorkflowElement,
+from workflow_runtime_verification.specification.process_node.element import (
+    Element,
 )
 
 
-class Checkpoint(WorkflowElement):
+class Checkpoint(Element):
     def __init__(self, name, properties):
         super().__init__(name)
         self._properties = properties

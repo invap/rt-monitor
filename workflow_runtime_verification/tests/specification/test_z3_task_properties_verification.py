@@ -5,8 +5,8 @@
 import unittest
 
 from workflow_runtime_verification.specification.logic_property import LogicProperty
-from workflow_runtime_verification.specification.workflow_node.task_specification import (
-    TaskSpecification,
+from workflow_runtime_verification.specification.process_node.task import (
+    Task,
 )
 from workflow_runtime_verification.tests.test import Test
 
@@ -43,7 +43,7 @@ class Z3TaskPropertiesVerificationTest(Test):
         self.assertFalse(is_state_valid)
 
     def _task_specification_with_smt2_specified_precondition(self):
-        return TaskSpecification(
+        return Task(
             self.objects.task_name(), preconditions={self._smt2_written_property()}
         )
 

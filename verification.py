@@ -12,7 +12,7 @@ from logging_configuration import LoggingLevel, LoggingDestination
 from workflow_runtime_verification.errors import AbortRun, UndeclaredComponentVariable, \
     UnknownVariableClass, FormulaError
 from monitor import Monitor
-from workflow_runtime_verification.specification.TOMLParser import TOMLParser
+from workflow_runtime_verification.specification.framework import Framework
 
 
 class Verification:
@@ -112,7 +112,7 @@ class Verification:
     @staticmethod
     def new_from_toml_file(toml_specification_file):
         try:
-            parser = TOMLParser(toml_specification_file)
+            parser = Framework(toml_specification_file)
             return Verification(parser.workflow(), parser.components())
         except TomlDecodeError as e:
             logging.error(f"TOML error in file: {toml_specification_file}, line: {e.lineno}, column: {e.colno} - [ {e.msg} ].")

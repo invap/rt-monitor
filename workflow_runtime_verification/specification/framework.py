@@ -13,13 +13,13 @@ from workflow_runtime_verification.specification.Py_property import PyProperty
 from workflow_runtime_verification.specification.SMT2_property import SMT2Property
 from workflow_runtime_verification.specification.SymPy_property import SymPyProperty
 from workflow_runtime_verification.specification.specification_errors import UnsupportedNodeType
-from workflow_runtime_verification.specification.workflow_node.checkpoint import Checkpoint
-from workflow_runtime_verification.specification.workflow_node.operator import Operator
-from workflow_runtime_verification.specification.workflow_node.task_specification import TaskSpecification
-from workflow_runtime_verification.specification.workflow_specification import WorkflowSpecification
+from workflow_runtime_verification.specification.process_node.checkpoint import Checkpoint
+from workflow_runtime_verification.specification.process_node.operator import Operator
+from workflow_runtime_verification.specification.process_node.task import Task
+from workflow_runtime_verification.specification.process import ProcessSpecification
 
 
-class TOMLParser:
+class Framework:
     def __init__(self, file):
         self._file_path = file.rsplit("/", 1)[0]
         self._file_name = file.rsplit("/", 1)[1]
@@ -32,55 +32,73 @@ class TOMLParser:
             logging.error(
                 f"TOML decoding of file [ {self._file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
             raise AbortRun()
+        self._components = self._parse_components()
+        self._workflow = self._parse_workflow()
 
     def components(self):
-        component_map = {}
-        for component in self._toml_dict["components"]:
-            device_name = component["name"]
-            component_class_path = component["component"]
-            split_component_class_path = component_class_path.rsplit(".", 1)
-            component_module = importlib.import_module(split_component_class_path[0])
-            component_class = getattr(component_module, split_component_class_path[1])
-            component_map[device_name] = component_class()
-        return component_map
+        return self._components
 
     def workflow(self):
+        return self._workflow
+
+    def _parse_components(self):
+        if "workflow" not in self._toml_dict:
+            component_map = {}
+        else:
+            component_dict = self._toml_dict["components"]
+            component_map = {}
+            for component in component_dict:
+                device_name = component["name"]
+                component_class_path = component["component"]
+                split_component_class_path = component_class_path.rsplit(".", 1)
+                component_module = importlib.import_module(split_component_class_path[0])
+                component_class = getattr(component_module, split_component_class_path[1])
+                component_map[device_name] = component_class()
+        return component_map
+
+    def _parse_workflow(self):
+        if "workflow" not in self._toml_dict:
+            logging.error(f"Workflow missing in file [ {self._file_name} ].")
+            raise AbortRun()
+        workflow_dict = self._toml_dict["workflow"]
         # Building the workflow toml_tasks_list
         ordered_nodes = []
-        if not "format" in self._toml_dict:
-            logging.error(f"Workflow format not present in file [ {self._file_name} ].")
+        if not "format" in workflow_dict:
+            logging.error(f"Workflow format undeclared in file [ {self._file_name} ].")
             raise AbortRun()
-        match self._toml_dict["format"]:
+        match workflow_dict["format"]:
             case "regex":
                 pass
             case "graph":
-                for node_number in range(0, self._toml_dict["process"]["nodes"]):
-                    node_type, node_name = self._toml_dict["process"]["map"][node_number][0], self._toml_dict["process"]["map"][node_number][1]
+                for node_number in range(0, workflow_dict["process"]["nodes"]):
+                    node_type, node_name = workflow_dict["process"]["map"][node_number][0], \
+                        workflow_dict["process"]["map"][node_number][1]
                     match node_type:
                         case "operator":
                             ordered_nodes.append(Operator.new_of_type(node_name))
                         case "task":
-                            ordered_nodes.append(self._decode_task_specification(node_name, self._toml_dict["tasks"]))
+                            ordered_nodes.append(self._decode_task_specification(node_name, workflow_dict["tasks"]))
                         case "checkpoint":
-                            ordered_nodes.append(self._decode_global_checkpoints(node_name, self._toml_dict["checkpoints"]))
+                            ordered_nodes.append(
+                                self._decode_global_checkpoints(node_name, workflow_dict["checkpoints"]))
                         case _:
                             logging.error(f"Type [ {node_type} ] of workflow node [ {node_name} ] unknown.")
                             raise AbortRun()
             case _:
-                logging.error(f"Workflow format in file [ {self._file_name} ] unknown.")
+                logging.error(f"Analysis framework format in file [ {self._file_name} ] unknown.")
                 raise AbortRun()
-        dependencies = {(src, trg) for [src, trg] in self._toml_dict["process"]["edges"]}
+        dependencies = {(src, trg) for [src, trg] in workflow_dict["process"]["edges"]}
         amount_of_elements = len(ordered_nodes)
         graph = Graph(
             amount_of_elements,
             dependencies,
-            vertex_attrs={"workflow_node": ordered_nodes},
+            vertex_attrs={"process_node": ordered_nodes},
             directed=True,
         )
-        starting_element = graph.vs[self._toml_dict["process"]["start"]]["workflow_node"]
+        starting_element = graph.vs[workflow_dict["process"]["start"]]["process_node"]
         variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements) if
                                                not isinstance(ordered_nodes[node], Operator)])
-        return WorkflowSpecification(graph, starting_element, variables)
+        return ProcessSpecification(graph, starting_element, variables)
 
     def _decode_task_specification(self, task_name, toml_tasks_list):
         preconditions_list = []
@@ -99,7 +117,7 @@ class TOMLParser:
                 break
             if toml_tasks_list[i]["name"] == task_name and "posts" in toml_tasks_list[i]:
                 found = True
-                postconditions_list =  toml_tasks_list[i]["posts"] if "posts" in toml_tasks_list[i] else []
+                postconditions_list = toml_tasks_list[i]["posts"] if "posts" in toml_tasks_list[i] else []
         postconditions = self._properties_from_list(task_name, postconditions_list)
         checkpoints_list = []
         found = False
@@ -108,9 +126,9 @@ class TOMLParser:
                 break
             if toml_tasks_list[i]["name"] == task_name:
                 found = True
-                checkpoints_list =  toml_tasks_list[i]["checkpoints"] if "checkpoints" in toml_tasks_list[i] else []
+                checkpoints_list = toml_tasks_list[i]["checkpoints"] if "checkpoints" in toml_tasks_list[i] else []
         local_checkpoints = self._decode_local_checkpoints(task_name, checkpoints_list)
-        return TaskSpecification(
+        return Task(
             task_name,
             preconditions=preconditions,
             postconditions=postconditions,
@@ -135,7 +153,8 @@ class TOMLParser:
                 if not "name" in checkpoint or not "properties" in checkpoint:
                     logging.critical(f"Checkpoint list [ {checkpoints_list} ] for task [ {task_name} ] malformed.")
                     raise AbortRun()
-                checkpoints.add(Checkpoint(checkpoint["name"], self._properties_from_list(checkpoint["name"], checkpoint["properties"])))
+                checkpoints.add(Checkpoint(checkpoint["name"],
+                                           self._properties_from_list(checkpoint["name"], checkpoint["properties"])))
         return checkpoints
 
     def _properties_from_list(self, name, properties_list):
@@ -146,12 +165,14 @@ class TOMLParser:
                     logging.critical(f"Property source unknown in [ {properties_list} ] of node [ {name} ].")
                     raise AbortRun()
                 if "formula" in property:  # and "variables" in property
-                    properties.add(_property_from_str(property["name"], property["format"], property["variables"], property["formula"]))
+                    properties.add(_property_from_str(property["name"], property["format"], property["variables"],
+                                                      property["formula"]))
                 else:  # "file" in property
-                    file_name = property["file"] if (property["file"][0] == "." or property["file"][0] == "/") else self._file_path + "/" + property["file"]
+                    file_name = property["file"] if (
+                            property["file"][0] == "." or property["file"][0] == "/") else self._file_path + "/" + \
+                                                                                           property["file"]
                     properties.add(_property_from_file(property["name"], property["format"], file_name))
         return properties
-
 
 def _property_from_file(property_name, property_format, file_name):
     try:
@@ -186,7 +207,7 @@ def _property_from_str(property_name, property_format, property_variables, prope
 def _get_variables_from_nodes(nodes):
     variables = {}
     for node in nodes:
-        if isinstance(node, TaskSpecification):
+        if isinstance(node, Task):
             for formula in node.preconditions():
                 for variable in formula.variables():
                     if variable in variables and not variables[variable] == formula.variables()[variable]:

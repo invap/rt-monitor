@@ -1,11 +1,11 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
-from workflow_runtime_verification.specification.workflow_node.checkpoint import Checkpoint
-from workflow_runtime_verification.specification.workflow_node.task_specification import TaskSpecification
+from workflow_runtime_verification.specification.process_node.checkpoint import Checkpoint
+from workflow_runtime_verification.specification.process_node.task import Task
 
 
-class WorkflowSpecification:
+class ProcessSpecification:
     def __init__(self, graph, starting_element, variables):
         super().__init__()
         self._graph = graph
@@ -68,11 +68,11 @@ class WorkflowSpecification:
         return self._graph.vs.find(workflow_node=task_specification)
 
     def _task_specifications(self):
-        nodes = self._graph.vs[WorkflowSpecification._workflow_node_attribute_name()]
-        return [node for node in nodes if isinstance(node, TaskSpecification)]
+        nodes = self._graph.vs[ProcessSpecification._workflow_node_attribute_name()]
+        return [node for node in nodes if isinstance(node, Task)]
 
     def _global_checkpoints(self):
-        nodes = self._graph.vs[WorkflowSpecification._workflow_node_attribute_name()]
+        nodes = self._graph.vs[ProcessSpecification._workflow_node_attribute_name()]
         return [node for node in nodes if isinstance(node, Checkpoint)]
 
     def _immediately_preceding_elements_for_graph_node(self, current_graph_node):
@@ -82,7 +82,7 @@ class WorkflowSpecification:
         for predecessor in immediate_graph_node_predecessors:
             workflow_node = predecessor[self._workflow_node_attribute_name()]
 
-            is_task = isinstance(workflow_node, TaskSpecification)
+            is_task = isinstance(workflow_node, Task)
             is_checkpoint = isinstance(workflow_node, Checkpoint)
             if is_task or is_checkpoint:
                 preceding_elements.add(workflow_node)
@@ -95,4 +95,4 @@ class WorkflowSpecification:
 
     @staticmethod
     def _workflow_node_attribute_name():
-        return "workflow_node"
+        return "process_node"
