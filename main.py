@@ -6,12 +6,11 @@ import logging
 import os
 import shutil
 import threading
-
 import wx
 
 from logging_configuration import LoggingLevel, LoggingDestination
 from verification import Verification
-from process_rt_monitor.errors import AbortRun, EventLogFileMissing
+from errors.errors import AbortRun, EventLogFileMissing
 
 
 class MainWindow(wx.Frame):

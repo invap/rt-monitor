@@ -8,11 +8,11 @@ import threading
 
 from toml.decoder import TomlDecodeError
 
+from errors.errors import FormulaError, AbortRun
+from errors.variable_errors import UndeclaredComponentVariable, UnknownVariableClass
 from logging_configuration import LoggingLevel, LoggingDestination
-from process_rt_monitor.errors import AbortRun, UndeclaredComponentVariable, \
-    UnknownVariableClass, FormulaError
 from monitor import Monitor
-from process_rt_monitor.process.framework import Framework
+from framework.process.framework import Framework
 
 
 class Verification:
@@ -28,10 +28,10 @@ class Verification:
             logging.error(f"Variables for formula [ {e.get_formula()} ] have not been declared.")
 
         except UndeclaredComponentVariable as e:
-            logging.critical(f"The variables [ {e.get_varnames()} ] is not declared in any component.")
+            logging.critical(f"The variables [ {e.variable_names()} ] is not declared in any component.")
             raise AbortRun()
         except UnknownVariableClass as e:
-            logging.critical(f"The variable class [ {e.get_varclass()} ] of variable [ {e.get_varnames()} ] is unknown.")
+            logging.critical(f"The variable class [ {e.variable_class()} ] of variable [ {e.variable_names()} ] is unknown.")
             raise AbortRun()
 
     def run_for_report(

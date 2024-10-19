@@ -4,31 +4,22 @@
 
 import logging
 
+from errors.errors import AnalysisFailed, FormulaError, FunctionNotImplemented
+from errors.event_errors import EventError, InvalidEvent
+from errors.framework_errors import TaskDoesNotExist, CheckpointDoesNotExist, ComponentDoesNotExist
+from errors.variable_errors import UndeclaredComponentVariable, UnknownVariableClass, UndeclaredVariable
 from logging_configuration import LoggingLevel
-from process_rt_monitor.clock import Clock
-from process_rt_monitor.clock_errors import (
+from framework.clock import Clock
+from errors.clock_errors import (
     UndeclaredClock,
     ClockWasNotStarted,
     ClockWasAlreadyPaused,
     ClockWasNotPaused,
     ClockWasAlreadyStarted
 )
-from process_rt_monitor.errors import (
-    FunctionNotImplemented,
-    AnalysisFailed,
-    CheckpointDoesNotExist,
-    TaskDoesNotExist,
-    ComponentDoesNotExist,
-    EventError,
-    InvalidEventE,
-    FormulaError,
-    UndeclaredVariable,
-    UndeclaredComponentVariable,
-    UnknownVariableClass,
-)
-from process_rt_monitor.reporting.event.event import Event
-from process_rt_monitor.reporting.event_decoder import EventDecoder
-from process_rt_monitor.process.novalue import NoValue
+from reporting.event.event import Event
+from reporting.event_decoder import EventDecoder
+from novalue import NoValue
 from property_evaluator.evaluator import Evaluator
 
 
@@ -132,7 +123,7 @@ class Monitor:
             logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Execution state related exceptions
         except UndeclaredVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ] was not declared.")
+            logging.error(f"Variable [ {e.variable_names()} ] was not declared.")
             logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
         # Component related exceptions
         except ComponentDoesNotExist as e:
@@ -141,7 +132,7 @@ class Monitor:
         # Events related exceptions
         except EventError as e:
             logging.critical(f"Event [ {e.get_event().serialized()} ] produced an error.")
-        except InvalidEventE as e:
+        except InvalidEvent as e:
             logging.critical(f"Invalid event [ {e.get_event().serialized()} ].")
 
     def process_task_started(self, task_started_event):
@@ -264,7 +255,7 @@ class Monitor:
         return True
 
     def process_invalid_event(self, invalid_event):
-        raise InvalidEventE(invalid_event)
+        raise InvalidEvent(invalid_event)
 
     def stop_component_monitoring(self):
         for component_name in self._components:

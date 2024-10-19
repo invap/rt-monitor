@@ -5,9 +5,10 @@
 import logging
 from typing import Iterable
 
-from process_rt_monitor.clock_errors import ClockWasNotStarted
-from process_rt_monitor.errors import NoValueAssignedToVariable, FormulaError, UnboundVariables
-from process_rt_monitor.process.novalue import NoValue
+from errors.clock_errors import ClockWasNotStarted
+from errors.errors import FormulaError
+from errors.variable_errors import NoValueAssignedToVariable, UnboundVariables
+from novalue import NoValue
 from property_evaluator.property_evaluator import PropertyEvaluator
 
 
@@ -37,10 +38,10 @@ class PyPropertyEvaluator(PropertyEvaluator):
                     f"result = not {property.formula()}\n")
             return spec
         except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ] has no value.")
+            logging.error(f"Variable [ {e.variable_names()} ] has no value.")
             raise FormulaError(property.formula())
         except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {property.filename()} ]")
+            logging.error(f"Unbounded variables [ {e.variable_names()} ] in formula [ {property.filename()} ]")
             raise FormulaError(property.formula())
 
     @staticmethod

@@ -8,10 +8,10 @@ from typing import Iterable
 import numpy as np
 from z3 import z3
 
-from process_rt_monitor.clock_errors import ClockWasNotStarted
-from process_rt_monitor.errors import NoValueAssignedToVariable, FormulaError, UnboundVariables
-from process_rt_monitor.process.novalue import NoValue
-from process_rt_monitor.process.process_errors import UnsupportedSMT2VariableType
+from errors.clock_errors import ClockWasNotStarted
+from errors.errors import FormulaError
+from errors.variable_errors import UnsupportedSMT2VariableType, NoValueAssignedToVariable, UnboundVariables
+from novalue import NoValue
 from property_evaluator.property_evaluator import PropertyEvaluator
 
 
@@ -44,14 +44,14 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
             return spec
         except UnsupportedSMT2VariableType as e:
             logging.error(
-                f"Unsupported variable type error [ {e.get_variable_name()}: {e.get_variable_type()} ] in "
-                f"{e.get_formula_type()} formula [ {property.filename()} ].")
+                f"Unsupported variable type error [ {e.variable_names()}: {e.variable_type()} ] in "
+                f"{e.formula_type()} formula [ {property.filename()} ].")
             raise FormulaError(property.formula())
         except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.get_varnames()} ]  in formula [ {property.filename()} ] has no value.")
+            logging.error(f"Variable [ {e.variable_names()} ]  in formula [ {property.filename()} ] has no value.")
             raise FormulaError(property.formula())
         except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.get_varnames()} ] in formula [ {property.filename()} ].")
+            logging.error(f"Unbounded variables [ {e.variable_names()} ] in formula [ {property.filename()} ].")
             raise FormulaError(property.formula())
 
     @staticmethod
@@ -131,5 +131,3 @@ def _build_selector(var_name, current):
     for position in range(1, len(current)):
         select = f"(select {select} {current[position]})"
     return select
-
-
