@@ -5,7 +5,7 @@
 from process_rt_monitor.reporting.event.event import Event
 
 
-class WorkflowEvent(Event):
+class ProcessEvent(Event):
     def __init__(self, time) -> None:
         super().__init__(time)
 
@@ -15,4 +15,4 @@ class WorkflowEvent(Event):
 
     @staticmethod
     def decode_with(decoder, encoded_event):
-        return decoder.decode_workflow_event(encoded_event)
+        return decoder.decode_process_event(encoded_event)

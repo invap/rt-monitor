@@ -6,7 +6,7 @@ from process_rt_monitor.errors import InvalidEventE
 from process_rt_monitor.reporting.event.timed_event import TimedEvent
 from process_rt_monitor.reporting.event.state_event import StateEvent
 from process_rt_monitor.reporting.event.component_event import ComponentEvent
-from process_rt_monitor.reporting.event.workflow_event import WorkflowEvent
+from process_rt_monitor.reporting.event.process_event import ProcessEvent
 from process_rt_monitor.reporting.event.clock_start_event import ClockStartEvent
 from process_rt_monitor.reporting.event.clock_pause_event import ClockPauseEvent
 from process_rt_monitor.reporting.event.clock_resume_event import ClockResumeEvent
@@ -29,8 +29,8 @@ class EventDecoder:
                 return StateEvent.decode_with(EventDecoder, encoded_event)
             case "component_event":
                 return ComponentEvent.decode_with(EventDecoder, encoded_event)
-            case "workflow_event":
-                return WorkflowEvent.decode_with(EventDecoder, encoded_event)
+            case "process_event":
+                return ProcessEvent.decode_with(EventDecoder, encoded_event)
             case "invalid":
                 raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
 
@@ -59,9 +59,9 @@ class EventDecoder:
                 raise InvalidEventE(InvalidEvent.decode_with(EventDecoder, encoded_event))
 
     @staticmethod
-    def decode_workflow_event(encoded_event):
-        workflow_event_type = EventDecoder._decode_workflow_event_type(encoded_event)
-        match workflow_event_type:
+    def decode_process_event(encoded_event):
+        process_event_type = EventDecoder._decode_process_event_type(encoded_event)
+        match process_event_type:
             case "task_started":
                 return TaskStartedEvent.decode_with(EventDecoder, encoded_event)
             case "task_finished":
@@ -165,7 +165,7 @@ class EventDecoder:
             raise InvalidEventE(encoded_event)
 
     @staticmethod
-    def _decode_workflow_event_type(encoded_event):
+    def _decode_process_event_type(encoded_event):
         try:
             return encoded_event.split(",")[2]
         except IndexError:
