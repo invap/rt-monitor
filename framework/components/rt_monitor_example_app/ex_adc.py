@@ -15,8 +15,8 @@ from novalue import NoValue
 
 
 class adc(SelfLoggableComponent):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, visual):
+        super().__init__(visual)
         AcumCalib = 0
         Calib = 0
         ContCalib = 0
@@ -24,12 +24,15 @@ class adc(SelfLoggableComponent):
         # statistics variables
         self.__total_values_read = 0
         self.__current_value = 0
-        # create the visualization features associated
-        self.__visualADC = ex_adcVisual.adcVisual(parent=self, adc_component=self)
-        self.__visualADC.Show()
+        if self._visual:
+            # create the visualization features associated
+            self.__visualADC = ex_adcVisual.adcVisual(parent=self, adc_component=self)
+            self.__visualADC.Show()
 
     def stop(self):
-        self.__visualADC.close()
+        if self._visual:
+            # closes the visualization features associated
+            self.__visualADC.close()
 
     def state(self):
         state = {"adc_read": ("Int", self._adc_read)}

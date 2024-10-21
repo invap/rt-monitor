@@ -20,12 +20,13 @@ from framework.process.process import ProcessSpecification
 
 
 class Framework:
-    def __init__(self, file):
+    def __init__(self, file, visual = False):
+        self._visual = visual
         self._file_path = file.rsplit("/", 1)[0]
         self._file_name = file.rsplit("/", 1)[1]
         try:
             self._toml_dict = toml.load(self._file_path + "/" + self._file_name)
-        except TypeError as e:
+        except TypeError:
             logging.error(f"Unsupported file type [ {self._file_name} ].")
             raise AbortRun()
         except TomlDecodeError as e:
@@ -49,11 +50,23 @@ class Framework:
             component_map = {}
             for component in component_dict:
                 device_name = component["name"]
+                visual = component["visual"]
                 component_class_path = component["component"]
                 split_component_class_path = component_class_path.rsplit(".", 1)
-                component_module = importlib.import_module(split_component_class_path[0])
-                component_class = getattr(component_module, split_component_class_path[1])
-                component_map[device_name] = component_class()
+                try:
+                    component_module = importlib.import_module(split_component_class_path[0])
+                except ModuleNotFoundError as e:
+                    logging.error(f"Module [ {e.name} ] not found.")
+                    raise AbortRun()
+                try:
+                    component_class = getattr(component_module, split_component_class_path[1])
+                except AttributeError as e:
+                    logging.error(f"Attribute [ {e.name} ] not found in module [ {component_module} ].")
+                    raise AbortRun()
+                if self._visual:
+                    component_map[device_name] = component_class(visual)
+                else:
+                    component_map[device_name] = component_class(False)
         return component_map
 
     def _parse_process(self):
@@ -64,7 +77,7 @@ class Framework:
         # Building the process toml_tasks_list
         ordered_nodes = []
         if not "format" in process_dict:
-            logging.error(f"process format undeclared in file [ {self._file_name} ].")
+            logging.error(f"Process format undeclared in file [ {self._file_name} ].")
             raise AbortRun()
         match process_dict["format"]:
             case "regex":

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 class Component:
-    def __init__(self):
-        pass
+    def __init__(self, visual=False):
+        self._visual = visual
 
     def stop(self):
         raise NotImplementedError
@@ -23,8 +23,8 @@ class Component:
 
 
 class SelfLoggableComponent(Component):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, visual):
+        super().__init__(visual)
 
     def process_log(self, log_file, mark):
         raise NotImplementedError

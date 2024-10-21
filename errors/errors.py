@@ -12,12 +12,21 @@ class FunctionNotImplemented(Exception):
         return self._function_name
 
 
-class EventLogFileMissing(Exception):
+class FrameworkFileError(Exception):
     def __init__(self, filename):
         super().__init__()
         self._filename = filename
 
-    def get_filename(self):
+    def filename(self):
+        return self._filename
+
+
+class ReportsFileError(Exception):
+    def __init__(self, filename):
+        super().__init__()
+        self._filename = filename
+
+    def filename(self):
         return self._filename
 
 

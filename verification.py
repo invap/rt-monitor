@@ -8,7 +8,7 @@ import threading
 
 from toml.decoder import TomlDecodeError
 
-from errors.errors import FormulaError, AbortRun
+from errors.errors import FormulaError, AbortRun, FrameworkFileError, ReportsFileError
 from errors.variable_errors import UndeclaredComponentVariable, UnknownVariableClass
 from logging_configuration import LoggingLevel, LoggingDestination
 from monitor import Monitor
@@ -16,49 +16,75 @@ from framework.process.framework import Framework
 
 
 class Verification:
-    def __init__(self, framework_file):
+    def __init__(self, monitoring_panel):
         super().__init__()
-        Verification._set_up_logging()
+        self._monitor = None
+        self._reports_map = None
+        self._monitoring_panel = monitoring_panel
+
+    def load_framework(self, framework_file):
         try:
-            framework = Framework(framework_file)
-            self._monitor = Monitor(framework.process(), framework.components())
+            framework = Framework(framework_file, True)
         except TomlDecodeError as e:
             logging.error(f"TOML error in file: {framework_file}, line: {e.lineno}, column: {e.colno} - [ {e.msg} ].")
+            raise FrameworkFileError(framework_file)
         except FormulaError as e:
             logging.error(f"Variables for formula [ {e.get_formula()} ] have not been declared.")
-
+            raise FrameworkFileError(framework_file)
         except UndeclaredComponentVariable as e:
-            logging.critical(f"The variables [ {e.variable_names()} ] is not declared in any component.")
-            raise AbortRun()
+            logging.error(f"The variables [ {e.variable_names()} ] is not declared in any component.")
+            raise FrameworkFileError(framework_file)
+        try:
+            monitor = Monitor(framework.process(), framework.components())
         except UnknownVariableClass as e:
-            logging.critical(f"The variable class [ {e.variable_class()} ] of variable [ {e.variable_names()} ] is unknown.")
-            raise AbortRun()
+            logging.error(f"The variable class [ {e.variable_class()} ] of variable [ {e.variable_names()} ] is unknown.")
+            raise FrameworkFileError(framework_file)
+        self._monitor = monitor
 
-    def run_for_report(
+    def load_event_reports(self, reports_list_file):
+        reports_map = {}
+        try:
+            file = open(reports_list_file, "r")
+        except FileNotFoundError as e:
+            logging.error(f"Event reports list file [ {e.filename} ] not found.")
+            raise ReportsFileError(reports_list_file)
+        try:
+            for line in file:
+                split_line = line.strip().split(",")
+                device_name = split_line[0]
+                reports_map[device_name] = open(split_line[1], "r")
+        except FileNotFoundError as e:
+            logging.error(f"Event report file [ {e.filename} ] not found.")
+            raise ReportsFileError(reports_list_file)
+        if "main" not in reports_map:
+            logging.error(f"Main event report file not found.")
+            raise ReportsFileError(reports_list_file)
+        else:
+            self._reports_map = reports_map
+            amount_of_events = len(self._reports_map["main"].readlines())
+            self._reports_map["main"].seek(0)
+            self._monitoring_panel._amount_of_events_to_verify = amount_of_events
+            self._monitoring_panel.amount_of_events_to_verify_text_label.SetLabel(
+                self._monitoring_panel.amount_of_events_to_verify_label()
+            )
+            self._monitoring_panel.progress_bar.SetRange(self._monitoring_panel._amount_of_events_to_verify)
+
+    def run(
         self,
-        event_report_path,
         logging_destination,
         logging_level,
         pause_event,
         stop_event,
         monitoring_panel,
     ):
-        self._configure_logging_destination(logging_destination)
-        self._configure_logging_level(logging_level)
-        logs_map = {}
-        try:
-            with open(event_report_path, "r") as file:
-                for line in file:
-                    split_line = line.strip().split(",")
-                    device_name = split_line[0]
-                    logs_map[device_name] = open(split_line[1], "r")
-        except FileNotFoundError:
-            logging.critical(f"A necessary file is missing.")
+        Verification._set_up_logging()
+        Verification._configure_logging_destination(logging_destination)
+        Verification._configure_logging_level(logging_level)
 
         event_processed_callback = monitoring_panel.update_amount_of_processed_events
         monitor_thread = threading.Thread(
             target=self._monitor.run,
-            args=[logs_map, pause_event, stop_event, event_processed_callback],
+            args=[self._reports_map, pause_event, stop_event, event_processed_callback],
         )
         application_thread = threading.Thread(
             target=monitoring_panel.run_verification, args=[monitor_thread]
@@ -114,3 +140,5 @@ class Verification:
     @staticmethod
     def _logging_format():
         return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
+
+

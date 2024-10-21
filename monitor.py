@@ -56,7 +56,7 @@ class Monitor:
 
     def run(
             self,
-            log_files_map,
+            reports_map,
             pause_event=None,
             stop_event=None,
             event_processed_callback=None,
@@ -64,7 +64,7 @@ class Monitor:
         decoded_event = Event(0)
         try:
             is_a_valid_report = True
-            for line in log_files_map["main"]:
+            for line in reports_map["main"]:
                 if not is_a_valid_report:
                     break
                 Monitor._pause_verification_if_requested(pause_event, stop_event)
@@ -74,9 +74,9 @@ class Monitor:
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 mark = decoded_event.time()
                 # Process the events of all self-logged components until time mark
-                for component in log_files_map:
+                for component in reports_map:
                     if not component == "main":
-                        self._components[component].process_log(log_files_map[component], mark)
+                        self._components[component].process_log(reports_map[component], mark)
                 #
                 is_a_valid_report = decoded_event.process_with(self)
                 if event_processed_callback is not None:

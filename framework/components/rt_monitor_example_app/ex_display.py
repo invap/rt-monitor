@@ -109,12 +109,12 @@ class TextConfiguration:
 
 
 class display(Component):
-    def __init__(self):
+    def __init__(self, visual):
         # TODO driver must have the base configuration of the display, such as the commands codes, etc.
         # in this prototype we assume the display configuration
         # set the default width and height of the display, note that some drivers can update the size with the
         # respective command
-        super().__init__()
+        super().__init__(visual)
         self.width = 480
         self.height = 200
         # create and initialize the display's information with (0,0,0) RGB
@@ -153,12 +153,15 @@ class display(Component):
         )
         # - Default Font Matrix Map 6_8
         self.__font_matrix = Font6_8()
-        # create the visualization features associated
-        self.__visualDisplay = ex_displayVisual.displayVisual(parent=self, display=self)
-        self.__visualDisplay.Show()
+        if self._visual:
+            # create the visualization features associated
+            self.__visualDisplay = ex_displayVisual.displayVisual(parent=self, display=self)
+            self.__visualDisplay.Show()
 
     def stop(self):
-        self.__visualDisplay.close()
+        if self._visual:
+            # closes the visualization features associated
+            self.__visualDisplay.close()
 
     def state(self):
         """state.__display_pixels is a 3d (heigth, width, 3) matrix where the last axis

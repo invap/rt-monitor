@@ -10,7 +10,7 @@ import wx
 
 from logging_configuration import LoggingLevel, LoggingDestination
 from verification import Verification
-from errors.errors import AbortRun, EventLogFileMissing
+from errors.errors import AbortRun, FrameworkFileError, ReportsFileError
 
 
 class MainWindow(wx.Frame):
@@ -68,12 +68,12 @@ class ControlPanel(wx.Notebook):
 class MonitorConfigurationPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
-        self.framework_specification_chosen = False
+        self.framework_framework_chosen = False
         self.event_report_file_chosen = False
-        self.specification_dir = ""
+        self.framework_dir = ""
         self._render()
 
-    def select_specification(self, event):
+    def select_framework(self, event):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
@@ -84,17 +84,20 @@ class MonitorConfigurationPanel(wx.Panel):
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
-            self.framework_specification_file_path_field.SetValue(dialog.GetPath())
-            self.framework_specification_chosen = True
-            self.specification_dir = self.framework_specification_file_path_field.Value
-            wx.CallAfter(self.log_folder_button.Enable)
+            self.framework_file_path_field.SetValue(dialog.GetPath())
+            try:
+                self.Parent.monitoring_panel.verification.load_framework(self.framework_file_path_field.Value)
+                self.framework_framework_chosen = True
+                wx.CallAfter(self.log_folder_button.Enable)
+            except FrameworkFileError as e:
+                logging.error(f"Failed to load framework file [ {e.filename()} ].")
         dialog.Destroy()
 
     def select_report(self, event):
         # Open Dialog
         dialog = wx.FileDialog(
             self,
-            "Select event report file list",
+            "Select event reports list file",
             "",
             "",
             "All files (*.*)|*.*",
@@ -102,15 +105,18 @@ class MonitorConfigurationPanel(wx.Panel):
         )
         if dialog.ShowModal() == wx.ID_OK:
             self.event_report_file_path_field.SetValue(dialog.GetPath())
-            self.event_report_file_chosen = True
-            self._update_amount_of_events_to_verify()
-            self.Parent.monitoring_panel.update_start_button()
+            try:
+                self.Parent.monitoring_panel.verification.load_event_reports(self.event_report_file_path_field.Value)
+                self.event_report_file_chosen = True
+                self.Parent.monitoring_panel.update_start_button()
+            except ReportsFileError as e:
+                logging.error(f"Failed to load reports file [ {e.filename()} ].")
         dialog.Destroy()
 
     def _set_up_workflow_selection_components(self):
         action_label = "Select analysis framework file (.toml):"
-        action = self.select_specification
-        self.framework_specification_file_path_field = wx.TextCtrl(
+        action = self.select_framework
+        self.framework_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
         )
         action_label_component = wx.StaticText(self, label=action_label)
@@ -121,14 +127,14 @@ class MonitorConfigurationPanel(wx.Panel):
         folder_selection_button.Bind(wx.EVT_BUTTON, action)
 
         folder_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        folder_selection_sizer.Add(self.framework_specification_file_path_field, 0, wx.ALL, border=10)
+        folder_selection_sizer.Add(self.framework_file_path_field, 0, wx.ALL, border=10)
         folder_selection_sizer.Add(
             folder_selection_button, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, border=10
         )
         self.main_sizer.Add(folder_selection_sizer, 0)
 
-    def _set_up_log_file_selection_components(self):
-        action_label = "Select event report files (.txt):"
+    def _set_up_reports_file_selection_components(self):
+        action_label = "Select event reports list file (.txt):"
         action = self.select_report
         self.event_report_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
@@ -155,49 +161,31 @@ class MonitorConfigurationPanel(wx.Panel):
     def _set_up_components(self):
         self._set_up_workflow_selection_components()
         self._add_dividing_line()
-        self._set_up_log_file_selection_components()
+        self._set_up_reports_file_selection_components()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         self._set_up_components()
         self.SetSizer(self.main_sizer)
 
-    def _update_amount_of_events_to_verify(self):
-        main_log_path = None
-        with open(self.event_report_file_path_field.GetValue(), "r") as file:
-            for line in file:
-                split_line = line.strip().split(",")
-                device_name = split_line[0]
-                if device_name == "main":
-                    main_log_path = split_line[1]
-            if main_log_path is None:
-                raise EventLogFileMissing("main")
-        with open(main_log_path, "r") as file:
-            self.Parent.monitoring_panel._amount_of_events_to_verify = len(file.readlines())
-            file.close()
-        self.Parent.monitoring_panel.amount_of_events_to_verify_text_label.SetLabel(
-            self.Parent.monitoring_panel.amount_of_events_to_verify_label()
-        )
-        self.Parent.monitoring_panel.progress_bar.SetRange(self.Parent.monitoring_panel._amount_of_events_to_verify)
-
     @staticmethod
-    def _unpack_specification_file(file_path):
+    def _unpack_framework_file(file_path):
         split_file_path = os.path.split(file_path)
         file_directory = split_file_path[0]
         file_name = split_file_path[1]
 
         file_name_without_extension = os.path.splitext(file_name)[0]
-        specification_directory = os.path.join(
+        framework_directory = os.path.join(
             file_directory, file_name_without_extension
         )
         try:
-            os.mkdir(specification_directory)
+            os.mkdir(framework_directory)
         except FileExistsError:
-            shutil.rmtree(specification_directory)
-            os.mkdir(specification_directory)
+            shutil.rmtree(framework_directory)
+            os.mkdir(framework_directory)
 
-        shutil.unpack_archive(file_path, specification_directory)
-        return specification_directory
+        shutil.unpack_archive(file_path, framework_directory)
+        return framework_directory
 
 
 class LoggingConfigurationPanel(wx.Panel):
@@ -314,13 +302,14 @@ class LoggingConfigurationPanel(wx.Panel):
 class MonitoringPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent=parent)
-
-        self._verification = None
-        self._set_up_initial_verification_status()
+        self.verification = Verification(self)
+        self._amount_of_events_to_verify = 0
+        self._amount_of_processed_events = 0
+        self._elapsed_seconds = 0
         self._render()
 
     def update_start_button(self):
-        if (self.Parent.monitor_configuration_panel.framework_specification_chosen and
+        if (self.Parent.monitor_configuration_panel.framework_framework_chosen and
                 self.Parent.monitor_configuration_panel.event_report_file_chosen):
             self._enable_multi_action_button()
         else:
@@ -329,9 +318,7 @@ class MonitoringPanel(wx.Panel):
     def on_start(self, _event):
         try:
             self._set_up_initial_verification_status()
-            self._verification = Verification(self.Parent.monitor_configuration_panel.specification_dir)
-            self._verification.run_for_report(
-                self.Parent.monitor_configuration_panel.event_report_file_path_field.Value,
+            self.verification.run(
                 self.Parent.logging_destination(),
                 self.Parent.logging_verbosity(),
                 self._pause_event,
@@ -411,8 +398,8 @@ class MonitoringPanel(wx.Panel):
 
         self._stop_event.set()
 
-        if self._verification is not None:
-            self._verification.stop_component_monitoring()
+        if self.verification is not None:
+            self.verification.stop_component_monitoring()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -458,7 +445,8 @@ class MonitoringPanel(wx.Panel):
             progress_bar_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=25
         )
 
-    def _add_to_grid(self, grid, text_label, numeric_label):
+    @staticmethod
+    def _add_to_grid(grid, text_label, numeric_label):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer.Add(text_label, 0, wx.ALIGN_LEFT)
