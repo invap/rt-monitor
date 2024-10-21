@@ -18,7 +18,7 @@ from reporting.event.task_started_event import (
 from reporting.event.variable_value_assigned_event import (
     VariableValueAssignedEvent,
 )
-from framework.tests.test_object_factories.test_name_and_value_factory import (
+from attic.tests.test_object_factories.test_name_and_value_factory import (
     TestNameAndValueFactory,
 )
 

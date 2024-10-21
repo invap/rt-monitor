@@ -6,7 +6,7 @@ from framework.process.process_node.checkpoint import Checkpoint
 from framework.process.process_node.task import Task
 
 
-class ProcessSpecification:
+class Process:
     def __init__(self, graph, starting_element, variables):
         super().__init__()
         self._graph = graph
@@ -69,11 +69,11 @@ class ProcessSpecification:
         return self._graph.vs.find(process_node=task_specification)
 
     def _task_specifications(self):
-        nodes = self._graph.vs[ProcessSpecification._process_node_attribute_name()]
+        nodes = self._graph.vs[Process._process_node_attribute_name()]
         return [node for node in nodes if isinstance(node, Task)]
 
     def _global_checkpoints(self):
-        nodes = self._graph.vs[ProcessSpecification._process_node_attribute_name()]
+        nodes = self._graph.vs[Process._process_node_attribute_name()]
         return [node for node in nodes if isinstance(node, Checkpoint)]
 
     def _immediately_preceding_elements_for_graph_node(self, current_graph_node):

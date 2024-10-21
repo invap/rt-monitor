@@ -4,7 +4,7 @@
 
 import unittest
 
-from framework.tests.test_object_factories.test_object_factory import (
+from attic.tests.test_object_factories.test_object_factory import (
     TestObjectFactory,
 )
 

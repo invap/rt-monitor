@@ -15,7 +15,7 @@ from reporting.event.variable_value_assigned_event import (
     VariableValueAssignedEvent,
 )
 from reporting.event_decoder import EventDecoder
-from framework.tests.test import Test
+from attic.tests.test import Test
 
 
 class EventDecoderTest(Test):

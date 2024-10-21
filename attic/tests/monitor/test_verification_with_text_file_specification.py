@@ -5,9 +5,9 @@
 from errors.errors import AbortRun
 from monitor import Monitor
 from framework.process.process import (
-    ProcessSpecification,
+    Process,
 )
-from framework.tests.test import Test
+from attic.tests.test import Test
 
 
 class VerificationWithTextFileSpecificationTest(Test):
@@ -112,31 +112,31 @@ class VerificationWithTextFileSpecificationTest(Test):
         workflow_specification_file_path = self._resource_path_for(
             "workflow_with_a_cycle_and_a_choice_specification.txt"
         )
-        return ProcessSpecification.new_from_file(workflow_specification_file_path)
+        return Process.new_from_file(workflow_specification_file_path)
 
     def _workflow_specification_from_file_with_unsatisfied_precondition(self):
         workflow_specification_file_path = self._resource_path_for(
             "workflow_with_unsatisfied_precondition_specification.txt"
         )
-        return ProcessSpecification.new_from_file(workflow_specification_file_path)
+        return Process.new_from_file(workflow_specification_file_path)
 
     def _workflow_specification_from_file_with_unsatisfied_postcondition(self):
         workflow_specification_file_path = self._resource_path_for(
             "workflow_with_unsatisfied_postcondition_specification.txt"
         )
-        return ProcessSpecification.new_from_file(workflow_specification_file_path)
+        return Process.new_from_file(workflow_specification_file_path)
 
     def _workflow_specification_with_global_checkpoint_from_file(self):
         workflow_specification_file_path = self._resource_path_for(
             "workflow_with_global_checkpoint_specification.txt"
         )
-        return ProcessSpecification.new_from_file(workflow_specification_file_path)
+        return Process.new_from_file(workflow_specification_file_path)
 
     def _workflow_specification_with_local_checkpoints_from_file(self):
         workflow_specification_file_path = self._resource_path_for(
             "workflow_with_local_checkpoints_specification.txt"
         )
-        return ProcessSpecification.new_from_file(workflow_specification_file_path)
+        return Process.new_from_file(workflow_specification_file_path)
 
     def events_declaring_the_variables(self):
         return [

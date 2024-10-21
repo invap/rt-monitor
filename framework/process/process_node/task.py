@@ -6,13 +6,7 @@ from framework.process.process_node.element import Element
 
 
 class Task(Element):
-    @classmethod
-    def new_named(cls, name):
-        return cls(name)
-
-    def __init__(
-        self, name, preconditions=None, postconditions=None, checkpoints=None
-    ) -> None:
+    def __init__(self, name, preconditions=None, postconditions=None, checkpoints=None):
         super().__init__(name)
 
         if preconditions is None:

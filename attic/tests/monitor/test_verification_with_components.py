@@ -8,7 +8,7 @@ from framework.components.rt_monitor_example_app.ex_adc import (
     adc,
 )
 from monitor import Monitor
-from framework.tests.test import Test
+from attic.tests.test import Test
 
 
 class VerificationWithComponentsTest(Test):

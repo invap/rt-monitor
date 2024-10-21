@@ -3,12 +3,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+import sys
 
-from errors.errors import AnalysisFailed, FormulaError, FunctionNotImplemented
+from toml.decoder import TomlDecodeError
+
+from errors.errors import AnalysisFailed, FormulaError, FunctionNotImplemented, FrameworkFileError, ReportsFileError
 from errors.event_errors import EventError, InvalidEvent
 from errors.framework_errors import TaskDoesNotExist, CheckpointDoesNotExist, ComponentDoesNotExist
 from errors.variable_errors import UndeclaredComponentVariable, UnknownVariableClass, UndeclaredVariable
-from logging_configuration import LoggingLevel
+from framework.process.framework import Framework
+from logging_configuration import LoggingLevel, LoggingDestination
 from framework.clock import Clock
 from errors.clock_errors import (
     UndeclaredClock,
@@ -24,47 +28,92 @@ from property_evaluator.evaluator import Evaluator
 
 
 class Monitor:
-    WORKFLOW_IDLE_STATE = "wf_idle"
-    WORKFLOW_FINISHED = "wf_finished"
+    PROCESS_IDLE_STATE = "process_idle"
+    PROCESS_FINISHED = "process_finished"
 
     TASK_STARTED_SUFFIX = "_started"
     TASK_FINISHED_SUFFIX = "_finished"
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
-    def __init__(self, process, components):
-        self._components = components
-        self._process = process
+    def __init__(self, framework, reports_map):
+        # Analysis framework
+        self._framework = framework
+        # revent reports
+        self._reports_map = reports_map
+        # State
         self._process_state = set()
         self._execution_state = {}
         self._timed_state = {}
-        self._evaluator = Evaluator(self._components, self._process_state, self._execution_state, self._timed_state)
-        for variable in process.get_variables():
-            # building the execution state dictionary discarding the variable class
-            # (i.e., process.get_variables()[variable][0]) {State|Component|Clock}.
-            match process.get_variables()[variable][0]:
+        # Building the state dictionary discarding the variable class
+        # (i.e., self._framework.process().get_variables()[variable][0]) {State|Component|Clock}.
+        for variable in self._framework.process().get_variables():
+            match self._framework.process().get_variables()[variable][0]:
                 case "State":
-                    self._execution_state[variable] = (process.get_variables()[variable][1], NoValue)
+                    self._execution_state[variable] = (self._framework.process().get_variables()[variable][1], NoValue)
                 case "Component":
                     # check whether all component variables appearing in the formulas in the process
-                    if not any([variable in components[component].state() for component in
-                                components]):
+                    if not any([variable in self._framework.components()[component].state() for component in
+                                self._framework.components()]):
                         raise UndeclaredComponentVariable(variable)
                 case "Clock":
-                    self._timed_state[variable] = (process.get_variables()[variable][1], Clock(variable))
+                    self._timed_state[variable] = (
+                        self._framework.process().get_variables()[variable][1], Clock(variable)
+                    )
                 case _:
-                    raise UnknownVariableClass(variable, process.get_variables()[variable][0])
+                    raise UnknownVariableClass(variable, self._framework.process().get_variables()[variable][0])
+        # Formula evaluator
+        self._evaluator = Evaluator(self._framework.components(), self._process_state, self._execution_state,
+                                    self._timed_state)
 
-    def run(
-            self,
-            reports_map,
-            pause_event=None,
-            stop_event=None,
-            event_processed_callback=None,
-    ):
+    @staticmethod
+    def new_from_files(logging_destination, logging_level, framework_file, reports_list_file, visual=False):
+        # Configure logging
+        _set_up_logging()
+        _configure_logging_destination(logging_destination)
+        _configure_logging_level(logging_level)
+        # Build analysis framework
+        try:
+            framework = Framework(framework_file, visual)
+        except TomlDecodeError as e:
+            logging.error(f"TOML error in file: {framework_file}, line: {e.lineno}, column: {e.colno} - [ {e.msg} ].")
+            raise FrameworkFileError(framework_file)
+        except FormulaError as e:
+            logging.error(f"Variables in formula [ {e.get_formula()} ] have not been declared.")
+            raise FrameworkFileError(framework_file)
+        except UndeclaredComponentVariable as e:
+            logging.error(f"The variables [ {e.variable_names()} ] is not declared in any component.")
+            raise FrameworkFileError(framework_file)
+        # Build reports list map
+        reports_map = {}
+        try:
+            file = open(reports_list_file, "r")
+        except FileNotFoundError as e:
+            logging.error(f"Event reports list file [ {e.filename} ] not found.")
+            raise ReportsFileError(reports_list_file)
+        try:
+            for line in file:
+                split_line = line.strip().split(",")
+                report_name = split_line[0]
+                reports_map[report_name] = open(split_line[1], "r")
+        except FileNotFoundError as e:
+            logging.error(f"Event report file [ {e.filename} ] not found.")
+            raise ReportsFileError(reports_list_file)
+        if "main" not in reports_map:
+            logging.error(f"Main event report file not found.")
+            raise ReportsFileError(reports_list_file)
+        # Build monitor
+        try:
+            return Monitor(framework, reports_map)
+        except UnknownVariableClass as e:
+            logging.error(
+                f"The variable class [ {e.variable_class()} ] of variable [ {e.variable_names()} ] is unknown.")
+            raise FrameworkFileError(framework_file)
+
+    def run(self, pause_event=None, stop_event=None, event_processed_callback=None):
         decoded_event = Event(0)
         try:
             is_a_valid_report = True
-            for line in reports_map["main"]:
+            for line in self._reports_map["main"]:
                 if not is_a_valid_report:
                     break
                 Monitor._pause_verification_if_requested(pause_event, stop_event)
@@ -74,9 +123,9 @@ class Monitor:
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 mark = decoded_event.time()
                 # Process the events of all self-logged components until time mark
-                for component in reports_map:
+                for component in self._reports_map:
                     if not component == "main":
-                        self._components[component].process_log(reports_map[component], mark)
+                        self._framework.components()[component].process_log(self._reports_map[component], mark)
                 #
                 is_a_valid_report = decoded_event.process_with(self)
                 if event_processed_callback is not None:
@@ -89,13 +138,9 @@ class Monitor:
             if Monitor._event_was_set(stop_event):
                 logging.info(f"Verification process STOPPED.")
             elif not is_a_valid_report:
-                Monitor._log_property_analysis(
-                    f"Verification completed UNSUCCESSFULLY."
-                )
+                logging.log(LoggingLevel.PROPERTY_ANALYSIS, "Verification completed UNSUCCESSFULLY.")
             else:
-                Monitor._log_property_analysis(
-                    f"Verification completed SUCCESSFULLY."
-                )
+                logging.log(LoggingLevel.PROPERTY_ANALYSIS, "Verification completed SUCCESSFULLY.")
             return is_a_valid_report
         # Clock related exceptions
         except UndeclaredClock as e:
@@ -137,10 +182,10 @@ class Monitor:
 
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
-        if not self._process.task_exists(task_name):
+        if not self._framework.process().task_exists(task_name):
             raise TaskDoesNotExist(task_name)
         can_start = self._task_can_start(task_name)
-        task_specification = self._process.task_specification_named(task_name)
+        task_specification = self._framework.process().task_specification_named(task_name)
         try:
             preconditions_are_met = self._are_all_properties_satisfied(
                 task_started_event.time(),
@@ -154,10 +199,10 @@ class Monitor:
 
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
-        if not self._process.task_exists(task_name):
+        if not self._framework.process().task_exists(task_name):
             raise TaskDoesNotExist(task_name)
         had_previously_started = self._task_had_started(task_name)
-        task_specification = self._process.task_specification_named(task_name)
+        task_specification = self._framework.process().task_specification_named(task_name)
         try:
             postconditions_are_met = self._are_all_properties_satisfied(
                 task_finished_event.time(),
@@ -171,14 +216,14 @@ class Monitor:
 
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-        if (not self._process.global_checkpoint_exists(checkpoint_name) and
-                not self._process.local_checkpoint_exists(checkpoint_name)):
+        if (not self._framework.process().global_checkpoint_exists(checkpoint_name) and
+                not self._framework.process().local_checkpoint_exists(checkpoint_name)):
             raise CheckpointDoesNotExist(checkpoint_name)
         else:
             try:
-                if self._process.global_checkpoint_exists(checkpoint_name):
+                if self._framework.process().global_checkpoint_exists(checkpoint_name):
                     return self._process_global_checkpoint_reached(checkpoint_reached_event)
-                if self._process.local_checkpoint_exists(checkpoint_name):
+                if self._framework.process().local_checkpoint_exists(checkpoint_name):
                     return self._process_local_checkpoint_reached(checkpoint_reached_event)
             except AnalysisFailed:
                 logging.critical(f"Analysis FAILED.")
@@ -187,7 +232,7 @@ class Monitor:
     def _process_global_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
         can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
-        checkpoint = self._process.global_checkpoint_named(checkpoint_name)
+        checkpoint = self._framework.process().global_checkpoint_named(checkpoint_name)
         properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(),
                                                                 checkpoint.properties())
         self._update_process_state_with_reached_global_checkpoint(checkpoint_reached_event)
@@ -196,7 +241,7 @@ class Monitor:
     def _process_local_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
         can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
-        checkpoint = self._process.local_checkpoint_named(checkpoint_name)
+        checkpoint = self._framework.process().local_checkpoint_named(checkpoint_name)
         properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(),
                                                                 checkpoint.properties())
         started_task_name = self._started_task_name_from_state()
@@ -214,9 +259,9 @@ class Monitor:
     def process_component_event(self, component_event):
         component_data = component_event.data()
         component_name = component_event.component_name()
-        if component_name not in self._components:
+        if component_name not in self._framework.components():
             raise ComponentDoesNotExist(component_name)
-        component = self._components[component_name]
+        component = self._framework.components()[component_name]
         try:
             component.process_high_level_call(component_data)
         except FunctionNotImplemented as e:
@@ -254,12 +299,9 @@ class Monitor:
         self._timed_state[clock_name][1].reset(clock_reset_event.time())
         return True
 
-    def process_invalid_event(self, invalid_event):
-        raise InvalidEvent(invalid_event)
-
     def stop_component_monitoring(self):
-        for component_name in self._components:
-            self._components[component_name].stop()
+        for component_name in self._framework.components():
+            self._framework.components()[component_name].stop()
 
     def _update_process_state_with_started_task(self, task_started_event):
         task_name = task_started_event.name()
@@ -290,16 +332,16 @@ class Monitor:
         self._process_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
     def _is_property_satisfied(self, event_time, logic_property):
-        Monitor._log_property_analysis(f"Checking property {logic_property.name()}...")
+        logging.log(LoggingLevel.PROPERTY_ANALYSIS, f"Checking property {logic_property.name()}...")
         try:
             negation_is_sat = self._evaluator.eval(logic_property, event_time)
         except FormulaError as e:
             logging.error(f"Error in formula [ {logic_property.filename()} ]")
             raise e
         if not negation_is_sat:
-            Monitor._log_property_analysis(f"Property {logic_property.name()} PASSED")
+            logging.log(LoggingLevel.PROPERTY_ANALYSIS, f"Property {logic_property.name()} PASSED")
         else:
-            Monitor._log_property_analysis(f"Property {logic_property.name()} FAILED")
+            logging.log(LoggingLevel.PROPERTY_ANALYSIS, f"Property {logic_property.name()} FAILED")
         return negation_is_sat
 
     def _are_all_properties_satisfied(self, event_time, logic_properties):
@@ -324,14 +366,14 @@ class Monitor:
         if not there_is_a_task_in_progress:
             return False
         task_in_progress_name = self._started_task_name_from_state()
-        task_in_progress = self._process.task_specification_named(task_in_progress_name)
+        task_in_progress = self._framework.process().task_specification_named(task_in_progress_name)
         task_in_progress_has_that_checkpoint = any(checkpoint.is_named(checkpoint_name)
                                                    for checkpoint in task_in_progress.checkpoints())
         return task_in_progress_has_that_checkpoint
 
     def _is_process_state_valid_for_reaching_element_named(self, element_name):
         preceding_elements = (
-            self._process.immediately_preceding_elements_for(element_name)
+            self._framework.process().immediately_preceding_elements_for(element_name)
         )
         follows_a_corresponding_finishing_task = any(self._task_had_finished(preceding_element.name())
                                                      for preceding_element in preceding_elements)
@@ -340,7 +382,7 @@ class Monitor:
             for preceding_element in preceding_elements
         )
         is_starting_element_and_state_is_empty = (
-                self._process.is_starting_element(element_name)
+                self._framework.process().is_starting_element(element_name)
                 and self._process_state == set()
         )
         return (
@@ -385,6 +427,46 @@ class Monitor:
     def _event_was_set(ui_event):
         return ui_event is not None and ui_event.is_set()
 
-    @staticmethod
-    def _log_property_analysis(message):
-        logging.log(LoggingLevel.PROPERTY_ANALYSIS, message)
+
+def _set_up_logging():
+    logging.addLevelName(LoggingLevel.PROPERTY_ANALYSIS, "PROPERTY_ANALYSIS")
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=_default_logging_level(),
+        datefmt=_date_logging_format(),
+        format=_logging_format(),
+        encoding="utf-8",
+    )
+
+
+def _configure_logging_destination(logging_destination):
+    logging.getLogger().handlers.clear()
+    formatter = logging.Formatter(
+        _logging_format(), datefmt=_date_logging_format()
+    )
+    match logging_destination:
+        case LoggingDestination.FILE:
+            handler = logging.FileHandler(
+                "sandbox/rt-monitor-example-app/log.txt", encoding="utf-8"
+            )
+        case _:
+            handler = logging.StreamHandler(sys.stdout)
+
+    handler.setFormatter(formatter)
+    logging.getLogger().addHandler(handler)
+
+
+def _configure_logging_level(logging_level):
+    logging.getLogger().setLevel(logging_level)
+
+
+def _default_logging_level():
+    return LoggingLevel.INFO
+
+
+def _date_logging_format():
+    return "%d/%m/%Y %H:%M:%S"
+
+
+def _logging_format():
+    return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 from framework.process.property import Property
-from framework.tests.test_object_factories.test_name_and_value_factory import (
+from attic.tests.test_object_factories.test_name_and_value_factory import (
     TestNameAndValueFactory,
 )
 

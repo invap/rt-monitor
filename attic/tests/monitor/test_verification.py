@@ -9,7 +9,7 @@ from reporting.event_decoder import InvalidEvent
 from framework.process.process_node.checkpoint import (
     Checkpoint,
 )
-from framework.tests.test import Test
+from attic.tests.test import Test
 
 
 class VerificationTest(Test):

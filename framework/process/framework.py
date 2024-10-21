@@ -16,7 +16,7 @@ from errors.process_errors import UnsupportedNodeType
 from framework.process.process_node.checkpoint import Checkpoint
 from framework.process.process_node.operator import Operator
 from framework.process.process_node.task import Task
-from framework.process.process import ProcessSpecification
+from framework.process.process import Process
 
 
 class Framework:
@@ -90,7 +90,7 @@ class Framework:
                         case "operator":
                             ordered_nodes.append(Operator.new_of_type(node_name))
                         case "task":
-                            ordered_nodes.append(self._decode_task_specification(node_name, process_dict["tasks"]))
+                            ordered_nodes.append(self._decode_task(node_name, process_dict["tasks"]))
                         case "checkpoint":
                             ordered_nodes.append(
                                 self._decode_global_checkpoints(node_name, process_dict["checkpoints"]))
@@ -111,9 +111,9 @@ class Framework:
         starting_element = graph.vs[process_dict["structure"]["start"]]["process_node"]
         variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements) if
                                                not isinstance(ordered_nodes[node], Operator)])
-        return ProcessSpecification(graph, starting_element, variables)
+        return Process(graph, starting_element, variables)
 
-    def _decode_task_specification(self, task_name, toml_tasks_list):
+    def _decode_task(self, task_name, toml_tasks_list):
         preconditions_list = []
         found = False
         for i in range(0, len(toml_tasks_list)):

@@ -8,7 +8,7 @@ from framework.process.property import Property
 from framework.process.process_node.task import (
     Task,
 )
-from framework.tests.test import Test
+from attic.tests.test import Test
 
 
 class Z3TaskPropertiesVerificationTest(Test):
