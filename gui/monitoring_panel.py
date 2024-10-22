@@ -8,8 +8,8 @@ import shutil
 import threading
 import wx
 
+from errors.monitor_errors import FrameworkError, ReportListError, MonitorConstructionError, AbortRun
 from monitor import Monitor
-from errors.errors import AbortRun, FrameworkFileError
 
 
 class MonitoringPanel(wx.Panel):
@@ -37,19 +37,23 @@ class MonitoringPanel(wx.Panel):
                     self.Parent.logging_destination(),
                     self.Parent.logging_verbosity(),
                     self.Parent.monitor_configuration_panel.framework_file_path_field.Value,
-                    self.Parent.monitor_configuration_panel.reports_list_file_path_field.Value,
-                   True
+                    self.Parent.monitor_configuration_panel.report_list_file_path_field.Value,
+                    True
                 )
             )
-        except FrameworkFileError as e:
-            logging.error(f"Failed to load framework file [ {e.filename()} ].")
+        except FrameworkError:
+            logging.error(f"Monitor construction failed due to a framework creation error.")
+        except ReportListError:
+            logging.error(f"Monitor construction failed due to a report list error.")
+        except MonitorConstructionError:
+            logging.error(f"Monitor construction failed.")
         else:
             # All this just to show the total numbers of events to be monitored!!!
-            with open(self.Parent.monitor_configuration_panel.reports_list_file_path_field.Value, "r") as reports_file:
+            with open(self.Parent.monitor_configuration_panel.report_list_file_path_field.Value, "r") as reports_file:
                 for line in reports_file:
                     split_line = line.strip().split(",")
                     report_name = split_line[0]
-                    # main log is guarantied to be in the reports list because creating the monitor did not fail
+                    # main log is guarantied to be in the report list because creating the monitor did not fail
                     if report_name == "main":
                         with open(split_line[1]) as main_report_file:
                             amount_of_events = len(main_report_file.readlines())
@@ -75,10 +79,7 @@ class MonitoringPanel(wx.Panel):
 
     def on_pause(self, event):
         self._pause_event.set()
-        logging.warning(
-            "Verification will be paused when it finishes processing "
-            "the current event."
-        )
+        logging.warning("Verification will be paused when it finishes processing the current event.")
         self._show_multi_action_button_as_play()
         self._stop_timer(event)
 
@@ -109,10 +110,7 @@ class MonitoringPanel(wx.Panel):
         process_thread.start()
         while process_thread.is_alive():
             if self._stop_event.is_set():
-                logging.warning(
-                    "You will be able to restart the verification when "
-                    "the last one finishes."
-                )
+                logging.warning("You will be able to restart the verification when the last one finishes.")
                 break
         self._disable_stop_button()
         self.show_multi_action_button_as_start()
@@ -121,6 +119,7 @@ class MonitoringPanel(wx.Panel):
         process_thread.join()
         if self._stop_event.is_set():
             logging.warning("Verification stopped.")
+        self._stop_verification()
         self._enable_multi_action_button()
 
     def update_amount_of_processed_events(self):

@@ -166,7 +166,7 @@ class VerificationTest(Test):
         self.assertTrue(is_report_valid)
 
     def test_refutes_a_report_that_verifies_using_a_non_existent_variable(self):
-        checkpoint_name = "property with non-existent variable"
+        checkpoint_name = "prop with non-existent variable"
         checkpoint = Checkpoint(
             checkpoint_name, {self.objects.property_with_non_existent_variable()}
         )

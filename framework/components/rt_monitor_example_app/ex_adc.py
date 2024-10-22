@@ -6,11 +6,9 @@ import inspect
 
 import numpy as np
 
+from errors.component_errors import FunctionNotImplementedError
 from framework.components.component import SelfLoggableComponent
-from framework.components.rt_monitor_example_app import (
-    ex_adcVisual,
-)
-from errors.errors import FunctionNotImplemented
+from framework.components.rt_monitor_example_app import ex_adcVisual
 from novalue import NoValue
 
 
@@ -63,7 +61,7 @@ class adc(SelfLoggableComponent):
         function_name = ls[0]
 
         if function_name not in self.exported_functions:
-            raise FunctionNotImplemented(function_name)
+            raise FunctionNotImplementedError(function_name)
 
         function = self.exported_functions[function_name]
         # get parameters

@@ -56,7 +56,7 @@ class Process:
             if task.has_checkpoint_named(checkpoint_name):
                 return task.checkpoint_named(checkpoint_name)
 
-    def get_variables(self):
+    def variables(self):
         return self._variables
 
     def _element_named(self, element_name):

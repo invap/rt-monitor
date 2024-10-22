@@ -5,9 +5,11 @@
 import logging
 from typing import Iterable
 
-from errors.clock_errors import ClockWasNotStarted
-from errors.errors import FormulaError
-from errors.variable_errors import NoValueAssignedToVariable, UnboundVariables
+from errors.clock_errors import ClockWasNotStartedError
+from errors.evaluator_errors import (
+    BuildSpecificationError,
+    NoValueAssignedToVariableError, UnboundVariablesError, EvaluationError
+)
 from novalue import NoValue
 from property_evaluator.property_evaluator import PropertyEvaluator
 
@@ -16,9 +18,14 @@ class PyPropertyEvaluator(PropertyEvaluator):
     def __init__(self, components, process_state, execution_state, timed_state):
         super().__init__(components, process_state, execution_state, timed_state)
 
-    def eval(self, property, now):
-        spec = self._build_spec(property, now)
-        filename = property.filename()
+    # Raises: EvaluationError()
+    def eval(self, prop, now):
+        try:
+            spec = self._build_spec(prop, now)
+        except BuildSpecificationError:
+            logging.error(f"Building specification for property [ {prop.name()} ] error.")
+            raise EvaluationError()
+        filename = prop.filename()
         locs = {}
         exec(spec, globals(), locs)
         negation_is_true = locs['result']
@@ -31,34 +38,41 @@ class PyPropertyEvaluator(PropertyEvaluator):
             logging.info(f"Specification dumped: [ {spec_filename} ]")
         return negation_is_true
 
-    def _build_spec(self, property, now):
+    # Raises: BuildSpecificationError()
+    def _build_spec(self, prop, now):
         try:
-            assumptions = self._build_assumptions(property, now)
+            assumptions = self._build_assumptions(prop, now)
             spec = (f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"result = not {property.formula()}\n")
+                    f"result = not {prop.formula()}\n")
             return spec
-        except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.variable_names()} ] has no value.")
-            raise FormulaError(property.formula())
-        except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.variable_names()} ] in formula [ {property.filename()} ]")
-            raise FormulaError(property.formula())
+        except NoValueAssignedToVariableError:
+            pass
+        except UnboundVariablesError:
+            pass
+        except ClockWasNotStartedError:
+            pass
+        raise BuildSpecificationError()
 
+    # Raises: NoValueAssignedToVariableError()
     @staticmethod
     def _build_assumption(variable, variable_value):
         # Check whether the variable has a value assigned.
         if isinstance(variable_value, Iterable):
             if any([isinstance(x, NoValue) for x in variable_value]):
-                raise NoValueAssignedToVariable(variable)
+                logging.error(f"No value [ {variable} ] has not been assigned a value.")
+                raise NoValueAssignedToVariableError()
         elif isinstance(variable_value, NoValue):
-            raise NoValueAssignedToVariable(variable)
+            logging.error(f"No value [ {variable} ] has not been assigned a value.")
+            raise NoValueAssignedToVariableError()
         # The variable has a value assigned.
         return f"{variable} = {variable_value}"
 
+    # Raises: ClockWasNotStartedError()
     @staticmethod
     def _build_time_assumption(variable, clock, now):
         # Check whether the clock has been started.
         if not clock.has_started():
-            raise ClockWasNotStarted(variable)
+            logging.error(f"Clock [ {clock.name()} ] was not started.")
+            raise ClockWasNotStartedError()
         # The clock has been started.
         return f"{variable} = {clock.get_time(now)}"

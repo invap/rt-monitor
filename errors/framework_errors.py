@@ -3,28 +3,51 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 
-class CheckpointDoesNotExist(Exception):
-    def __init__(self, checkpoint_name):
+class FrameworkSpecificationError(Exception):
+    def __init__(self):
         super().__init__()
-        self._checkpoint_name = checkpoint_name
-
-    def get_checkpoint_name(self):
-        return self._checkpoint_name
 
 
-class TaskDoesNotExist(Exception):
-    def __init__(self, task_name):
+class ComponentsSpecificationError(Exception):
+    def __init__(self):
         super().__init__()
-        self._task_name = task_name
-
-    def get_task_name(self):
-        return self._task_name
 
 
-class ComponentDoesNotExist(Exception):
-    def __init__(self, component_name):
+class ProcessSpecificationError(Exception):
+    def __init__(self):
         super().__init__()
-        self._component_name = component_name
 
-    def get_component_name(self):
-        return self._component_name
+
+class UnsupportedNodeType(Exception):
+    def __init__(self, node_name, node_type):
+        super().__init__()
+        self._node_name = node_name
+        self._node_type = node_type
+
+    def node_name(self):
+        return self._node_name
+
+    def node_type(self):
+        return self._node_type
+
+
+class TaskSpecificationError(Exception):
+    def __init__(self):
+        super().__init__()
+
+
+class LocalCheckpointSpecificationError(Exception):
+    def __init__(self):
+        super().__init__()
+
+
+class GlobalCheckpointSpecificationError(Exception):
+    def __init__(self):
+        super().__init__()
+
+
+class PropertySpecificationError(Exception):
+    def __init__(self):
+        super().__init__()
+
+

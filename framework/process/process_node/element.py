@@ -12,3 +12,6 @@ class Element:
 
     def name(self):
         return self._name
+
+    def type(self):
+        raise NotImplementedError

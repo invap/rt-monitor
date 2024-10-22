@@ -2,7 +2,7 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from errors.event_errors import InvalidEvent
+from errors.event_decoder_errors import InvalidEvent
 from reporting.event.timed_event import TimedEvent
 from reporting.event.state_event import StateEvent
 from reporting.event.component_event import ComponentEvent
@@ -17,6 +17,7 @@ from reporting.event.task_finished_event import TaskFinishedEvent
 from reporting.event.checkpoint_reached_event import CheckpointReachedEvent
 
 
+#Raises: InvalidEvent()
 class EventDecoder:
     @staticmethod
     def decode(encoded_event):

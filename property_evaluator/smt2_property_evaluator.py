@@ -8,9 +8,13 @@ from typing import Iterable
 import numpy as np
 from z3 import z3
 
-from errors.clock_errors import ClockWasNotStarted
-from errors.errors import FormulaError
-from errors.variable_errors import UnsupportedSMT2VariableType, NoValueAssignedToVariable, UnboundVariables
+from errors.clock_errors import ClockWasNotStartedError
+from errors.evaluator_errors import (
+    NoValueAssignedToVariableError,
+    UnboundVariablesError,
+    BuildSpecificationError,
+    UnsupportedSMT2VariableTypeError
+)
 from novalue import NoValue
 from property_evaluator.property_evaluator import PropertyEvaluator
 
@@ -19,6 +23,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     def __init__(self, components, process_state, execution_state, timed_state):
         super().__init__(components, process_state, execution_state, timed_state)
 
+    # Raises: EvaluationError()
     def eval(self, property, now):
         spec = self._build_spec(property, now)
         filename = property.filename()
@@ -34,42 +39,46 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
             logging.info(f"Specification dumped: [ {spec_filename} ]")
         return negation_is_sat
 
-    def _build_spec(self, property, now):
+    # Raises: BuildSpecificationError()
+    def _build_spec(self, prop, now):
         try:
-            declarations = self._build_declarations(property)
-            assumptions = self._build_assumptions(property, now)
+            declarations = self._build_declarations(prop)
+            assumptions = self._build_assumptions(prop, now)
             spec = (f"{"".join([decl + "\n" for decl in declarations])}\n" +
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"(assert (not {property.formula()}))\n")
+                    f"(assert (not {prop.formula()}))\n")
             return spec
-        except UnsupportedSMT2VariableType as e:
-            logging.error(
-                f"Unsupported variable type error [ {e.variable_names()}: {e.variable_type()} ] in "
-                f"{e.formula_type()} formula [ {property.filename()} ].")
-            raise FormulaError(property.formula())
-        except NoValueAssignedToVariable as e:
-            logging.error(f"Variable [ {e.variable_names()} ]  in formula [ {property.filename()} ] has no value.")
-            raise FormulaError(property.formula())
-        except UnboundVariables as e:
-            logging.error(f"Unbounded variables [ {e.variable_names()} ] in formula [ {property.filename()} ].")
-            raise FormulaError(property.formula())
+        except UnsupportedSMT2VariableTypeError:
+            pass
+        except NoValueAssignedToVariableError:
+            pass
+        except UnboundVariablesError:
+            pass
+        except ClockWasNotStartedError():
+            pass
+        raise BuildSpecificationError()
 
+    # Raises: UnsupportedSMT2VariableTypeError()
     @staticmethod
     def _build_declaration(variable, variable_type):
         match variable_type:
             case _:  # ToDo: characterize the correct array types: T = {Bool | Int | Real} + (Array Int T)
                 return f"(declare-const {variable} {variable_type})"
             # case _:
-            #     raise UnsupportedSMT2VariableType(variable, variable_type)
+            #     logging.error(f"Variable type [ {variable_type} ] of variable [ {variable} ] unsupported.")
+            #     raise UnsupportedSMT2VariableTypeError()
 
+    # Raises: NoValueAssignedToVariableError()
     @staticmethod
     def _build_assumption(variable, variable_value):
         # Check whether the variable has a value assigned.
         if isinstance(variable_value, Iterable):
             if any([isinstance(x, NoValue) for x in variable_value]):
-                raise NoValueAssignedToVariable(variable)
+                logging.error(f"No value [ {variable} ] has not been assigned a value.")
+                raise NoValueAssignedToVariableError()
         elif isinstance(variable_value, NoValue):
-            raise NoValueAssignedToVariable(variable)
+            logging.error(f"No value [ {variable} ] has not been assigned a value.")
+            raise NoValueAssignedToVariableError()
         # The variable has a value assigned.
         assumption = "(assert \n"
         if not isinstance(variable_value, np.ndarray):
@@ -87,11 +96,13 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         assumption = assumption + ")"
         return assumption
 
+    # Raises: ClockWasNotStartedError()
     @staticmethod
     def _build_time_assumption(variable, clock, now):
         # Check whether the clock has been started.
         if not clock.has_started():
-            raise ClockWasNotStarted(variable)
+            logging.error(f"Clock [ {clock.name()} ] was not started.")
+            raise ClockWasNotStartedError()
         # The clock has been started.
         assumption = f"(assert (= {variable} {clock.get_time(now)}))\n"
         return assumption

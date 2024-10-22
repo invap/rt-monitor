@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 from errors.clock_errors import (
-    ClockWasAlreadyStarted,
-    ClockWasAlreadyPaused,
-    ClockWasNotStarted,
-    ClockWasNotPaused
+    ClockError,
+    ClockWasAlreadyStartedError,
+    UndeclaredClockError,
+    ClockWasNotStartedError,
+    ClockWasAlreadyPausedError,
+    ClockWasNotPausedError
 )
-
 
 class Clock:
     def __init__(self, name):
@@ -26,7 +27,7 @@ class Clock:
     def is_paused(self):
         return self._isPaused
 
-    def get_clockname(self):
+    def name(self):
         return self._clockname
 
     def start(self, start_time):
@@ -37,7 +38,7 @@ class Clock:
             self._isPaused = False
             self._pauseStart = 0
         else:
-            raise ClockWasAlreadyStarted(self.get_clockname())
+            raise ClockWasAlreadyStartedError()
 
     def pause(self, pause_time):
         if self._hasStarted:
@@ -45,9 +46,9 @@ class Clock:
                 self._isPaused = True
                 self._pauseStart = pause_time
             else:
-                raise ClockWasAlreadyPaused(self.get_clockname())
+                raise ClockWasAlreadyPausedError()
         else:
-            raise ClockWasNotStarted(self.get_clockname())
+            raise ClockWasNotStartedError()
 
     def resume(self, resume_time):
         if self._hasStarted:
@@ -56,9 +57,9 @@ class Clock:
                 self._pauseStart = 0
                 self._isPaused = False
             else:
-                raise ClockWasNotPaused(self.get_clockname())
+                raise ClockWasNotPausedError()
         else:
-            raise ClockWasNotStarted(self.get_clockname())
+            raise ClockWasNotStartedError()
 
     def reset(self, start_time):
         if self._hasStarted:
@@ -68,10 +69,10 @@ class Clock:
             self._isPaused = False
             self._pauseStart = 0
         else:
-            raise ClockWasNotStarted(self.get_clockname())
+            raise ClockWasNotStartedError()
 
     def get_time(self, now):
         if self._hasStarted:
             return now - self._startTime - self._dragTime
         else:
-            raise ClockWasNotStarted(self.get_clockname())
+            raise ClockWasNotStartedError()

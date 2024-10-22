@@ -12,3 +12,6 @@ class Checkpoint(Element):
 
     def properties(self):
         return self._properties
+
+    def type(self):
+        return "Checkpoint"

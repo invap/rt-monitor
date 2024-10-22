@@ -90,7 +90,7 @@ class LoggingConfigurationPanel(wx.Panel):
     def _text_to_logging_verbosity_map():
         return {
             "All entries": LoggingLevel.INFO,
-            "Analysis related entries": LoggingLevel.PROPERTY_ANALYSIS,
+            "Analysis related entries": LoggingLevel.ANALYSIS,
             "Error and warning entries": LoggingLevel.WARNING,
             "Error entries": LoggingLevel.ERROR,
         }

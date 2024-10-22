@@ -8,14 +8,12 @@ from framework.process.process_node.element import Element
 class Task(Element):
     def __init__(self, name, preconditions=None, postconditions=None, checkpoints=None):
         super().__init__(name)
-
         if preconditions is None:
             preconditions = set()
         if postconditions is None:
             postconditions = set()
         if checkpoints is None:
             checkpoints = set()
-
         self._preconditions = preconditions
         self._postconditions = postconditions
         self._checkpoints = checkpoints
@@ -23,7 +21,6 @@ class Task(Element):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
-
         it_has_the_same_name = self._name == other._name
         it_has_the_same_preconditions = self._preconditions == other._preconditions
         it_has_the_same_postconditions = self._postconditions == other._postconditions
@@ -66,3 +63,6 @@ class Task(Element):
 
     def checkpoints(self):
         return self._checkpoints
+
+    def type(self):
+        return "Task"

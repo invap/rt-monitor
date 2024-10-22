@@ -48,7 +48,7 @@ class Z3TaskPropertiesVerificationTest(Test):
         )
 
     def _smt2_written_property(self):
-        smt2_specification_file_path = self._resource_path_for("property.protosmt2")
+        smt2_specification_file_path = self._resource_path_for("prop.protosmt2")
         return Property.from_smt2_specification(smt2_specification_file_path)
 
     def _state_matching_smt2_specified_property(self):

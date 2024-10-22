@@ -2,14 +2,6 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-class UnsupportedNodeType(Exception):
-    def __init__(self, node_type):
-        super().__init__()
-        self._node_type = node_type
-
-    def get_node_type(self):
-        return self._node_type
-
 
 class NotImplementedPropertyType(Exception):
     def __init__(self, formula):
@@ -32,5 +24,4 @@ class PropertyFormatError(Exception):
 
     def property_format(self):
         return self._property_format
-
 

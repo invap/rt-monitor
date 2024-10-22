@@ -2,36 +2,33 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-class ClockException(Exception):
-    def __init__(self, clockname):
+
+class ClockError(Exception):
+    def __init__(self):
         super().__init__()
-        self._clockname = clockname
-
-    def get_clockname(self):
-        return self._clockname
 
 
-class UndeclaredClock(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
+class ClockWasAlreadyStartedError(Exception):
+    def __init__(self):
+        super().__init__()
 
 
-class ClockWasNotStarted(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
+class UndeclaredClockError(Exception):
+    def __init__(self):
+        super().__init__()
 
 
-class ClockWasAlreadyStarted(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
+class ClockWasNotStartedError(Exception):
+    def __init__(self):
+        super().__init__()
 
 
-class ClockWasAlreadyPaused(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
+class ClockWasAlreadyPausedError(Exception):
+    def __init__(self):
+        super().__init__()
 
 
-class ClockWasNotPaused(ClockException):
-    def __init__(self, clockname):
-        super().__init__(clockname)
+class ClockWasNotPausedError(Exception):
+    def __init__(self):
+        super().__init__()
 

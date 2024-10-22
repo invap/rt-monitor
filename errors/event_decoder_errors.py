@@ -7,15 +7,5 @@ class InvalidEvent(Exception):
         super().__init__()
         self._event = event
 
-    def get_event(self):
+    def event(self):
         return self._event
-
-
-class EventError(Exception):
-    def __init__(self, event):
-        super().__init__()
-        self._event = event
-
-    def get_event(self):
-        return self._event
-

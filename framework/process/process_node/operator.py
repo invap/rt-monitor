@@ -10,3 +10,6 @@ class Operator:
     def __init__(self, operator_type):
         super().__init__()
         self._type = operator_type
+
+    def type(self):
+        return "Operator"
