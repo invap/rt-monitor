@@ -5,6 +5,9 @@
 import logging
 import sys
 
+import toml
+from toml.decoder import TomlDecodeError
+
 from errors.clock_errors import (
     ClockError,
     UndeclaredClockError,
@@ -14,6 +17,7 @@ from errors.clock_errors import (
     ClockWasNotPausedError
 )
 from errors.component_errors import FunctionNotImplementedError
+from errors.evaluator_errors import BuildSpecificationError
 from errors.event_decoder_errors import InvalidEvent
 from errors.framework_errors import FrameworkSpecificationError
 from errors.monitor_errors import (
@@ -32,7 +36,6 @@ from errors.monitor_errors import (
 from framework.process.framework import Framework
 from logging_configuration import LoggingLevel, LoggingDestination
 from framework.clock import Clock
-from reporting.event.event import Event
 from reporting.event_decoder import EventDecoder
 from novalue import NoValue
 from property_evaluator.evaluator import Evaluator
@@ -99,7 +102,7 @@ class Monitor:
             raise FrameworkError()
         try:
             framework = Framework(splitted_framework_file[0], splitted_framework_file[1], visual)
-        except FrameworkSpecificationError as e:
+        except FrameworkSpecificationError:
             logging.error(f"Error creating framework.")
             raise FrameworkError()
         logging.info(f"Framework created.")
@@ -107,14 +110,22 @@ class Monitor:
         reports_map = {}
         logging.info(f"Loading event report list from file: {report_list_file}...")
         try:
-            file = open(report_list_file, "r")
-        except FileNotFoundError as e:
-            logging.error(f"Event report list file [ {report_list_file} ] not found.")
+            toml_reports_map = toml.load(report_list_file)
+        except FileNotFoundError:
+            logging.error(f"Framework file [ {report_list_file} ] not found.")
+            raise FrameworkSpecificationError()
+        except TomlDecodeError as e:
+            logging.error(f"TOML decoding of file [ {report_list_file} ] failed in [ line {e.lineno}, column {e.colno} ].")
+            raise FrameworkSpecificationError()
+        except PermissionError:
+            logging.error(f"Permissions error opening file [ {report_list_file} ].")
+            raise FrameworkSpecificationError()
+        if len(toml_reports_map.keys()) > 1 or "event_reports" not in toml_reports_map:
+            logging.error(f"Event report list file format error.")
             raise ReportListError()
-        for line in file:
-            split_line = line.strip().split(",")
-            report_name = split_line[0]
-            report_filename = split_line[1]
+        for event_report in toml_reports_map["event_reports"]:
+            report_name = event_report["name"]
+            report_filename = event_report["file"]
             logging.info(f"\tLoading event report for component [ {report_name} ] from file [ {report_filename} ].")
             try:
                 reports_map[report_name] = open(report_filename, "r")
@@ -137,7 +148,6 @@ class Monitor:
 
     # Raises: AbortRun()
     def run(self, pause_event=None, stop_event=None, event_processed_callback=None):
-        decoded_event = Event(0)
         is_a_valid_report = True
         for line in self._reports_map["main"]:
             if not is_a_valid_report:

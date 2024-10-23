@@ -65,7 +65,7 @@ def main():
             else:
                 split_argument = sys.argv[argument].split("=")
                 argument_map["framework"] = split_argument[1]
-        elif sys.argv[argument].startswith("--reports"):
+        elif sys.argv[argument].startswith("--reports="):
             if "reports" in argument_map:
                 print("Multiple --reports argument.", file=sys.stderr)
                 exit(-12)
@@ -78,7 +78,7 @@ def main():
                 exit(-13)
             else:
                 argument_map["log-file"] = ""
-        elif sys.argv[argument] == "--log-level=":
+        elif sys.argv[argument].startswith("--log-level="):
             if "log-level" in argument_map:
                 print("Multiple --log-level argument.", file=sys.stderr)
                 exit(-14)

@@ -6,6 +6,8 @@ import logging
 import os
 import shutil
 import threading
+
+import toml
 import wx
 
 from errors.monitor_errors import FrameworkError, ReportListError, MonitorConstructionError, AbortRun
@@ -48,31 +50,31 @@ class MonitoringPanel(wx.Panel):
         except MonitorConstructionError:
             logging.error(f"Monitor construction failed.")
         else:
+            amount_of_events = 0
             # All this just to show the total numbers of events to be monitored!!!
-            with open(self.Parent.monitor_configuration_panel.report_list_file_path_field.Value, "r") as reports_file:
-                for line in reports_file:
-                    split_line = line.strip().split(",")
-                    report_name = split_line[0]
-                    # main log is guarantied to be in the report list because creating the monitor did not fail
-                    if report_name == "main":
-                        with open(split_line[1]) as main_report_file:
-                            amount_of_events = len(main_report_file.readlines())
-                            main_report_file.close()
-                        break
-                reports_file.close()
+            # The report list file is guarantied to be correct because the Monitor already was created
+            toml_reports_map = toml.load(self.Parent.monitor_configuration_panel.report_list_file_path_field.Value)
+            for event_report in toml_reports_map["event_reports"]:
+                # The main report file is guarantied to be present in the report list file
+                if event_report["name"] == "main":
+                    with open(event_report["file"], "r") as main_report_file:
+                        amount_of_events = len(main_report_file.readlines())
+                    main_report_file.close()
+                    break
+            #
+            self._amount_of_events_to_verify = amount_of_events
+            self.amount_of_events_to_verify_text_label.SetLabel(self.amount_of_events_to_verify_label())
+            self._amount_of_processed_events = 0
+            self.progress_bar.SetRange(self._amount_of_events_to_verify)
+            # Building threads for executing the monitor and the events managing concurrently
+            monitor_thread = threading.Thread(
+                target=self._monitor.run,
+                args=[self._pause_event, self._stop_event, self.update_amount_of_processed_events])
+            application_thread = threading.Thread(
+                target=self.run_verification, args=[monitor_thread]
+            )
+            self._start_timer()
             try:
-                self._amount_of_events_to_verify = amount_of_events
-                self.amount_of_events_to_verify_text_label.SetLabel(self.amount_of_events_to_verify_label())
-                self._amount_of_processed_events = 0
-                self.progress_bar.SetRange(self._amount_of_events_to_verify)
-
-                monitor_thread = threading.Thread(
-                    target=self._monitor.run,
-                    args=[self._pause_event, self._stop_event, self.update_amount_of_processed_events])
-                application_thread = threading.Thread(
-                    target=self.run_verification, args=[monitor_thread]
-                )
-                self._start_timer()
                 application_thread.start()
             except AbortRun():
                 logging.critical(f"Runtime monitoring process ABORTED.")

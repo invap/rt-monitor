@@ -38,8 +38,7 @@ class Framework:
             logging.error(f"Framework file [ {self._file_name} ] not found.")
             raise FrameworkSpecificationError()
         except TomlDecodeError as e:
-            logging.error(
-                f"TOML decoding of file [ {self._file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
+            logging.error(f"TOML decoding of file [ {self._file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
             raise FrameworkSpecificationError()
         except PermissionError:
             logging.error(
