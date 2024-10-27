@@ -69,6 +69,9 @@ Make sure to run it inside the Python environment, if you use one.
 - Simulator's description
 - Architecture
 
+## Event language
+
+
 ## License
 
 Copyright (c) 2024 INVAP
