@@ -38,17 +38,12 @@ class Framework:
             logging.error(f"Framework file [ {self._file_name} ] not found.")
             raise FrameworkSpecificationError()
         except TomlDecodeError as e:
-            logging.error(f"TOML decoding of file [ {self._file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
+            logging.error(
+                f"TOML decoding of file [ {self._file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
             raise FrameworkSpecificationError()
         except PermissionError:
             logging.error(
                 f"Permissions error opening file [ {self._file_name} ].")
-            raise FrameworkSpecificationError()
-        # Building components structure
-        try:
-            self._components = self._parse_components()
-        except ComponentsSpecificationError:
-            logging.error(f"Components definition error.")
             raise FrameworkSpecificationError()
         # Building process
         try:
@@ -56,12 +51,107 @@ class Framework:
         except ProcessSpecificationError:
             logging.error(f"Process specification error.")
             raise FrameworkSpecificationError()
+        # Building components structure
+        try:
+            self._components = self._parse_components()
+        except ComponentsSpecificationError:
+            logging.error(f"Components definition error.")
+            raise FrameworkSpecificationError()
 
     def components(self):
         return self._components
 
     def process(self):
         return self._process
+
+    # Raises: ProcessSpecificationError()
+    def _parse_process(self):
+        if "process" not in self._toml_dict:
+            logging.error(f"Process specification not found.")
+            raise ProcessSpecificationError()
+        process_dict = self._toml_dict["process"]
+        # Building the process toml_tasks_list
+        ordered_nodes = []
+        if "format" not in process_dict:
+            logging.error(f"Process format not found.")
+            raise ProcessSpecificationError()
+        match process_dict["format"]:
+            case "regex":
+                logging.error(f"Process specification as regular expression not implemented yet.")
+                raise ProcessSpecificationError()
+            case "graph":
+                reverse_node_name_map = {}  # Build a reverse map between node numbers and node names
+                for node_number in range(0, len(process_dict["structure"]["nodes"])):
+                    node = process_dict["structure"]["nodes"][node_number]
+                    if not isinstance(node, list) or len(node) != 2:
+                        logging.error(f"The {node_number + 1} node in the list of nodes is not well formed. It should "
+                                      f"be [ node type, node name ]")
+                        raise ProcessSpecificationError()
+                    node_name = process_dict["structure"]["nodes"][node_number][0]
+                    node_type = process_dict["structure"]["nodes"][node_number][1]
+                    reverse_node_name_map[node_name] = node_number
+                    # In the case of operators the shape of node_type is 'operator:<operator type>'.
+                    split_node_type = node_type.split(":", 1)
+                    match split_node_type[0]:
+                        case "operator":
+                            try:
+                                ordered_nodes.append(Operator.new_of_type(split_node_type[1]))
+                                # For the time being we are ignoring the name of the operators because they
+                                # are not being used.
+                                #
+                                # Important note: The fact that the names are not being use right now does not give
+                                # you the right to be a prick with your fellow workers by using shitty names like
+                                # "op42" or "composition16". Be nice to people surrounding you, do not be that
+                                # person everybody hates.
+                            except IndexError():
+                                logging.error(f"The operator node [ {node_name} ] is not well formed. It should be "
+                                              f"of shape 'operator:<operator type>'.")
+                                raise ProcessSpecificationError()
+                        case "task":
+                            try:
+                                decoded_task = self._decode_task(node_name, process_dict["tasks"])
+                            except TaskSpecificationError:
+                                logging.error(f"Error decoding task from process node [ {node_name} ].")
+                                raise ProcessSpecificationError()
+                            ordered_nodes.append(decoded_task)
+                        case "checkpoint":
+                            try:
+                                global_checkpoint = self._decode_global_checkpoints(
+                                    node_name,
+                                    process_dict["checkpoints"]
+                                )
+                            except GlobalCheckpointSpecificationError:
+                                logging.error(f"Error decoding global checkpoint from process node [ {node_name} ].")
+                                raise ProcessSpecificationError()
+                            ordered_nodes.append(global_checkpoint)
+                        case _:
+                            logging.error(f"Type [ {node_type} ] of process node [ {node_name} ] unknown. Please "
+                                          f"tell me that you did not forget to put the 'operator:' in front of a "
+                                          f"node of type operator...")
+                            raise ProcessSpecificationError()
+            case _:
+                logging.error(f"Process format unknown.")
+                raise ProcessSpecificationError()
+        dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in process_dict["structure"]["edges"]}
+        amount_of_elements = len(ordered_nodes)
+        graph = Graph(
+            amount_of_elements,
+            dependencies,
+            vertex_attrs={"process_node": ordered_nodes},
+            directed=True,
+        )
+        starting_element = graph.vs[reverse_node_name_map[process_dict["structure"]["start"]]]["process_node"]
+        try:
+            variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements) if
+                                                   not isinstance(ordered_nodes[node], Operator)])
+        except UnsupportedNodeType as e:
+            logging.error(f"Type [ {e.node_type()} ] of process node [ {e.node_name()} ] unknown.")
+            raise ProcessSpecificationError()
+        except PropertySpecificationError:
+            logging.error(f"Inconsistent variable declarations.")
+            raise ProcessSpecificationError()
+        else:
+            return Process(graph, starting_element, variables)
 
     # Raises: ComponentError()
     def _parse_components(self):
@@ -80,81 +170,20 @@ class Framework:
                 except ModuleNotFoundError:
                     logging.error(f"Module [ {split_component_class_path[0]} ] not found.")
                     raise ComponentsSpecificationError()
-                except ImportError as e:
+                except ImportError:
                     logging.error(f"Error importing module [ {split_component_class_path[0]} ].")
                     raise ComponentsSpecificationError()
                 try:
                     component_class = getattr(component_module, split_component_class_path[1])
                 except AttributeError:
-                    logging.error(f"Component class [ {split_component_class_path[1]} ] not found in module [ {split_component_class_path[0]} ].")
+                    logging.error(
+                        f"Component class [ {split_component_class_path[1]} ] not found in module [ {split_component_class_path[0]} ].")
                     raise ComponentsSpecificationError()
                 if self._visual:
                     component_map[device_name] = component_class(visual)
                 else:
                     component_map[device_name] = component_class(False)
         return component_map
-
-    # Raises: ProcessSpecificationError()
-    def _parse_process(self):
-        if "process" not in self._toml_dict:
-            logging.error(f"Process specification not found.")
-            raise ProcessSpecificationError()
-        process_dict = self._toml_dict["process"]
-        # Building the process toml_tasks_list
-        ordered_nodes = []
-        if "format" not in process_dict:
-            logging.error(f"Process format not found.")
-            raise ProcessSpecificationError()
-        match process_dict["format"]:
-            case "regex":
-                pass
-            case "graph":
-                for node_number in range(0, process_dict["structure"]["nodes"]):
-                    node_type, node_name = process_dict["structure"]["map"][node_number][0], \
-                        process_dict["structure"]["map"][node_number][1]
-                    match node_type:
-                        case "operator":
-                            ordered_nodes.append(Operator.new_of_type(node_name))
-                        case "task":
-                            try:
-                                decoded_task = self._decode_task(node_name, process_dict["tasks"])
-                            except TaskSpecificationError:
-                                logging.error(f"Error decoding task from process node [ {node_name} ].")
-                                raise ProcessSpecificationError()
-                            ordered_nodes.append(decoded_task)
-                        case "checkpoint":
-                            try:
-                                global_checkpoint = self._decode_global_checkpoints(node_name, process_dict["checkpoints"])
-                            except GlobalCheckpointSpecificationError:
-                                logging.error(f"Error decoding global checkpoint from process node [ {node_name} ].")
-                                raise ProcessSpecificationError()
-                            ordered_nodes.append(global_checkpoint)
-                        case _:
-                            logging.error(f"Type [ {node_type} ] of process node [ {node_name} ] unknown.")
-                            raise ProcessSpecificationError()
-            case _:
-                logging.error(f"Process format unknown.")
-                raise ProcessSpecificationError()
-        dependencies = {(src, trg) for [src, trg] in process_dict["structure"]["edges"]}
-        amount_of_elements = len(ordered_nodes)
-        graph = Graph(
-            amount_of_elements,
-            dependencies,
-            vertex_attrs={"process_node": ordered_nodes},
-            directed=True,
-        )
-        starting_element = graph.vs[process_dict["structure"]["start"]]["process_node"]
-        try:
-            variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements) if
-                                                   not isinstance(ordered_nodes[node], Operator)])
-        except UnsupportedNodeType as e:
-            logging.error(f"Type [ {e.node_type()} ] of process node [ {e.node_name()} ] unknown.")
-            raise ProcessSpecificationError()
-        except PropertySpecificationError:
-            logging.error(f"Inconsistent variable declarations.")
-            raise ProcessSpecificationError()
-        else:
-            return Process(graph, starting_element, variables)
 
     # Raises: TaskSpecificationError()
     def _decode_task(self, task_name, toml_tasks_list):
@@ -197,7 +226,8 @@ class Framework:
         except LocalCheckpointSpecificationError:
             logging.error(f"Error decoding local checkpoints for task [ {task_name} ].")
             raise TaskSpecificationError()
-        return Task(task_name, preconditions=preconditions, postconditions=postconditions, checkpoints=local_checkpoints)
+        return Task(task_name, preconditions=preconditions, postconditions=postconditions,
+                    checkpoints=local_checkpoints)
 
     # Raises: GlobalCheckpointSpecificationError()
     def _decode_global_checkpoints(self, checkpoint_name, toml_checkpoints_list):
@@ -224,7 +254,7 @@ class Framework:
                 if "name" not in checkpoint:
                     logging.error(f"Local checkpoint name missing.")
                     raise LocalCheckpointSpecificationError()
-                if not "properties" in checkpoint:
+                if "properties" not in checkpoint:
                     logging.error(f"Properties of local checkpoint [ {checkpoint["name"]} ] missing.")
                     raise LocalCheckpointSpecificationError()
                 try:
@@ -251,7 +281,9 @@ class Framework:
                     properties.add(_property_from_str(prop["name"], prop["format"], prop["variables"],
                                                       prop["formula"]))
                 else:  # "file" in prop
-                    file_name = prop["file"] if (prop["file"][0] == "." or prop["file"][0] == "/") else self._file_path + "/" + prop["file"]
+                    file_name = prop["file"] if (
+                                prop["file"][0] == "." or prop["file"][0] == "/") else self._file_path + "/" + prop[
+                        "file"]
                     # This operation might raise a PropertySpecificationError exception.
                     properties.add(_property_from_file(prop["name"], prop["format"], file_name))
         return properties
