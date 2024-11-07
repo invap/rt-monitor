@@ -20,7 +20,7 @@ class MonitorConfigurationPanel(wx.Panel):
             "Select analysis framework file (.toml):",
             "",
             "",
-            "All files (*.*)|*.*",
+            "TOML files (*.toml)|*.toml",
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
@@ -36,7 +36,7 @@ class MonitorConfigurationPanel(wx.Panel):
             "Select event report list file",
             "",
             "",
-            "All files (*.*)|*.*",
+            "TOML files (*.toml)|*.toml",
             wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         )
         if dialog.ShowModal() == wx.ID_OK:
@@ -66,7 +66,7 @@ class MonitorConfigurationPanel(wx.Panel):
         self.main_sizer.Add(folder_selection_sizer, 0)
 
     def _set_up_reports_file_selection_components(self):
-        action_label = "Select event report list file (.txt):"
+        action_label = "Select event report list file (.toml):"
         action = self.select_report
         self.report_list_file_path_field = wx.TextCtrl(
             self, -1, "", size=(600, 33), style=wx.TE_READONLY
