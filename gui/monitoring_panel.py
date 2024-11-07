@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-import os
-import shutil
 import threading
 
 import toml
@@ -337,21 +335,22 @@ class MonitoringPanel(wx.Panel):
     def _enable_logging_configuration_components(self):
         self.Parent.enable_logging_configuration_components()
 
-    @staticmethod
-    def _unpack_framework_file(file_path):
-        split_file_path = os.path.split(file_path)
-        file_directory = split_file_path[0]
-        file_name = split_file_path[1]
-
-        file_name_without_extension = os.path.splitext(file_name)[0]
-        framework_directory = os.path.join(
-            file_directory, file_name_without_extension
-        )
-        try:
-            os.mkdir(framework_directory)
-        except FileExistsError:
-            shutil.rmtree(framework_directory)
-            os.mkdir(framework_directory)
-
-        shutil.unpack_archive(file_path, framework_directory)
-        return framework_directory
+    # DEPRECATED but maybe we return to accepting zipped frameworks
+    # @staticmethod
+    # def _unpack_framework_file(file_path):
+    #     split_file_path = os.path.split(file_path)
+    #     file_directory = split_file_path[0]
+    #     file_name = split_file_path[1]
+    #
+    #     file_name_without_extension = os.path.splitext(file_name)[0]
+    #     framework_directory = os.path.join(
+    #         file_directory, file_name_without_extension
+    #     )
+    #     try:
+    #         os.mkdir(framework_directory)
+    #     except FileExistsError:
+    #         shutil.rmtree(framework_directory)
+    #         os.mkdir(framework_directory)
+    #
+    #     shutil.unpack_archive(file_path, framework_directory)
+    #     return framework_directory
