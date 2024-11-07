@@ -4,10 +4,16 @@
 
 import logging
 import sys
+import threading
+from pynput import keyboard
 
 from errors.monitor_errors import FrameworkError, MonitorConstructionError, ReportListError, AbortRun
 from logging_configuration import LoggingLevel, LoggingDestination
 from monitor import Monitor
+
+# Stop and pause events for finishing and pausing the reporting process
+stop_event = threading.Event()
+pause_event = threading.Event()
 
 
 def _set_up_logging():
@@ -55,6 +61,8 @@ def _logging_format():
 
 
 def main():
+    global stop_event
+    global pause_event
     # Building argument map
     argument_map = {}
     for argument in range(1, len(sys.argv)):
@@ -119,7 +127,7 @@ def main():
     else:
         logging_level = LoggingLevel.ANALYSIS
     _configure_logging_level(logging_level)
-    # Create and run monitor
+    # Create
     try:
         monitor = Monitor.new_from_files(logging_destination, logging_level, argument_map["framework"],
                                          argument_map["reports"], False)
@@ -131,9 +139,43 @@ def main():
         logging.critical(f"Runtime monitoring process ABORTED..")
     else:
         try:
-            monitor.run()
+            pause_event.clear()
+            stop_event.clear()
+            # Start the listener in a separate thread
+            key_thread = threading.Thread(target=wait_for_key_non_blocking)
+            key_thread.start()
+            # Run the monitor
+            monitor.run(pause_event, stop_event)
         except AbortRun():
             logging.critical(f"Runtime monitoring process ABORTED.")
+
+
+def on_press(key, listener):
+    global stop_event
+    global pause_event
+    try:
+        # Check if the key has a `char` attribute (printable key)
+        match key.char:
+            case "s":
+                stop_event.set()
+                listener.stop()
+            case "p":
+                if pause_event.is_set():
+                    pause_event.clear()
+                else:
+                    pause_event.set()
+            case _:
+                pass
+    except AttributeError:
+        # Handle special keys (like ctrl, alt, etc.) here if needed
+        pass
+
+
+# Function to start a listener in a separate thread
+def wait_for_key_non_blocking():
+    listener = keyboard.Listener(on_press=lambda key: on_press(key, listener))
+    listener.start()
+    listener.join()
 
 
 if __name__ == "__main__":
