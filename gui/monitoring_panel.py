@@ -9,7 +9,11 @@ import toml
 import wx
 
 from errors.monitor_errors import FrameworkError, ReportListError, MonitorConstructionError, AbortRun
-from logging_configuration import _set_up_logging, _configure_logging_destination, _configure_logging_level
+from logging_configuration import (
+    _set_up_logging,
+    _configure_logging_destination,
+    _configure_logging_level
+)
 from monitor import Monitor
 
 

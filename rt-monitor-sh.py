@@ -8,8 +8,13 @@ import threading
 from pynput import keyboard
 
 from errors.monitor_errors import FrameworkError, MonitorConstructionError, ReportListError, AbortRun
-from logging_configuration import LoggingLevel, LoggingDestination, _set_up_logging, _configure_logging_destination, \
+from logging_configuration import (
+    LoggingLevel,
+    LoggingDestination,
+    _set_up_logging,
+    _configure_logging_destination,
     _configure_logging_level
+)
 from monitor import Monitor
 
 # Stop and pause events for finishing and pausing the reporting process
