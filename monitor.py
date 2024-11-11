@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-import sys
+import threading
 
 import toml
 from toml.decoder import TomlDecodeError
@@ -34,14 +34,14 @@ from errors.monitor_errors import (
     ComponentError
 )
 from framework.process.framework import Framework
-from logging_configuration import LoggingLevel, LoggingDestination
+from logging_configuration import LoggingLevel
 from framework.clock import Clock
 from reporting.event_decoder import EventDecoder
 from novalue import NoValue
 from property_evaluator.evaluator import Evaluator
 
 
-class Monitor:
+class Monitor(threading.Thread):
     PROCESS_IDLE_STATE = "process_idle"
     PROCESS_FINISHED = "process_finished"
 
@@ -51,6 +51,12 @@ class Monitor:
 
     # Raises: UndeclaredComponentVariableError(), UnknownVariableClassError()
     def __init__(self, framework, reports_map):
+        super().__init__()
+        # Events for controlling the execution of the monitor (TBS by set_events)
+        self._pause_event = None
+        self._stop_event = None
+        # Callback function for communicating with the parent thread (TBS by set_callback_function)
+        self._callback_function = None
         # Analysis framework
         self._framework = framework
         # revent reports
@@ -59,7 +65,7 @@ class Monitor:
         self._process_state = set()
         self._execution_state = {}
         self._timed_state = {}
-        # Building the state dictionary discarding the variable class
+        # Build the state dictionary discarding the variable class
         # (i.e., self._framework.process().get_variables()[variable][0]) {State|Component|Clock}.
         for variable in self._framework.process().variables():
             match self._framework.process().variables()[variable][0]:
@@ -87,21 +93,24 @@ class Monitor:
             self._timed_state
         )
 
+    def set_events(self, pause_event, stop_event):
+        self._pause_event = pause_event
+        self._stop_event = stop_event
+
+    def set_callback_function(self, callback_function):
+        self._callback_function = callback_function
+
     # Raises: FrameworkError(), ReportListError(), MonitorConstructionError()
     @staticmethod
-    def new_from_files(logging_destination, logging_level, framework_file, report_list_file, visual=False):
-        # Configure logging
-        _set_up_logging()
-        _configure_logging_destination(logging_destination)
-        _configure_logging_level(logging_level)
+    def new_from_files(framework_file, report_list_file, visual=False):
         # Build analysis framework
         logging.info(f"Creating framework with file: {framework_file}.")
-        splitted_framework_file = framework_file.rsplit("/", 1)
-        if not len(splitted_framework_file) == 2:
+        split_framework_file = framework_file.rsplit("/", 1)
+        if not len(split_framework_file) == 2:
             logging.error(f"Framework file path error.")
             raise FrameworkError()
         try:
-            framework = Framework(splitted_framework_file[0], splitted_framework_file[1], visual)
+            framework = Framework(split_framework_file[0], split_framework_file[1], visual)
         except FrameworkSpecificationError:
             logging.error(f"Error creating framework.")
             raise FrameworkError()
@@ -147,14 +156,14 @@ class Monitor:
         return monitor
 
     # Raises: AbortRun()
-    def run(self, pause_event=None, stop_event=None, event_processed_callback=None):
+    def run(self):
         is_a_valid_report = True
         for line in self._reports_map["main"]:
-            if not is_a_valid_report:
+            # Thread control.
+            self._pause_event.wait()
+            if self._stop_event.is_set():
                 break
-            Monitor._pause_verification_if_requested(pause_event, stop_event)
-            if Monitor._event_was_set(stop_event):
-                break
+            # Decode next event.
             try:
                 decoded_event = EventDecoder.decode(line.strip())
             except InvalidEvent as e:
@@ -162,50 +171,54 @@ class Monitor:
                 raise AbortRun()
             logging.info(f"Processing: {decoded_event.serialized()}")
             mark = decoded_event.time()
-            # Process the events of all self-logged components until time mark
+            # Process the events of all self-logged components until time mark of the next event.
             for component in self._reports_map:
                 if not component == "main":
                     self._framework.components()[component].process_log(self._reports_map[component], mark)
-            #
+            # Process main event.
             try:
                 is_a_valid_report = decoded_event.process_with(self)
-            # Execution state related exceptions
+            # Execution state related exceptions.
             except UndeclaredVariableError:
                 logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
-            # Clock related exceptions
+            # Clock related exceptions.
             except ClockError:
                 logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
-            # Task related exceptions
+            # Task related exceptions.
             except TaskDoesNotExistError:
                 logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
-            # Checkpoint related exceptions
+            # Checkpoint related exceptions.
             except CheckpointDoesNotExistError:
                 logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
-            # Component related exceptions
+            # Component related exceptions.
             except ComponentDoesNotExistError:
                 logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
             except ComponentError:
                 logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
-            if event_processed_callback is not None:
-                event_processed_callback()
+            else:
+                # There was no exception in processing the event.
+                # Call to callback function.
+                if self._callback_function is not None:
+                    self._callback_function()
+                # Action if the event cause the verification to fail.
+                if not is_a_valid_report:
+                    logging.info(
+                        f"The following event caused the verification to fail: "
+                        f"[ {decoded_event.serialized()} ]"
+                    )
+                    break
+        # Log the result of when the verification finishes.
+        if not self._stop_event.is_set():
             if not is_a_valid_report:
-                logging.info(
-                    f"The following event resulted in an invalid verification: "
-                    f"[ {decoded_event.serialized()} ]"
-                )
-        if Monitor._event_was_set(stop_event):
-            logging.info(f"Verification process STOPPED.")
-        elif not is_a_valid_report:
-            logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
-        else:
-            logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
-        return is_a_valid_report
+                logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
+            else:
+                logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
 
     # Raises: TaskDoesNotExistError()
     # Propagates: AbortRun() from _are_all_properties_satisfied
@@ -389,6 +402,15 @@ class Monitor:
         }
         self._process_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
+    # Propagates: AbortRun() from _is_property_satisfied
+    def _are_all_properties_satisfied(self, event_time, logic_properties):
+        neg_properties_sat = False
+        for logic_property in logic_properties:
+            if neg_properties_sat:
+                break
+            neg_properties_sat = self._is_property_satisfied(event_time, logic_property)
+        return not neg_properties_sat
+
     # Raises: AbortRun()
     def _is_property_satisfied(self, event_time, logic_property):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {logic_property.name()}...")
@@ -403,15 +425,7 @@ class Monitor:
             logging.log(LoggingLevel.ANALYSIS, f"Property {logic_property.name()} FAILED")
         return negation_is_sat
 
-    # Propagates: AbortRun() from _is_property_satisfied
-    def _are_all_properties_satisfied(self, event_time, logic_properties):
-        neg_properties_sat = False
-        for logic_property in logic_properties:
-            if neg_properties_sat:
-                break
-            neg_properties_sat = self._is_property_satisfied(event_time, logic_property)
-        return not neg_properties_sat
-
+    # ToDo: Reformulate the record of the evolution of of the process
     def _task_can_start(self, task_name):
         return self._is_process_state_valid_for_reaching_element_named(task_name)
 
@@ -469,61 +483,3 @@ class Monitor:
         for state_word in self._process_state:
             if state_word.endswith(Monitor.TASK_STARTED_SUFFIX):
                 return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]
-
-    @staticmethod
-    def _pause_verification_if_requested(pause_event, stop_event):
-        # This is busy waiting. There are better solutions.
-        if Monitor._event_was_set(pause_event):
-            logging.info(f"Verification paused.")
-            while pause_event.is_set():
-                if stop_event.is_set():
-                    return
-            logging.info(f"Verification resumed.")
-
-    @staticmethod
-    def _event_was_set(ui_event):
-        return ui_event is not None and ui_event.is_set()
-
-
-def _set_up_logging():
-    logging.addLevelName(LoggingLevel.ANALYSIS, "ANALYSIS")
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=_default_logging_level(),
-        datefmt=_date_logging_format(),
-        format=_logging_format(),
-        encoding="utf-8",
-    )
-
-
-def _configure_logging_destination(logging_destination):
-    logging.getLogger().handlers.clear()
-    formatter = logging.Formatter(
-        _logging_format(), datefmt=_date_logging_format()
-    )
-    match logging_destination:
-        case LoggingDestination.FILE:
-            handler = logging.FileHandler(
-                "log.txt", encoding="utf-8"
-            )
-        case _:
-            handler = logging.StreamHandler(sys.stdout)
-
-    handler.setFormatter(formatter)
-    logging.getLogger().addHandler(handler)
-
-
-def _configure_logging_level(logging_level):
-    logging.getLogger().setLevel(logging_level)
-
-
-def _default_logging_level():
-    return LoggingLevel.INFO
-
-
-def _date_logging_format():
-    return "%d/%m/%Y %H:%M:%S"
-
-
-def _logging_format():
-    return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"

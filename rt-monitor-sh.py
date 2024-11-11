@@ -8,7 +8,8 @@ import threading
 from pynput import keyboard
 
 from errors.monitor_errors import FrameworkError, MonitorConstructionError, ReportListError, AbortRun
-from logging_configuration import LoggingLevel, LoggingDestination
+from logging_configuration import LoggingLevel, LoggingDestination, _set_up_logging, _configure_logging_destination, \
+    _configure_logging_level
 from monitor import Monitor
 
 # Stop and pause events for finishing and pausing the reporting process
@@ -16,54 +17,61 @@ stop_event = threading.Event()
 pause_event = threading.Event()
 
 
-def _set_up_logging():
-    logging.addLevelName(LoggingLevel.ANALYSIS, "ANALYSIS")
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=_default_logging_level(),
-        datefmt=_date_logging_format(),
-        format=_logging_format(),
-        encoding="utf-8",
-    )
+def _run_verification(process_thread):
+    # Start the listener in a separate thread
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+    # Configure the monitor by setting up control events and callback function.
+    process_thread.set_events(pause_event, stop_event)
+    process_thread.set_callback_function(None)
+    # Events setup for managing the running mode.
+    pause_event.set()
+    stop_event.clear()
+    # Starts the monitor thread
+    process_thread.start()
+    # Waiting for the verification process to finish, either naturally or manually.
+    process_thread.join()
+    if stop_event.is_set():
+        logging.warning("Verification STOPPED.")
+    process_thread.stop_component_monitoring()
+    listener.stop()
 
 
-def _configure_logging_destination(logging_destination):
-    logging.getLogger().handlers.clear()
-    formatter = logging.Formatter(
-        _logging_format(), datefmt=_date_logging_format()
-    )
-    match logging_destination:
-        case LoggingDestination.FILE:
-            handler = logging.FileHandler(
-                "sandbox/rt-monitor-example-app/log.txt", encoding="utf-8"
-            )
-        case _:
-            handler = logging.StreamHandler(sys.stdout)
-
-    handler.setFormatter(formatter)
-    logging.getLogger().addHandler(handler)
-
-
-def _configure_logging_level(logging_level):
-    logging.getLogger().setLevel(logging_level)
-
-
-def _default_logging_level():
-    return LoggingLevel.INFO
-
-
-def _date_logging_format():
-    return "%d/%m/%Y %H:%M:%S"
-
-
-def _logging_format():
-    return "%(asctime)s : [%(name)s:%(levelname)s] - %(message)s"
+def on_press(key):
+    global stop_event
+    global pause_event
+    try:
+        # Check if the key has a `char` attribute (printable key)
+        match key.char:
+            case "s":
+                # The verification can be stopped only if it is running.
+                if pause_event.is_set():
+                    stop_event.set()
+                    logging.warning(
+                        "Verification is gracefully stopping in background. "
+                        "It will STOP when it finishes processing the current event."
+                    )
+            case "p":
+                if pause_event.is_set():
+                    pause_event.clear()
+                    logging.warning(
+                        "Verification is gracefully pausing in background. "
+                        "It will PAUSE when it finishes processing the current event."
+                    )
+                else:
+                    pause_event.set()
+                    logging.warning("Verification RESUMED.")
+            case _:
+                pass
+    except AttributeError:
+        # Handle special keys (like ctrl, alt, etc.) here if needed
+        pass
 
 
 def main():
     global stop_event
     global pause_event
-    # Building argument map
+    # Build argument map.
     argument_map = {}
     for argument in range(1, len(sys.argv)):
         if sys.argv[argument].startswith("--framework="):
@@ -102,15 +110,12 @@ def main():
     if "reports" not in argument_map:
         print("Missing --reports argument.", file=sys.stderr)
         exit(-3)
-    # Configuring logger
-    _set_up_logging()
-    # Choosing logging destination
+    # Choose logging destination.
     if "log-file" in argument_map:
         logging_destination = LoggingDestination.FILE
     else:
         logging_destination = LoggingDestination.CONSOLE
-    _configure_logging_destination(logging_destination)
-    # Choosing logging level
+    # Choose logging level.
     if "log-level" in argument_map:
         match argument_map["log-level"]:
             case "all":
@@ -126,11 +131,13 @@ def main():
                 exit(-141)
     else:
         logging_level = LoggingLevel.ANALYSIS
+    # Configure logger.
+    _set_up_logging()
+    _configure_logging_destination(logging_destination)
     _configure_logging_level(logging_level)
-    # Create
+    # Create the Monitor.
     try:
-        monitor = Monitor.new_from_files(logging_destination, logging_level, argument_map["framework"],
-                                         argument_map["reports"], False)
+        monitor = Monitor.new_from_files(argument_map["framework"], argument_map["reports"], False)
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     except ReportListError:
@@ -138,44 +145,14 @@ def main():
     except MonitorConstructionError:
         logging.critical(f"Runtime monitoring process ABORTED..")
     else:
+        # Creates a thread for controlling the analysis process
+        application_thread = threading.Thread(
+            target=_run_verification, args=[monitor]
+        )
         try:
-            pause_event.clear()
-            stop_event.clear()
-            # Start the listener in a separate thread
-            key_thread = threading.Thread(target=wait_for_key_non_blocking)
-            key_thread.start()
-            # Run the monitor
-            monitor.run(pause_event, stop_event)
+            application_thread.start()
         except AbortRun():
-            logging.critical(f"Runtime monitoring process ABORTED.")
-
-
-def on_press(key, listener):
-    global stop_event
-    global pause_event
-    try:
-        # Check if the key has a `char` attribute (printable key)
-        match key.char:
-            case "s":
-                stop_event.set()
-                listener.stop()
-            case "p":
-                if pause_event.is_set():
-                    pause_event.clear()
-                else:
-                    pause_event.set()
-            case _:
-                pass
-    except AttributeError:
-        # Handle special keys (like ctrl, alt, etc.) here if needed
-        pass
-
-
-# Function to start a listener in a separate thread
-def wait_for_key_non_blocking():
-    listener = keyboard.Listener(on_press=lambda key: on_press(key, listener))
-    listener.start()
-    listener.join()
+            logging.critical(f"Runtime verification process ABORTED.")
 
 
 if __name__ == "__main__":
