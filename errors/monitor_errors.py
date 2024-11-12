@@ -9,7 +9,7 @@ class FrameworkError(Exception):
         super().__init__()
 
 
-class ReportListError(Exception):
+class EventLogListError(Exception):
     def __init__(self):
         super().__init__()
 

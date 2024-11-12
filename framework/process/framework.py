@@ -226,8 +226,12 @@ class Framework:
         except LocalCheckpointSpecificationError:
             logging.error(f"Error decoding local checkpoints for task [ {task_name} ].")
             raise TaskSpecificationError()
-        return Task(task_name, preconditions=preconditions, postconditions=postconditions,
-                    checkpoints=local_checkpoints)
+        return Task(
+            task_name,
+            preconditions=preconditions,
+            postconditions=postconditions,
+            checkpoints=local_checkpoints
+        )
 
     # Raises: GlobalCheckpointSpecificationError()
     def _decode_global_checkpoints(self, checkpoint_name, toml_checkpoints_list):

@@ -7,7 +7,7 @@ import sys
 import threading
 from pynput import keyboard
 
-from errors.monitor_errors import FrameworkError, MonitorConstructionError, ReportListError, AbortRun
+from errors.monitor_errors import FrameworkError, MonitorConstructionError, EventLogListError, AbortRun
 from logging_configuration import (
     LoggingLevel,
     LoggingDestination,
@@ -28,10 +28,6 @@ def _run_verification(process_thread):
     listener.start()
     # Configure the monitor by setting up control events and callback function.
     process_thread.set_events(pause_event, stop_event)
-    process_thread.set_callback_function(None)
-    # Events setup for managing the running mode.
-    pause_event.set()
-    stop_event.clear()
     # Starts the monitor thread
     process_thread.start()
     # Waiting for the verification process to finish, either naturally or manually.
@@ -145,11 +141,14 @@ def main():
         monitor = Monitor.new_from_files(argument_map["framework"], argument_map["reports"], False)
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
-    except ReportListError:
+    except EventLogListError:
         logging.critical(f"Runtime monitoring process ABORTED..")
     except MonitorConstructionError:
         logging.critical(f"Runtime monitoring process ABORTED..")
     else:
+        # Events setup for managing the running mode.
+        pause_event.set()
+        stop_event.clear()
         # Creates a thread for controlling the analysis process
         application_thread = threading.Thread(
             target=_run_verification, args=[monitor]

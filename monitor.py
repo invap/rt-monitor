@@ -22,7 +22,7 @@ from errors.event_decoder_errors import InvalidEvent
 from errors.framework_errors import FrameworkSpecificationError
 from errors.monitor_errors import (
     FrameworkError,
-    ReportListError,
+    EventLogListError,
     UndeclaredComponentVariableError,
     UnknownVariableClassError,
     UndeclaredVariableError,
@@ -54,9 +54,14 @@ class Monitor(threading.Thread):
         super().__init__()
         # Events for controlling the execution of the monitor (TBS by set_events)
         self._pause_event = None
+        self._has_paused_event = None
         self._stop_event = None
-        # Callback function for communicating with the parent thread (TBS by set_callback_function)
-        self._callback_function = None
+        self._has_stopped_event = None
+        # Variables for stats
+        self._amount_of_events_to_verify = len(reports_map["main"].readlines())
+        # returns the pointer to the beginning because readlines() moves the pointer to the end.
+        reports_map["main"].seek(0)
+        self._amount_of_processed_events = 0
         # Analysis framework
         self._framework = framework
         # revent reports
@@ -93,14 +98,16 @@ class Monitor(threading.Thread):
             self._timed_state
         )
 
-    def set_events(self, pause_event, stop_event):
+    def get_event_count(self):
+        return [self._amount_of_events_to_verify, self._amount_of_processed_events]
+
+    def set_events(self, pause_event, has_pause_event, stop_event, has_stoped_event):
         self._pause_event = pause_event
+        self._has_paused_event = has_pause_event
         self._stop_event = stop_event
+        self._has_stopped_event = has_stoped_event
 
-    def set_callback_function(self, callback_function):
-        self._callback_function = callback_function
-
-    # Raises: FrameworkError(), ReportListError(), MonitorConstructionError()
+    # Raises: FrameworkError(), EventLogListError(), MonitorConstructionError()
     @staticmethod
     def new_from_files(framework_file, report_list_file, visual=False):
         # Build analysis framework
@@ -114,6 +121,7 @@ class Monitor(threading.Thread):
         except FrameworkSpecificationError:
             logging.error(f"Error creating framework.")
             raise FrameworkError()
+        # There was no exception in building the framework.
         logging.info(f"Framework created.")
         # Build report list map
         reports_map = {}
@@ -121,17 +129,18 @@ class Monitor(threading.Thread):
         try:
             toml_reports_map = toml.load(report_list_file)
         except FileNotFoundError:
-            logging.error(f"Framework file [ {report_list_file} ] not found.")
-            raise FrameworkSpecificationError()
+            logging.error(f"Event report list file [ {report_list_file} ] not found.")
+            raise EventLogListError()
         except TomlDecodeError as e:
             logging.error(f"TOML decoding of file [ {report_list_file} ] failed in [ line {e.lineno}, column {e.colno} ].")
-            raise FrameworkSpecificationError()
+            raise EventLogListError()
         except PermissionError:
             logging.error(f"Permissions error opening file [ {report_list_file} ].")
-            raise FrameworkSpecificationError()
+            raise EventLogListError()
         if len(toml_reports_map.keys()) > 1 or "event_reports" not in toml_reports_map:
             logging.error(f"Event report list file format error.")
-            raise ReportListError()
+            raise EventLogListError()
+        # There was no exception reading the event log list file.
         for event_report in toml_reports_map["event_reports"]:
             report_name = event_report["name"]
             report_filename = event_report["file"]
@@ -140,10 +149,15 @@ class Monitor(threading.Thread):
                 reports_map[report_name] = open(report_filename, "r")
             except FileNotFoundError:
                 logging.error(f"Event report file [ {report_filename} ] not found.")
-                raise ReportListError()
+                # Stop components built in the framework.
+                framework.stop_components_monitoring()
+                raise EventLogListError()
         if "main" not in reports_map:
             logging.error(f"Main event report file not found.")
-            raise ReportListError()
+            # Stop components built in the framework.
+            framework.stop_components_monitoring()
+            raise EventLogListError()
+        # There was no proble building the event log map.
         # Build monitor
         logging.info(f"Creating monitor...")
         try:
@@ -159,10 +173,6 @@ class Monitor(threading.Thread):
     def run(self):
         is_a_valid_report = True
         for line in self._reports_map["main"]:
-            # Thread control.
-            self._pause_event.wait()
-            if self._stop_event.is_set():
-                break
             # Decode next event.
             try:
                 decoded_event = EventDecoder.decode(line.strip())
@@ -202,10 +212,18 @@ class Monitor(threading.Thread):
                 logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
                 raise AbortRun()
             else:
+                # Thread control.
+                if not self._pause_event.is_set():
+                    # Notifies that the analysis has gracefully paused.
+                    self._has_paused_event.clear()
+                    self._pause_event.wait()
+                    self._has_paused_event.set()
+                if not self._stop_event.is_set():
+                    # Notifies that the analysis has gracefully stopped.
+                    self._has_stopped_event.clear()
+                    break
                 # There was no exception in processing the event.
-                # Call to callback function.
-                if self._callback_function is not None:
-                    self._callback_function()
+                self._amount_of_processed_events = self._amount_of_processed_events + 1
                 # Action if the event cause the verification to fail.
                 if not is_a_valid_report:
                     logging.info(
@@ -213,8 +231,9 @@ class Monitor(threading.Thread):
                         f"[ {decoded_event.serialized()} ]"
                     )
                     break
+        self._framework.stop_components_monitoring()
         # Log the result of when the verification finishes.
-        if not self._stop_event.is_set():
+        if self._stop_event.is_set():
             if not is_a_valid_report:
                 logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
             else:
@@ -379,10 +398,6 @@ class Monitor(threading.Thread):
             logging.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
         return True
-
-    def stop_component_monitoring(self):
-        for component_name in self._framework.components():
-            self._framework.components()[component_name].stop()
 
     def _update_process_state_with_reached_global_checkpoint(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()

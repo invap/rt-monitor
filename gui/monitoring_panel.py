@@ -4,11 +4,11 @@
 
 import logging
 import threading
+from enum import Enum, auto
 
-import toml
 import wx
 
-from errors.monitor_errors import FrameworkError, ReportListError, MonitorConstructionError, AbortRun
+from errors.monitor_errors import FrameworkError, EventLogListError, MonitorConstructionError, AbortRun
 from logging_configuration import (
     _set_up_logging,
     _configure_logging_destination,
@@ -18,22 +18,29 @@ from monitor import Monitor
 
 
 class MonitoringPanel(wx.Panel):
+    class AnalysisStatus(Enum):
+        NOT_RUNNING = auto()
+        RUNNING = auto()
+        PAUSING = auto()
+        PAUSED = auto()
+        STOPPING = auto()
+
     def __init__(self, parent):
         super().__init__(parent=parent)
         self._monitor = None
+        # Events for managing the analysis process
         self._pause_event = threading.Event()
+        self._has_paused_event = threading.Event()
         self._stop_event = threading.Event()
+        self._has_stopped_event = threading.Event()
+        self._analysis_process_status = MonitoringPanel.AnalysisStatus.NOT_RUNNING
+        # To be assigned whenever the monitor is created
+        self._event_count_function = None
+        # Variables for keeping the event count and elapsed time.
+        self._elapsed_seconds = 0
         self._amount_of_events_to_verify = 0
         self._amount_of_processed_events = 0
-        self._elapsed_seconds = 0
         self._render()
-
-    def update_start_button(self):
-        if (self.Parent.monitor_configuration_panel.framework_chosen and
-                self.Parent.monitor_configuration_panel.event_report_file_chosen):
-            self._enable_multi_action_button()
-        else:
-            self._disable_multi_action_button()
 
     def on_start(self, event):
         # Configure logging
@@ -51,101 +58,105 @@ class MonitoringPanel(wx.Panel):
             )
         except FrameworkError:
             logging.error(f"Monitor construction failed due to a framework creation error.")
-        except ReportListError:
+        except EventLogListError:
             logging.error(f"Monitor construction failed due to a report list error.")
         except MonitorConstructionError:
             logging.error(f"Monitor construction failed.")
-        else:
-            # Launches the runtime verification
-            amount_of_events = 0
-            # All this just to show the total numbers of events to be monitored!!!
-            # The report list file is guarantied to be correct because the Monitor already was created
-            toml_reports_map = toml.load(self.Parent.monitor_configuration_panel.report_list_file_path_field.Value)
-            for event_report in toml_reports_map["event_reports"]:
-                # The main report file is guarantied to be present in the report list file
-                if event_report["name"] == "main":
-                    with open(event_report["file"], "r") as main_report_file:
-                        amount_of_events = len(main_report_file.readlines())
-                    main_report_file.close()
-                    break
-            # Set up the information on the visual interface
-            self._amount_of_events_to_verify = amount_of_events
-            self.amount_of_events_to_verify_text_label.SetLabel(self.amount_of_events_to_verify_label())
-            self._amount_of_processed_events = 0
-            self.progress_bar.SetRange(self._amount_of_events_to_verify)
-            # Creates a thread for controlling the analysis process
-            application_thread = threading.Thread(
-                target=self._run_verification, args=[self._monitor]
+        # Launches the runtime verification
+        # Set the function for retrieve statistics from monitor
+        self._event_count_function = self._monitor.get_event_count
+        # Variables for keeping the event count and elapsed time.
+        self._elapsed_seconds = 0
+        self._amount_of_events_to_verify = self._event_count_function()[0]
+        self._amount_of_processed_events = 0
+        # Set up the information on the visual interface
+        self.amount_of_events_to_verify_text_label.SetLabel(self._amount_of_events_to_verify_label())
+        self.progress_bar.SetRange(self._amount_of_events_to_verify)
+        # Events setup for managing the running mode.
+        self._pause_event.set()
+        self._has_paused_event.set()
+        self._stop_event.set()
+        self._has_stopped_event.set()
+        self._analysis_process_status = MonitoringPanel.AnalysisStatus.RUNNING
+        # Creates a thread for controlling the analysis process
+        application_thread = threading.Thread(
+            target=self._run_verification, args=[self._monitor]
+        )
+        # Update visual interface according to STARTED.
+        self._disable_logging_configuration_components()
+        self._show_multi_action_button_as_pause()
+        self._enable_stop_button()
+        self._start_timer()
+        try:
+            application_thread.start()
+        except AbortRun():
+            logging.critical(f"Runtime verification process ABORTED.")
+
+    def on_pause(self, event):
+        if self._analysis_process_status == MonitoringPanel.AnalysisStatus.RUNNING:
+            # Trigger pause event.
+            self._pause_event.clear()
+            self._analysis_process_status = MonitoringPanel.AnalysisStatus.PAUSING
+            logging.warning(
+                "Verification is gracefully pausing in background. "
+                "It will PAUSE when it finishes processing the current event."
             )
-            # Update visual interface according to START.
-            self._disable_logging_configuration_components()
+            # Wait until the monitor thread notifies that the analysis haf been gracefully paused
+            while self._has_paused_event.is_set():
+                pass
+            self._analysis_process_status = MonitoringPanel.AnalysisStatus.PAUSED
+            logging.warning("Verification PAUSED.")
+            # Update visual interface according to PAUSED.
+            self._show_multi_action_button_as_play()
+            self._disable_stop_button()
+            self._stop_timer()
+
+    def on_play(self, event):
+        if self._analysis_process_status == MonitoringPanel.AnalysisStatus.PAUSED:
+            # Recover from pause.
+            self._pause_event.set()
+            self._analysis_process_status = MonitoringPanel.AnalysisStatus.RUNNING
+            logging.warning("Verification RESUMED.")
+            # Update visual interface according to RESUMED.
             self._show_multi_action_button_as_pause()
             self._enable_stop_button()
             self._start_timer()
-            try:
-                application_thread.start()
-            except AbortRun():
-                logging.critical(f"Runtime verification process ABORTED.")
 
-    def on_pause(self, event):
-        # Update visual interface according to PAUSE.
-        self._show_multi_action_button_as_play()
-        self._disable_stop_button()
-        self._pause_event.clear()
-        self._stop_timer(event)
-        logging.warning(
-            "Verification is gracefully pausing in background. "
-            "It will PAUSE when it finishes processing the current event."
-        )
-
-    def on_play(self, _event):
-        # Update visual interface according to PLAY.
-        self._show_multi_action_button_as_pause()
-        self._enable_stop_button()
-        self._pause_event.set()
-        self._start_timer()
-        logging.warning("Verification RESUMED.")
-
-    def on_stop(self, _event):
-        # Update visual interface according to STOP.
-        self._enable_logging_configuration_components()
-        self.show_multi_action_button_as_start()
-        self._disable_stop_button()
-        self._stop_event.set()
-        logging.warning(
-            "Verification is gracefully stopping in background. "
-            "It will STOP when it finishes processing the current event."
-        )
+    def on_stop(self, event):
+        if self._analysis_process_status == MonitoringPanel.AnalysisStatus.RUNNING:
+            # Trigger stop event.
+            self._stop_event.clear()
+            self._analysis_process_status = MonitoringPanel.AnalysisStatus.STOPPING
+            logging.warning(
+                "Verification is gracefully stopping in background. "
+                "It will STOP when it finishes processing the current event."
+            )
+            # Wait until the monitor thread notifies that the analysis haf been gracefully stopped
+            while self._has_stopped_event.is_set():
+                pass
+            logging.warning("Verification STOPPED.")
 
     def close(self, event):
-        if self._stop_event.is_set():
-            return
-        self._stop_verification()
+        was_vetoed = False
+        if self._analysis_process_status != MonitoringPanel.AnalysisStatus.NOT_RUNNING:
+            event.Veto()
+            was_vetoed = True
+        return was_vetoed
 
     def _run_verification(self, process_thread):
-        # Configure the monitor by setting up control events and callback function.
-        self._monitor.set_events(self._pause_event, self._stop_event)
-        self._monitor.set_callback_function(self.update_amount_of_processed_events)
-        # Events setup for managing the running mode.
-        self._pause_event.set()
-        self._stop_event.clear()
+        # Configure the monitor by setting up control events.
+        self._monitor.set_events(self._pause_event, self._has_paused_event, self._stop_event, self._has_stopped_event)
         # Starts the monitor thread
         process_thread.start()
         # Waiting for the verification process to finish, either naturally or manually.
         process_thread.join()
-        if self._stop_event.is_set():
-            logging.warning("Verification STOPPED.")
-        self._stop_verification()
-
-    def _stop_verification(self):
+        # Change analysis status.
+        self._analysis_process_status = MonitoringPanel.AnalysisStatus.NOT_RUNNING
+        # Update visual interface according to STOPPED or FINISHED.
+        self._enable_logging_configuration_components()
+        self.show_multi_action_button_as_start()
         self._disable_stop_button()
-        self._timer.Stop()
-        self._stop_event.set()
-        if self._monitor is not None:
-            self._monitor.stop_component_monitoring()
-
-    def update_amount_of_processed_events(self):
-        self._amount_of_processed_events += 1
+        self._stop_timer()
 
     def _render(self):
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -203,7 +214,7 @@ class MonitoringPanel(wx.Panel):
     def _set_up_events_to_verify(self, grid):
         text_label = wx.StaticText(self, label="Events to process:")
         self.amount_of_events_to_verify_text_label = wx.StaticText(
-            self, label=self.amount_of_events_to_verify_label()
+            self, label=self._amount_of_events_to_verify_label()
         )
         self._add_to_grid(grid, text_label, self.amount_of_events_to_verify_text_label)
 
@@ -238,7 +249,7 @@ class MonitoringPanel(wx.Panel):
 
         self.main_sizer.Add(action_buttons_sizer, 0, wx.CENTER)
 
-    def amount_of_events_to_verify_label(self):
+    def _amount_of_events_to_verify_label(self):
         return f"{self._amount_of_events_to_verify}\n"
 
     def _amount_of_processed_events_label(self):
@@ -286,12 +297,15 @@ class MonitoringPanel(wx.Panel):
         if self._last_updated_time is not None:
             self._update_status()
 
-    def _stop_timer(self, _event):
+    def _stop_timer(self):
         if self._last_updated_time is not None:
             self._timer.Stop()
             self._update_status()
 
     def _update_status(self):
+        # Retrieve statistics from monitor.
+        self._amount_of_processed_events = self._event_count_function()[1]
+        # Update status.
         current_time = MonitoringPanel._current_time()
         self._elapsed_seconds += (current_time - self._last_updated_time).GetSeconds()
         self._last_updated_time = current_time

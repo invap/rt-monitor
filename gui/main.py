@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+import threading
 
 import wx
 
@@ -11,7 +12,11 @@ from gui.monitoring_panel import MonitoringPanel
 
 class MainWindow(wx.Frame):
     def __init__(self):
-        super().__init__(parent=None, title="Runtime Monitor")
+        super().__init__(
+            parent=None,
+            title="Runtime Monitor",
+            style=wx.DEFAULT_FRAME_STYLE & ~wx.MAXIMIZE_BOX & ~wx.RESIZE_BORDER
+        )
         self.Bind(wx.EVT_CLOSE, self.on_close)
         self._set_up_control_panel()
         self._adjust_size_and_show()
@@ -27,9 +32,10 @@ class MainWindow(wx.Frame):
         self.Show()
 
     def on_close(self, event):
-        self.control_panel.close(event)
-        self.Destroy()
-        wx.Exit()
+        was_vetoed = self.control_panel.close(event)
+        if not was_vetoed:
+            self.Destroy()
+            wx.Exit()
 
 
 class ControlPanel(wx.Notebook):
@@ -46,7 +52,8 @@ class ControlPanel(wx.Notebook):
         self.AddPage(self.monitoring_panel, "Monitoring status")
 
     def close(self, event):
-        self.monitoring_panel.close(event)
+        was_vetoed = self.monitoring_panel.close(event)
+        return was_vetoed
 
     def logging_destination(self):
         return self.logging_configuration_panel.logging_destination()
