@@ -10,7 +10,7 @@ class displayVisual(wx.Frame):
         super().__init__(
             None,
             title="Display",
-            style=wx.CAPTION | wx.RESIZE_BORDER,
+            style=wx.CAPTION & ~wx.RESIZE_BORDER,
         )
 
         self.display = display
