@@ -288,6 +288,10 @@ class Framework:
                     properties.add(_property_from_file(prop["name"], prop["format"], file_name))
         return properties
 
+    def stop_components_monitoring(self):
+        for component_name in self._components:
+            self._components[component_name].stop()
+
 
 # Raises: PropertySpecificationError()
 def _property_from_file(property_name, property_format, file_name):
