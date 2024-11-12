@@ -5,6 +5,8 @@
 import logging
 import sys
 import threading
+from enum import Enum, auto
+
 from pynput import keyboard
 
 from errors.monitor_errors import FrameworkError, MonitorConstructionError, EventLogListError, AbortRun
@@ -17,9 +19,21 @@ from logging_configuration import (
 )
 from monitor import Monitor
 
-# Stop and pause events for finishing and pausing the reporting process
-stop_event = threading.Event()
+
+class AnalysisStatus(Enum):
+    NOT_RUNNING = auto()
+    RUNNING = auto()
+    PAUSING = auto()
+    PAUSED = auto()
+    STOPPING = auto()
+
+
+# Events for managing the analysis process
 pause_event = threading.Event()
+has_paused_event = threading.Event()
+stop_event = threading.Event()
+has_stopped_event = threading.Event()
+analysis_process_status = AnalysisStatus.NOT_RUNNING
 
 
 def _run_verification(process_thread):
@@ -27,41 +41,57 @@ def _run_verification(process_thread):
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
     # Configure the monitor by setting up control events and callback function.
-    process_thread.set_events(pause_event, stop_event)
+    process_thread.set_events(pause_event, has_paused_event, stop_event, has_stopped_event)
     # Starts the monitor thread
     process_thread.start()
     # Waiting for the verification process to finish, either naturally or manually.
     process_thread.join()
-    if stop_event.is_set():
-        logging.warning("Verification STOPPED.")
-    process_thread.stop_component_monitoring()
     listener.stop()
 
 
 def on_press(key):
-    global stop_event
     global pause_event
+    global has_paused_event
+    global stop_event
+    global has_stopped_event
+    global analysis_process_status
     try:
         # Check if the key has a `char` attribute (printable key)
         match key.char:
             case "s":
-                # The verification can be stopped only if it is running.
-                if pause_event.is_set():
-                    stop_event.set()
+                if analysis_process_status == AnalysisStatus.RUNNING:
+                    # Trigger stop event.
+                    stop_event.clear()
+                    analysis_process_status = AnalysisStatus.STOPPING
                     logging.warning(
                         "Verification is gracefully stopping in background. "
                         "It will STOP when it finishes processing the current event."
                     )
+                    # Wait until the monitor thread notifies that the analysis haf been gracefully stopped
+                    while has_stopped_event.is_set():
+                        pass
+                    logging.warning("Verification STOPPED.")
             case "p":
-                if pause_event.is_set():
+                if analysis_process_status == AnalysisStatus.RUNNING:
+                    # Trigger pause event.
                     pause_event.clear()
+                    analysis_process_status = AnalysisStatus.PAUSING
                     logging.warning(
                         "Verification is gracefully pausing in background. "
                         "It will PAUSE when it finishes processing the current event."
                     )
-                else:
+                    # Wait until the monitor thread notifies that the analysis haf been gracefully paused
+                    while has_paused_event.is_set():
+                        pass
+                    analysis_process_status = AnalysisStatus.PAUSED
+                    logging.warning("Verification PAUSED.")
+                elif analysis_process_status == AnalysisStatus.PAUSED:
+                    # Recover from pause.
                     pause_event.set()
+                    analysis_process_status = AnalysisStatus.RUNNING
                     logging.warning("Verification RESUMED.")
+                else:
+                    pass
             case _:
                 pass
     except AttributeError:
@@ -70,8 +100,11 @@ def on_press(key):
 
 
 def main():
-    global stop_event
     global pause_event
+    global has_paused_event
+    global stop_event
+    global has_stopped_event
+    global analysis_process_status
     # Build argument map.
     argument_map = {}
     for argument in range(1, len(sys.argv)):
@@ -148,7 +181,10 @@ def main():
     else:
         # Events setup for managing the running mode.
         pause_event.set()
-        stop_event.clear()
+        has_paused_event.set()
+        stop_event.set()
+        has_stopped_event.set()
+        analysis_process_status = AnalysisStatus.RUNNING
         # Creates a thread for controlling the analysis process
         application_thread = threading.Thread(
             target=_run_verification, args=[monitor]
