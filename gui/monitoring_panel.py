@@ -62,35 +62,36 @@ class MonitoringPanel(wx.Panel):
             logging.error(f"Monitor construction failed due to a report list error.")
         except MonitorConstructionError:
             logging.error(f"Monitor construction failed.")
-        # Launches the runtime verification
-        # Set the function for retrieve statistics from monitor
-        self._event_count_function = self._monitor.get_event_count
-        # Variables for keeping the event count and elapsed time.
-        self._elapsed_seconds = 0
-        self._amount_of_events_to_verify = self._event_count_function()[0]
-        self._amount_of_processed_events = 0
-        # Set up the information on the visual interface
-        self.amount_of_events_to_verify_text_label.SetLabel(self._amount_of_events_to_verify_label())
-        self.progress_bar.SetRange(self._amount_of_events_to_verify)
-        # Events setup for managing the running mode.
-        self._pause_event.set()
-        self._has_paused_event.set()
-        self._stop_event.set()
-        self._has_stopped_event.set()
-        self._analysis_process_status = MonitoringPanel.AnalysisStatus.RUNNING
-        # Creates a thread for controlling the analysis process
-        application_thread = threading.Thread(
-            target=self._run_verification, args=[self._monitor]
-        )
-        # Update visual interface according to STARTED.
-        self._disable_logging_configuration_components()
-        self._show_multi_action_button_as_pause()
-        self._enable_stop_button()
-        self._start_timer()
-        try:
-            application_thread.start()
-        except AbortRun():
-            logging.critical(f"Runtime verification process ABORTED.")
+        else:
+            # Launches the runtime verification
+            # Set the function for retrieve statistics from monitor
+            self._event_count_function = self._monitor.get_event_count
+            # Variables for keeping the event count and elapsed time.
+            self._elapsed_seconds = 0
+            self._amount_of_events_to_verify = self._event_count_function()[0]
+            self._amount_of_processed_events = 0
+            # Set up the information on the visual interface
+            self.amount_of_events_to_verify_text_label.SetLabel(self._amount_of_events_to_verify_label())
+            self.progress_bar.SetRange(self._amount_of_events_to_verify)
+            # Events setup for managing the running mode.
+            self._pause_event.set()
+            self._has_paused_event.set()
+            self._stop_event.set()
+            self._has_stopped_event.set()
+            self._analysis_process_status = MonitoringPanel.AnalysisStatus.RUNNING
+            # Creates a thread for controlling the analysis process
+            application_thread = threading.Thread(
+                target=self._run_verification, args=[self._monitor]
+            )
+            # Update visual interface according to STARTED.
+            self._disable_logging_configuration_components()
+            self._show_multi_action_button_as_pause()
+            self._enable_stop_button()
+            self._start_timer()
+            try:
+                application_thread.start()
+            except AbortRun():
+                logging.critical(f"Runtime verification process ABORTED.")
 
     def on_pause(self, event):
         if self._analysis_process_status == MonitoringPanel.AnalysisStatus.RUNNING:

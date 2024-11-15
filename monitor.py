@@ -52,6 +52,10 @@ class Monitor(threading.Thread):
     # Raises: UndeclaredComponentVariableError(), UnknownVariableClassError()
     def __init__(self, framework, reports_map):
         super().__init__()
+        # Analysis framework
+        self._framework = framework
+        # revent reports
+        self._reports_map = reports_map
         # Events for controlling the execution of the monitor (TBS by set_events)
         self._pause_event = None
         self._has_paused_event = None
@@ -59,13 +63,9 @@ class Monitor(threading.Thread):
         self._has_stopped_event = None
         # Variables for stats
         self._amount_of_events_to_verify = len(reports_map["main"].readlines())
-        # returns the pointer to the beginning because readlines() moves the pointer to the end.
+        # Returns the pointer to the beginning because readlines() moves the pointer to the end.
         reports_map["main"].seek(0)
         self._amount_of_processed_events = 0
-        # Analysis framework
-        self._framework = framework
-        # revent reports
-        self._reports_map = reports_map
         # State
         self._process_state = set()
         self._execution_state = {}
@@ -110,19 +110,27 @@ class Monitor(threading.Thread):
     # Raises: FrameworkError(), EventLogListError(), MonitorConstructionError()
     @staticmethod
     def new_from_files(framework_file, report_list_file, visual=False):
-        # Build analysis framework
-        logging.info(f"Creating framework with file: {framework_file}.")
-        split_framework_file = framework_file.rsplit("/", 1)
-        if not len(split_framework_file) == 2:
-            logging.error(f"Framework file path error.")
-            raise FrameworkError()
+        logging.info(f"Creating monitor with files: [ {framework_file} ] and [ {report_list_file} ].")
         try:
-            framework = Framework(split_framework_file[0], split_framework_file[1], visual)
+            framework = Framework.new_from_files(framework_file, visual)
         except FrameworkSpecificationError:
             logging.error(f"Error creating framework.")
             raise FrameworkError()
-        # There was no exception in building the framework.
-        logging.info(f"Framework created.")
+        # Exception EventLogListError() is propagated
+        reports_map = Monitor._build_reports_map(report_list_file)
+        # Build monitor
+        logging.info(f"Creating monitor...")
+        try:
+            monitor = Monitor(framework, reports_map)
+        except UndeclaredComponentVariableError:
+            raise MonitorConstructionError()
+        except UnknownVariableClassError:
+            raise MonitorConstructionError()
+        logging.info(f"Monitor created.")
+        return monitor
+
+    @staticmethod
+    def _build_reports_map (report_list_file):
         # Build report list map
         reports_map = {}
         logging.info(f"Loading event report list from file: {report_list_file}...")
@@ -140,7 +148,6 @@ class Monitor(threading.Thread):
         if len(toml_reports_map.keys()) > 1 or "event_reports" not in toml_reports_map:
             logging.error(f"Event report list file format error.")
             raise EventLogListError()
-        # There was no exception reading the event log list file.
         for event_report in toml_reports_map["event_reports"]:
             report_name = event_report["name"]
             report_filename = event_report["file"]
@@ -149,25 +156,13 @@ class Monitor(threading.Thread):
                 reports_map[report_name] = open(report_filename, "r")
             except FileNotFoundError:
                 logging.error(f"Event report file [ {report_filename} ] not found.")
-                # Stop components built in the framework.
-                framework.stop_components_monitoring()
                 raise EventLogListError()
         if "main" not in reports_map:
             logging.error(f"Main event report file not found.")
-            # Stop components built in the framework.
-            framework.stop_components_monitoring()
             raise EventLogListError()
-        # There was no proble building the event log map.
-        # Build monitor
-        logging.info(f"Creating monitor...")
-        try:
-            monitor = Monitor(framework, reports_map)
-        except UndeclaredComponentVariableError:
-            raise MonitorConstructionError()
-        except UnknownVariableClassError:
-            raise MonitorConstructionError()
-        logging.info(f"Monitor created.")
-        return monitor
+        # There was no problem building the event log map.
+        logging.info(f"Event report list loaded")
+        return reports_map
 
     # Raises: AbortRun()
     def run(self):

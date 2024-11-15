@@ -27,36 +27,10 @@ from framework.process.process import Process
 
 class Framework:
     # Raises: FrameworkSpecificationError()
-    def __init__(self, file_path, file_name, visual=False):
-        self._file_path = file_path
-        self._file_name = file_name
+    def __init__(self, process, components, visual):
+        self._process = process
+        self._components = components
         self._visual = visual
-        # Parse TOML file and build dictionary
-        try:
-            self._toml_dict = toml.load(self._file_path + "/" + self._file_name)
-        except FileNotFoundError:
-            logging.error(f"Framework file [ {self._file_name} ] not found.")
-            raise FrameworkSpecificationError()
-        except TomlDecodeError as e:
-            logging.error(
-                f"TOML decoding of file [ {self._file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
-            raise FrameworkSpecificationError()
-        except PermissionError:
-            logging.error(
-                f"Permissions error opening file [ {self._file_name} ].")
-            raise FrameworkSpecificationError()
-        # Building process
-        try:
-            self._process = self._parse_process()
-        except ProcessSpecificationError:
-            logging.error(f"Process specification error.")
-            raise FrameworkSpecificationError()
-        # Building components structure
-        try:
-            self._components = self._parse_components()
-        except ComponentsSpecificationError:
-            logging.error(f"Components definition error.")
-            raise FrameworkSpecificationError()
 
     def components(self):
         return self._components
@@ -64,12 +38,54 @@ class Framework:
     def process(self):
         return self._process
 
+    @staticmethod
+    def new_from_files(framework_file, visual_global):
+        # Build analysis framework
+        logging.info(f"Creating framework with file: {framework_file}.")
+        split_framework_file = framework_file.rsplit("/", 1)
+        if len(split_framework_file) == 2:
+            file_path = split_framework_file[0]
+            file_name = split_framework_file[1]
+        else:
+            file_path = ""
+            file_name = split_framework_file[0]
+        # Parse TOML file and build dictionary
+        try:
+            framework_dict = toml.load(framework_file)
+        except FileNotFoundError:
+            logging.error(f"Framework file [ {file_name} ] not found.")
+            raise FrameworkSpecificationError()
+        except TomlDecodeError as e:
+            logging.error(
+                f"TOML decoding of file [ {file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
+            raise FrameworkSpecificationError()
+        except PermissionError:
+            logging.error(
+                f"Permissions error opening file [ {file_name} ].")
+            raise FrameworkSpecificationError()
+        # Building process
+        try:
+            process = Framework._parse_process(framework_dict)
+        except ProcessSpecificationError:
+            logging.error(f"Process specification error.")
+            raise FrameworkSpecificationError()
+        # Building components structure
+        try:
+            components = Framework._parse_components(framework_dict, visual_global)
+        except ComponentsSpecificationError:
+            logging.error(f"Components definition error.")
+            raise FrameworkSpecificationError()
+        # There was no exception in building the framework.
+        logging.info(f"Framework created.")
+        return Framework(process, components, visual_global)
+
     # Raises: ProcessSpecificationError()
-    def _parse_process(self):
-        if "process" not in self._toml_dict:
+    @staticmethod
+    def _parse_process(framework_dict):
+        if "process" not in framework_dict:
             logging.error(f"Process specification not found.")
             raise ProcessSpecificationError()
-        process_dict = self._toml_dict["process"]
+        process_dict = framework_dict["process"]
         # Building the process toml_tasks_list
         ordered_nodes = []
         if "format" not in process_dict:
@@ -109,14 +125,14 @@ class Framework:
                                 raise ProcessSpecificationError()
                         case "task":
                             try:
-                                decoded_task = self._decode_task(node_name, process_dict["tasks"])
+                                decoded_task = Framework._decode_task(node_name, process_dict["tasks"])
                             except TaskSpecificationError:
                                 logging.error(f"Error decoding task from process node [ {node_name} ].")
                                 raise ProcessSpecificationError()
                             ordered_nodes.append(decoded_task)
                         case "checkpoint":
                             try:
-                                global_checkpoint = self._decode_global_checkpoints(
+                                global_checkpoint = Framework._decode_global_checkpoints(
                                     node_name,
                                     process_dict["checkpoints"]
                                 )
@@ -154,11 +170,12 @@ class Framework:
             return Process(graph, starting_element, variables)
 
     # Raises: ComponentError()
-    def _parse_components(self):
-        if "components" not in self._toml_dict:
+    @staticmethod
+    def _parse_components(framework_dict, visual_global):
+        if "components" not in framework_dict:
             component_map = {}
         else:
-            component_dict = self._toml_dict["components"]
+            component_dict = framework_dict["components"]
             component_map = {}
             for component in component_dict:
                 device_name = component["name"]
@@ -179,14 +196,15 @@ class Framework:
                     logging.error(
                         f"Component class [ {split_component_class_path[1]} ] not found in module [ {split_component_class_path[0]} ].")
                     raise ComponentsSpecificationError()
-                if self._visual:
+                if visual_global:
                     component_map[device_name] = component_class(visual)
                 else:
                     component_map[device_name] = component_class(False)
         return component_map
 
     # Raises: TaskSpecificationError()
-    def _decode_task(self, task_name, toml_tasks_list):
+    @staticmethod
+    def _decode_task(task_name, toml_tasks_list):
         preconditions_list = []
         found = False
         for i in range(0, len(toml_tasks_list)):
@@ -196,7 +214,7 @@ class Framework:
                 found = True
                 preconditions_list = toml_tasks_list[i]["pres"] if "pres" in toml_tasks_list[i] else []
         try:
-            preconditions = self._properties_from_list(preconditions_list)
+            preconditions = Framework._properties_from_list(preconditions_list)
         except PropertySpecificationError:
             logging.error(f"Error decoding preconditions for task [ {task_name} ].")
             raise TaskSpecificationError()
@@ -209,7 +227,7 @@ class Framework:
                 found = True
                 postconditions_list = toml_tasks_list[i]["posts"] if "posts" in toml_tasks_list[i] else []
         try:
-            postconditions = self._properties_from_list(postconditions_list)
+            postconditions = Framework._properties_from_list(postconditions_list)
         except PropertySpecificationError:
             logging.error(f"Error decoding postconditions for task [ {task_name} ].")
             raise TaskSpecificationError()
@@ -222,7 +240,7 @@ class Framework:
                 found = True
                 checkpoints_list = toml_tasks_list[i]["checkpoints"] if "checkpoints" in toml_tasks_list[i] else []
         try:
-            local_checkpoints = self._decode_local_checkpoints(checkpoints_list)
+            local_checkpoints = Framework._decode_local_checkpoints(checkpoints_list)
         except LocalCheckpointSpecificationError:
             logging.error(f"Error decoding local checkpoints for task [ {task_name} ].")
             raise TaskSpecificationError()
@@ -234,7 +252,8 @@ class Framework:
         )
 
     # Raises: GlobalCheckpointSpecificationError()
-    def _decode_global_checkpoints(self, checkpoint_name, toml_checkpoints_list):
+    @staticmethod
+    def _decode_global_checkpoints(checkpoint_name, toml_checkpoints_list):
         properties_list = []
         found = False
         for i in range(0, len(toml_checkpoints_list)):
@@ -244,14 +263,15 @@ class Framework:
                 found = True
                 properties_list = toml_checkpoints_list[i]["properties"]
         try:
-            properties_from_list = self._properties_from_list(properties_list)
+            properties_from_list = Framework._properties_from_list(properties_list)
         except PropertySpecificationError:
             logging.error(f"Error decoding global checkpoint [ {checkpoint_name} ].")
             raise GlobalCheckpointSpecificationError()
         return Checkpoint(checkpoint_name, properties_from_list)
 
     # Raises: LocalCheckpointSpecificationError()
-    def _decode_local_checkpoints(self, checkpoints_list):
+    @staticmethod
+    def _decode_local_checkpoints(checkpoints_list):
         checkpoints = set()
         if not checkpoints_list == [{}]:
             for checkpoint in checkpoints_list:
@@ -262,7 +282,7 @@ class Framework:
                     logging.error(f"Properties of local checkpoint [ {checkpoint["name"]} ] missing.")
                     raise LocalCheckpointSpecificationError()
                 try:
-                    properties_from_list = self._properties_from_list(checkpoint["properties"])
+                    properties_from_list = Framework._properties_from_list(checkpoint["properties"])
                 except PropertySpecificationError:
                     logging.error(f"Error decoding local checkpoint [ {checkpoint["name"]} ].")
                     raise LocalCheckpointSpecificationError()
@@ -270,7 +290,8 @@ class Framework:
         return checkpoints
 
     # Propagates: PropertySpecificationError()
-    def _properties_from_list(self, properties_list):
+    @staticmethod
+    def _properties_from_list(properties_list):
         properties = set()
         if not properties_list == [{}]:
             for prop in properties_list:
@@ -285,9 +306,7 @@ class Framework:
                     properties.add(_property_from_str(prop["name"], prop["format"], prop["variables"],
                                                       prop["formula"]))
                 else:  # "file" in prop
-                    file_name = prop["file"] if (
-                                prop["file"][0] == "." or prop["file"][0] == "/") else self._file_path + "/" + prop[
-                        "file"]
+                    file_name = prop["file"]
                     # This operation might raise a PropertySpecificationError exception.
                     properties.add(_property_from_file(prop["name"], prop["format"], file_name))
         return properties
