@@ -12,13 +12,10 @@ class displayVisual(wx.Frame):
             title="Display",
             style=wx.CAPTION & ~wx.RESIZE_BORDER,
         )
-
         self.display = display
-
         self.visual_lcd = wx.Window(self)
         self.SetClientSize((self.display.height, self.display.width))
         self.visual_lcd.Bind(wx.EVT_PAINT, self.on_paint)
-
         self.timer = wx.CallLater(50, self.on_timer)
         self.Show()
 

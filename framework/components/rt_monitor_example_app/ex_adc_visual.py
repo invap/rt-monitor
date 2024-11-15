@@ -7,13 +7,13 @@ import inspect
 import numpy as np
 
 from errors.component_errors import FunctionNotImplementedError
-from framework.components.component import Component
+from framework.components.component import VisualComponent
 from novalue import NoValue
 
 
-class adc(Component):
-    def __init__(self):
-        super().__init__()
+class adc(VisualComponent):
+    def __init__(self, visual_component_class, visual):
+        super().__init__(visual_component_class, visual)
         AcumCalib = 0
         Calib = 0
         ContCalib = 0
@@ -21,6 +21,8 @@ class adc(Component):
         # statistics variables
         self.__total_values_read = 0
         self.__current_value = 0
+        # Initializes the visual feature of the class
+        self.initialize_visual_component()
 
     def state(self):
         state = {"adc_read": ("Int", self._adc_read)}
@@ -79,4 +81,6 @@ class adc(Component):
         return function(*new_args)
 
     def stop(self):
-        pass
+        if self._visual:
+            # Closes the visualization features associated.
+            self._visual_component.close()

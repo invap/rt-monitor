@@ -9,10 +9,7 @@ from enum import Enum
 import numpy as np
 
 from errors.component_errors import FunctionNotImplementedError
-from framework.components.component import Component
-from framework.components.rt_monitor_example_app import (
-    ex_displayVisual,
-)
+from framework.components.component import VisualComponent
 
 
 class LCDCmdsCodes:
@@ -108,13 +105,13 @@ class TextConfiguration:
       uint8_t scale;    /**< Text scale */   """
 
 
-class display(Component):
-    def __init__(self, visual):
+class display(VisualComponent):
+    def __init__(self, visual_component_class, visual):
         # TODO driver must have the base configuration of the display, such as the commands codes, etc.
         # in this prototype we assume the display configuration
         # set the default width and height of the display, note that some drivers can update the size with the
         # respective command
-        super().__init__(visual)
+        super().__init__(visual_component_class, visual)
         self.width = 480
         self.height = 200
         # create and initialize the display's information with (0,0,0) RGB
@@ -153,15 +150,8 @@ class display(Component):
         )
         # - Default Font Matrix Map 6_8
         self.__font_matrix = Font6_8()
-        if self._visual:
-            # create the visualization features associated
-            self.__visualDisplay = ex_displayVisual.displayVisual(parent=self, display=self)
-            self.__visualDisplay.Show()
-
-    def stop(self):
-        if self._visual:
-            # closes the visualization features associated
-            self.__visualDisplay.close()
+        # Initializes the visual feature of the class
+        self.initialize_visual_component()
 
     def state(self):
         """state.__display_pixels is a 3d (heigth, width, 3) matrix where the last axis
@@ -607,6 +597,11 @@ class display(Component):
                     )
 
         return function(*new_args)
+
+    def stop(self):
+        if self._visual:
+            # Closes the visualization features associated.
+            self._visual_component.close()
 
 
 class Font6_8:

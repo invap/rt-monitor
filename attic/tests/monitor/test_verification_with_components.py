@@ -4,7 +4,7 @@
 
 import wx
 
-from framework.components.rt_monitor_example_app.ex_adc import (
+from framework.components.rt_monitor_example_app.ex_adc_visual import (
     adc,
 )
 from monitor import Monitor

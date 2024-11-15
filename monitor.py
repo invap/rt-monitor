@@ -179,6 +179,7 @@ class Monitor(threading.Thread):
             # Process the events of all self-logged components until time mark of the next event.
             for component in self._reports_map:
                 if not component == "main":
+                    logging.info(f"Processing log for self-logging component: {component}")
                     self._framework.components()[component].process_log(self._reports_map[component], mark)
             # Process main event.
             try:
@@ -435,7 +436,7 @@ class Monitor(threading.Thread):
             logging.log(LoggingLevel.ANALYSIS, f"Property {logic_property.name()} FAILED")
         return negation_is_sat
 
-    # ToDo: Reformulate the record of the evolution of of the process
+    # ToDo: Reformulate the record of the evolution of the process
     def _task_can_start(self, task_name):
         return self._is_process_state_valid_for_reaching_element_named(task_name)
 

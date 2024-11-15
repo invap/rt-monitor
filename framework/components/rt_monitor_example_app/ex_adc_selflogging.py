@@ -7,11 +7,11 @@ import inspect
 import numpy as np
 
 from errors.component_errors import FunctionNotImplementedError
-from framework.components.component import Component
+from framework.components.component import SelfLoggingComponent
 from novalue import NoValue
 
 
-class adc(Component):
+class adc(SelfLoggingComponent):
     def __init__(self):
         super().__init__()
         AcumCalib = 0
@@ -77,6 +77,21 @@ class adc(Component):
                         f"Error: Can't convert the arg '{name}' al tipo {exp_type.__name__}"
                     )
         return function(*new_args)
+
+    def process_log(self, log_file, mark):
+        current_pos = log_file.tell()
+        line = log_file.readline()
+        while line:
+            split_line = line.strip().split(",")
+            if mark <= int(split_line[0]):
+                break
+            self._process_event(split_line[1:])
+            current_pos = log_file.tell()
+            line = log_file.readline()
+        log_file.seek(current_pos)
+
+    def _process_event(self, event):
+        self._adc_read = event[0]
 
     def stop(self):
         pass

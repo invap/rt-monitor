@@ -16,6 +16,7 @@ from errors.framework_errors import (
     ProcessSpecificationError,
     ComponentsSpecificationError, UnsupportedNodeType, PropertySpecificationError
 )
+from framework.components.component import VisualComponent
 from framework.process.py_property import PyProperty
 from framework.process.smt2_property import SMT2Property
 from framework.process.sympy_property import SymPyProperty
@@ -179,7 +180,7 @@ class Framework:
             component_map = {}
             for component in component_dict:
                 device_name = component["name"]
-                visual = component["visual"]
+                # Extract component class
                 component_class_path = component["component"]
                 split_component_class_path = component_class_path.rsplit(".", 1)
                 try:
@@ -196,10 +197,42 @@ class Framework:
                     logging.error(
                         f"Component class [ {split_component_class_path[1]} ] not found in module [ {split_component_class_path[0]} ].")
                     raise ComponentsSpecificationError()
-                if visual_global:
-                    component_map[device_name] = component_class(visual)
+                # Component class was correctly loaded
+                # Check whether component has visual features or not
+                if issubclass(component_class, VisualComponent):
+                    # The component has visual features
+                    if "visual_component" in component:
+                        # Extract component class
+                        visual_component_class_path = component["visual_component"]
+                        split_visual_component_class_path = visual_component_class_path.rsplit(".", 1)
+                        try:
+                            component_module = importlib.import_module(split_visual_component_class_path[0])
+                        except ModuleNotFoundError:
+                            logging.error(f"Module [ {split_visual_component_class_path[0]} ] not found.")
+                            raise ComponentsSpecificationError()
+                        except ImportError:
+                            logging.error(f"Error importing module [ {split_visual_component_class_path[0]} ].")
+                            raise ComponentsSpecificationError()
+                        try:
+                            visual_component_class = getattr(component_module, split_visual_component_class_path[1])
+                        except AttributeError:
+                            logging.error(f"Component class [ {split_visual_component_class_path[1]} ] not found in module [ {split_visual_component_class_path[0]} ].")
+                            raise ComponentsSpecificationError()
+                        if visual_global:
+                            # Determine whether the component will execute with the associated visual feature
+                            try:
+                                visual = component["visual"]
+                            except KeyError:
+                                component_map[device_name] = component_class(visual_component_class, False)
+                            else:
+                                component_map[device_name] = component_class(visual_component_class, visual)
+                        else:
+                            component_map[device_name] = component_class(visual_component_class, False)
+                    else:
+                        logging.error(f"Visual component specification for [ {device_name} ] missing.")
+                        raise ComponentsSpecificationError()
                 else:
-                    component_map[device_name] = component_class(False)
+                    component_map[device_name] = component_class()
         return component_map
 
     # Raises: TaskSpecificationError()
