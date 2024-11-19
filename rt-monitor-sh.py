@@ -172,7 +172,7 @@ def main():
     # Create the Monitor
     monitor_builder = MonitorBuilder(argument_map["framework"], argument_map["reports"])
     try:
-        monitor = monitor_builder.build_monitor(False)
+        monitor = monitor_builder.build_monitor(True)
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     except EventLogListError:

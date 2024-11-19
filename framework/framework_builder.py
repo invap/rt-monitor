@@ -71,7 +71,7 @@ class FrameworkBuilder:
             FrameworkBuilder.files_path = FrameworkBuilder.spec_file_path
 
     @staticmethod
-    def build_framework(visual_global):
+    def build_framework(override_visual):
         # Build analysis framework
         logging.info(f"Creating framework with file: {FrameworkBuilder.spec_file_name}.")
         # Building the process
@@ -82,7 +82,7 @@ class FrameworkBuilder:
             raise FrameworkSpecificationError()
         # Building components structure
         try:
-            components = FrameworkBuilder._parse_components(visual_global)
+            components = FrameworkBuilder._parse_components(override_visual)
         except ComponentsSpecificationError:
             logging.error(f"Components definition error.")
             raise FrameworkSpecificationError()
@@ -94,7 +94,7 @@ class FrameworkBuilder:
                 raise FrameworkSpecificationError()
         # There was no exception in building the framework.
         logging.info(f"Framework created.")
-        return Framework(process, components, visual_global)
+        return Framework(process, components)
 
     # Raises: ProcessSpecificationError()
     @staticmethod
@@ -165,7 +165,8 @@ class FrameworkBuilder:
             case _:
                 logging.error(f"Process format unknown.")
                 raise ProcessSpecificationError()
-        dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in process_dict["structure"]["edges"]}
+        dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in
+                        process_dict["structure"]["edges"]}
         amount_of_elements = len(ordered_nodes)
         graph = Graph(
             amount_of_elements,
@@ -185,7 +186,7 @@ class FrameworkBuilder:
 
     # Raises: ComponentError()
     @staticmethod
-    def _parse_components(visual_global):
+    def _parse_components(override_visual):
         if "components" not in FrameworkBuilder.framework_dict:
             component_map = {}
         else:
@@ -212,7 +213,8 @@ class FrameworkBuilder:
                 component_name = component_file.split(".")[0]
                 spec = importlib.util.spec_from_file_location(component_name, component_path)
                 if spec is None:
-                    logging.error(f"Could not create module specification [ {component_name} ] from file [ {component_path} ].")
+                    logging.error(
+                        f"Could not create module specification [ {component_name} ] from file [ {component_path} ].")
                     raise ComponentsSpecificationError()
                 try:
                     component_module = importlib.util.module_from_spec(spec)
@@ -237,54 +239,56 @@ class FrameworkBuilder:
                         f"Component class [ {class_name} ] not found in module [ {component_name} ].")
                     raise ComponentsSpecificationError()
                 # Component class was correctly loaded
-                # Check whether component has visual features or not
+                # Check whether visual capability has been overridden, whether it should be used according
+                # to the global visual attribute and whether the components own visual attribute is set or not.
+                # Note: if there is no global visual attribute, visual capability is blocked.
                 if issubclass(component_class, VisualComponent):
-                    # The component has visual features
-                    if "visual_component_file" in component and "visual_component_name" in component:
-# Corregir desde acá
-                        # Determine full class path for visual component
-                        if "visual_component_path" in component:
-                            absolute_visual_component_path = os.path.abspath(component["visual_component_path"])
-                        else:
-                            absolute_visual_component_path = absolute_general_components_path
-                        visual_component_path = absolute_visual_component_path + "/" + component["visual_component_file"]
-                        visual_component_name = component["visual_component_file"].split(".")[0]
-                        spec = importlib.util.spec_from_file_location(visual_component_name, visual_component_path)
-                        if spec is None:
-                            logging.error(
-                                f"Could not create module specification [ {visual_component_name} ] from file [ {visual_component_path} ].")
-                            raise ComponentsSpecificationError()
-                        try:
-                            visual_component_module = importlib.util.module_from_spec(spec)
-                        except ModuleNotFoundError:
-                            logging.error(f"Module for visual component for component [ {device_name} ] not found.")
-                            raise ComponentsSpecificationError()
-                        except ImportError:
-                            logging.error(f"Error importing module for visual component for component [ {device_name} ].")
-                            raise ComponentsSpecificationError()
-                        # Load the module for component
-                        spec.loader.exec_module(visual_component_module)
-                        visual_component_class_name = component["visual_component_name"]
-                        # Obtain the class from the module
-                        try:
-                            visual_component_class = getattr(visual_component_module, visual_component_class_name)
-                        except AttributeError:
-                            logging.error(
-                                f"Visual component class [ {visual_component_class_name} ] not found in module [ {visual_component_name} ].")
-                            raise ComponentsSpecificationError()
-                        if visual_global:
-                            # Determine whether the component will execute with the associated visual feature
-                            try:
-                                visual = component["visual"]
-                            except KeyError:
-                                component_map[device_name] = component_class(visual_component_class, False)
-                            else:
-                                component_map[device_name] = component_class(visual_component_class, visual)
-                        else:
-                            component_map[device_name] = component_class(visual_component_class, False)
-                    else:
-                        logging.error(f"Visual component specification for [ {device_name} ] missing.")
+                    if ("visual_component_file" not in component or
+                        "visual_component_name" not in component):
+                        logging.error(f"Visual component for component [ {component_name} ] missing.")
                         raise ComponentsSpecificationError()
+                    # Information is present so, determine full class path for visual component
+                    if "visual_component_path" in component:
+                        absolute_visual_component_path = os.path.abspath(component["visual_component_path"])
+                    else:
+                        absolute_visual_component_path = absolute_general_components_path
+                    visual_component_path = absolute_visual_component_path + "/" + component[
+                        "visual_component_file"]
+                    visual_component_name = component["visual_component_file"].split(".")[0]
+                    spec = importlib.util.spec_from_file_location(visual_component_name, visual_component_path)
+                    if spec is None:
+                        logging.error(
+                            f"Could not create module specification [ {visual_component_name} ] from file [ {visual_component_path} ].")
+                        raise ComponentsSpecificationError()
+                    try:
+                        visual_component_module = importlib.util.module_from_spec(spec)
+                    except ModuleNotFoundError:
+                        logging.error(f"Module for visual component for component [ {device_name} ] not found.")
+                        raise ComponentsSpecificationError()
+                    except ImportError:
+                        logging.error(
+                            f"Error importing module for visual component for component [ {device_name} ].")
+                        raise ComponentsSpecificationError()
+                    # Load the module for component
+                    spec.loader.exec_module(visual_component_module)
+                    visual_component_class_name = component["visual_component_name"]
+                    # Obtain the class from the module
+                    try:
+                        visual_component_class = getattr(visual_component_module, visual_component_class_name)
+                    except AttributeError:
+                        logging.error(
+                            f"Visual component class [ {visual_component_class_name} ] not found in module [ {visual_component_name} ].")
+                        raise ComponentsSpecificationError()
+                    if ((not override_visual) and
+                            ("visual" in FrameworkBuilder.framework_dict["components"] and
+                             FrameworkBuilder.framework_dict["components"]["visual"] is True) and
+                            ("visual" not in component or component["visual"] is True)):
+                        # The component has visual features and all conditions tu use it are set.
+                        component_map[device_name] = component_class(visual_component_class, True)
+                    else:
+                        # The component has visual features but either it is overridden globally (the tool is running
+                        # in command line mode) or the components local condition is set to false.
+                        component_map[device_name] = component_class(visual_component_class, False)
                 else:
                     component_map[device_name] = component_class()
         return component_map
@@ -393,7 +397,8 @@ class FrameworkBuilder:
                     properties.add(_property_from_str(prop["name"], prop["format"], prop["variables"],
                                                       prop["formula"]))
                 else:  # "file" in prop
-                    file_name = prop["file"] if prop["file"][0] == "/" or prop["file"][0] == "." else FrameworkBuilder.files_path + "/" + prop["file"]
+                    file_name = prop["file"] if prop["file"][0] == "/" or prop["file"][
+                        0] == "." else FrameworkBuilder.files_path + "/" + prop["file"]
                     # This operation might raise a PropertySpecificationError exception.
                     properties.add(_property_from_file(prop["name"], prop["format"], file_name))
         return properties

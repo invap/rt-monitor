@@ -29,7 +29,7 @@ class Component(ABC):
 
 
 class VisualComponent(Component):
-    def __init__(self, visual_component_class, visual):
+    def __init__(self, visual_component_class, visual = False):
         super().__init__()
         self._visual = visual
         self._visual_component_class = visual_component_class

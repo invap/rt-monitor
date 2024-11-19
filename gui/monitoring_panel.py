@@ -53,7 +53,7 @@ class MonitoringPanel(wx.Panel):
             self.Parent.monitor_configuration_panel.report_list_file_path_field.Value,
         )
         try:
-            self._monitor = monitor_builder.build_monitor(True)
+            self._monitor = monitor_builder.build_monitor(False)
         except FrameworkError:
             logging.error(f"Monitor construction failed due to a framework creation error.")
         except EventLogListError:

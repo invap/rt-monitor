@@ -26,7 +26,7 @@ class MonitorBuilder:
 
     # Raises: FrameworkError(), EventLogListError(), MonitorConstructionError()
     @staticmethod
-    def build_monitor(visual=False):
+    def build_monitor(visual=True):
         logging.info(f"Creating monitor with files: [ {MonitorBuilder.framework_file} ] and [ {MonitorBuilder.report_list_file} ].")
         framework_builder = FrameworkBuilder(MonitorBuilder.framework_file)
         try:

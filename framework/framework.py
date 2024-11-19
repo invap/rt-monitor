@@ -5,10 +5,9 @@
 
 class Framework:
     # Raises: FrameworkSpecificationError()
-    def __init__(self, process, components, visual):
+    def __init__(self, process, components):
         self._process = process
         self._components = components
-        self._visual = visual
 
     def components(self):
         return self._components
