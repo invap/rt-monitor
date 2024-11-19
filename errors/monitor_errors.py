@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 
-# Exceptions related to the construction of the analysis framework
 class FrameworkError(Exception):
     def __init__(self):
         super().__init__()
@@ -15,11 +14,6 @@ class EventLogListError(Exception):
 
 
 class UndeclaredComponentVariableError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class UnknownVariableClassError(Exception):
     def __init__(self):
         super().__init__()
 

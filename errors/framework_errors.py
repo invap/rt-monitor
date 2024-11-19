@@ -18,19 +18,6 @@ class ProcessSpecificationError(Exception):
         super().__init__()
 
 
-class UnsupportedNodeType(Exception):
-    def __init__(self, node_name, node_type):
-        super().__init__()
-        self._node_name = node_name
-        self._node_type = node_type
-
-    def node_name(self):
-        return self._node_name
-
-    def node_type(self):
-        return self._node_type
-
-
 class TaskSpecificationError(Exception):
     def __init__(self):
         super().__init__()
@@ -51,3 +38,6 @@ class PropertySpecificationError(Exception):
         super().__init__()
 
 
+class VariablesSpecificationError(Exception):
+    def __init__(self):
+        super().__init__()

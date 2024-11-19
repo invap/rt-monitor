@@ -13,8 +13,11 @@ from errors.framework_errors import (
     TaskSpecificationError,
     GlobalCheckpointSpecificationError,
     ProcessSpecificationError,
-    ComponentsSpecificationError, UnsupportedNodeType, PropertySpecificationError
+    ComponentsSpecificationError,
+    PropertySpecificationError,
+    VariablesSpecificationError
 )
+from errors.monitor_errors import UndeclaredComponentVariableError
 from framework.components.component import VisualComponent
 from framework.framework import Framework
 from framework.process.py_property import PyProperty
@@ -70,7 +73,7 @@ class FrameworkBuilder:
     def build_framework(visual_global):
         # Build analysis framework
         logging.info(f"Creating framework with file: {FrameworkBuilder.spec_file_name}.")
-        # Building process
+        # Building the process
         try:
             process = FrameworkBuilder._parse_process()
         except ProcessSpecificationError:
@@ -82,6 +85,12 @@ class FrameworkBuilder:
         except ComponentsSpecificationError:
             logging.error(f"Components definition error.")
             raise FrameworkSpecificationError()
+        # Check that component variables appearing in the process are declared in the components
+        for variable in process.variables():
+            if (process.variables()[variable][0] == "Component" and
+                    not any([variable in components[component].state() for component in components])):
+                logging.error(f"Variable [ {variable} ] not declared in any component.")
+                raise FrameworkSpecificationError()
         # There was no exception in building the framework.
         logging.info(f"Framework created.")
         return Framework(process, components, visual_global)
@@ -167,11 +176,8 @@ class FrameworkBuilder:
         try:
             variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements) if
                                                    not isinstance(ordered_nodes[node], Operator)])
-        except UnsupportedNodeType as e:
-            logging.error(f"Type [ {e.node_type()} ] of process node [ {e.node_name()} ] unknown.")
-            raise ProcessSpecificationError()
-        except PropertySpecificationError:
-            logging.error(f"Inconsistent variable declarations.")
+        except VariablesSpecificationError:
+            logging.error(f"Variables specification error.")
             raise ProcessSpecificationError()
         else:
             return Process(graph, starting_element, variables)
@@ -390,29 +396,42 @@ def _get_variables_from_nodes(nodes):
         if isinstance(node, Task):
             for formula in node.preconditions():
                 for variable in formula.variables():
+                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
+                        logging.error(
+                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
+                        raise VariablesSpecificationError()
                     if variable in variables and not variables[variable] == formula.variables()[variable]:
                         logging.error(
                             f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise PropertySpecificationError()
+                        raise VariablesSpecificationError()
                     variables[variable] = formula.variables()[variable]
             for formula in node.postconditions():
                 for variable in formula.variables():
+                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
+                        logging.error(
+                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
+                        raise VariablesSpecificationError()
                     if variable in variables and not variables[variable] == formula.variables()[variable]:
                         logging.error(
                             f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise PropertySpecificationError()
+                        raise VariablesSpecificationError()
                     variables[variable] = formula.variables()[variable]
             for checkpoint in node.checkpoints():
                 for formula in checkpoint.properties():
                     for variable in formula.variables():
+                        if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
+                            logging.error(
+                                f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
+                            raise VariablesSpecificationError()
                         if variable in variables and not variables[variable] == formula.variables()[variable]:
                             logging.error(
                                 f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                            raise PropertySpecificationError()
+                            raise VariablesSpecificationError()
                         variables[variable] = formula.variables()[variable]
         elif isinstance(node, Checkpoint):
             for formula in node.properties():
                 variables.update(formula.variables())
         else:
-            raise UnsupportedNodeType(node.name(), node.type())
+            # Nodes have already been checked for being of type Task of Checkpoint.
+            pass
     return variables

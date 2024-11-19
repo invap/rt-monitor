@@ -14,7 +14,6 @@ from logging_configuration import (
     _configure_logging_destination,
     _configure_logging_level
 )
-from monitor import Monitor
 from monitor_builder import MonitorBuilder
 
 

@@ -17,7 +17,6 @@ from logging_configuration import (
     _configure_logging_destination,
     _configure_logging_level
 )
-from monitor import Monitor
 from monitor_builder import MonitorBuilder
 
 
@@ -177,9 +176,9 @@ def main():
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     except EventLogListError:
-        logging.critical(f"Runtime monitoring process ABORTED..")
+        logging.critical(f"Runtime monitoring process ABORTED.")
     except MonitorConstructionError:
-        logging.critical(f"Runtime monitoring process ABORTED..")
+        logging.critical(f"Runtime monitoring process ABORTED.")
     else:
         # Events setup for managing the running mode.
         pause_event.set()

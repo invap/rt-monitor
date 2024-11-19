@@ -17,8 +17,6 @@ from errors.component_errors import FunctionNotImplementedError
 from errors.evaluator_errors import BuildSpecificationError
 from errors.event_decoder_errors import InvalidEvent
 from errors.monitor_errors import (
-    UndeclaredComponentVariableError,
-    UnknownVariableClassError,
     UndeclaredVariableError,
     TaskDoesNotExistError,
     CheckpointDoesNotExistError,
@@ -41,12 +39,11 @@ class Monitor(threading.Thread):
     TASK_FINISHED_SUFFIX = "_finished"
     CHECKPOINT_REACHED_SUFFIX = "_reached"
 
-    # Raises: UndeclaredComponentVariableError(), UnknownVariableClassError()
     def __init__(self, framework, reports_map):
         super().__init__()
         # Analysis framework
         self._framework = framework
-        # revent reports
+        # Event reports map
         self._reports_map = reports_map
         # Events for controlling the execution of the monitor (TBS by set_events)
         self._pause_event = None
@@ -69,20 +66,18 @@ class Monitor(threading.Thread):
                 case "State":
                     self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue)
                 case "Component":
-                    # check whether all component variables appearing in the formulas in the process
-                    if not any([variable in self._framework.components()[component].state() for component in
-                                self._framework.components()]):
-                        logging.error(f"Variable [ {variable} ] not declared in any component.")
-                        raise UndeclaredComponentVariableError()
+                    # There is nothing to do here; the existence of the variables mentioned in the process in any of
+                    # the declared components is checked at the momento of creation of the framework.
+                    pass
                 case "Clock":
                     self._timed_state[variable] = (
                         self._framework.process().variables()[variable][1], Clock(variable)
                     )
                 case _:
-                    logging.error(
-                        f"Variables class [ {self._framework.process().variables()[variable][0]} ] unsupported.")
-                    raise UnknownVariableClassError()
-        # Formula evaluator
+                    # There is nothing to do here; variables have already been checked for being of one of the right
+                    # types when building the analysis framework.
+                    pass
+        # Build formula evaluator
         self._evaluator = Evaluator(
             self._framework.components(),
             self._process_state,

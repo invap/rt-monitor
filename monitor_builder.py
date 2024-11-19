@@ -5,14 +5,14 @@
 import logging
 import toml
 
+from framework.components.component import SelfLoggingComponent
 from framework.framework_builder import FrameworkBuilder
 from errors.framework_errors import FrameworkSpecificationError
 from monitor import Monitor
 from errors.monitor_errors import (
     FrameworkError,
-    UndeclaredComponentVariableError,
-    MonitorConstructionError,
-    UnknownVariableClassError, EventLogListError
+    EventLogListError,
+    MonitorConstructionError
 )
 
 
@@ -36,14 +36,20 @@ class MonitorBuilder:
             raise FrameworkError()
         # Exception EventLogListError() is propagated
         reports_map = MonitorBuilder._build_reports_map()
+        # Check that names of components and names of event reports coincide.
+        for report_key in reports_map.keys():
+            if (report_key != "main" and
+                    not any(report_key == component_key for component_key in framework.components().keys())):
+                logging.info(f"Missing component [ {report_key} ] in [ {MonitorBuilder.framework_file} ].")
+                raise MonitorConstructionError()
+        for component_key in framework.components().keys():
+            if (isinstance(framework.components()[component_key], SelfLoggingComponent) and
+                    not any(component_key == report_key for report_key in reports_map.keys())):
+                logging.info(f"Missing event report for component [ {component_key} ] in [ {MonitorBuilder.report_list_file} ].")
+                raise MonitorConstructionError()
         # Build monitor
         logging.info(f"Creating monitor...")
-        try:
-            monitor = Monitor(framework, reports_map)
-        except UndeclaredComponentVariableError:
-            raise MonitorConstructionError()
-        except UnknownVariableClassError:
-            raise MonitorConstructionError()
+        monitor = Monitor(framework, reports_map)
         logging.info(f"Monitor created.")
         return monitor
 
