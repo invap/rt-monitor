@@ -93,7 +93,9 @@ class adc(VisualComponent, SelfLoggingComponent):
         log_file.seek(current_pos)
 
     def _process_event(self, event):
-        self._adc_read = event[0]
+        self._adc_read = int(event[0])
+        self.__total_values_read += 1
+        self.__current_value = int(event[0])
 
     def stop(self):
         if self._visual:

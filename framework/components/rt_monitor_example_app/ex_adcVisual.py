@@ -52,7 +52,7 @@ class adcVisual(wx.Frame):
         )
         counter_display_sizer.AddStretchSpacer()
         self.counter_display_number = wx.StaticText(
-            self, label="0", style=wx.ALIGN_RIGHT
+            self, label=self._counter_value(), style=wx.ALIGN_RIGHT
         )
         self._set_up_display(self.counter_display_number, counter_display_sizer)
         self.sizer.Add(counter_display_sizer, 0, wx.EXPAND)
@@ -68,7 +68,7 @@ class adcVisual(wx.Frame):
         )
         value_display_sizer.AddStretchSpacer()
         self.measured_value_display = wx.StaticText(
-            self, label="0", style=wx.ALIGN_RIGHT
+            self, label=self._measured_value(), style=wx.ALIGN_RIGHT
         )
         self._set_up_display(
             self.measured_value_display, value_display_sizer, adcVisual._blue()
@@ -77,7 +77,7 @@ class adcVisual(wx.Frame):
 
     def _set_up_binary_value_display(self):
         self.measured_binary_value_display = wx.StaticText(
-            self, label="0", style=wx.ALIGN_RIGHT
+            self, label=self._measured_binary_value(), style=wx.ALIGN_RIGHT
         )
         self._set_up_display(
             self.measured_binary_value_display, self.sizer, maximum_digits=25
