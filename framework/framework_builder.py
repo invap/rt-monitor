@@ -2,8 +2,10 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import importlib
+import importlib.util
 import logging
+import os
+
 import toml
 from igraph import Graph
 
@@ -17,7 +19,6 @@ from errors.framework_errors import (
     PropertySpecificationError,
     VariablesSpecificationError
 )
-from errors.monitor_errors import UndeclaredComponentVariableError
 from framework.components.component import VisualComponent
 from framework.framework import Framework
 from framework.process.py_property import PyProperty
@@ -188,26 +189,52 @@ class FrameworkBuilder:
         if "components" not in FrameworkBuilder.framework_dict:
             component_map = {}
         else:
-            component_dict = FrameworkBuilder.framework_dict["components"]
+            # Determine general path for components
+            general_components_path = "."
+            if "location" in FrameworkBuilder.framework_dict["components"]:
+                general_components_path = FrameworkBuilder.framework_dict["components"]["location"]
+            absolute_general_components_path = os.path.abspath(general_components_path)
+            component_dict = FrameworkBuilder.framework_dict["components"]["list"]
             component_map = {}
             for component in component_dict:
                 device_name = component["name"]
-                # Extract component class
-                component_class_path = component["component"]
-                split_component_class_path = component_class_path.rsplit(".", 1)
+                # Determine full class path for component
+                if "component_path" in component:
+                    absolute_component_path = os.path.abspath(component["component_path"])
+                else:
+                    absolute_component_path = absolute_general_components_path
                 try:
-                    component_module = importlib.import_module(split_component_class_path[0])
+                    component_file = component["component_file"]
+                except KeyError:
+                    logging.error(f"Component file attribute missing in component [ {device_name} ] specification.")
+                    raise ComponentsSpecificationError()
+                component_path = absolute_component_path + "/" + component_file
+                component_name = component_file.split(".")[0]
+                spec = importlib.util.spec_from_file_location(component_name, component_path)
+                if spec is None:
+                    logging.error(f"Could not create module specification [ {component_name} ] from file [ {component_path} ].")
+                    raise ComponentsSpecificationError()
+                try:
+                    component_module = importlib.util.module_from_spec(spec)
                 except ModuleNotFoundError:
-                    logging.error(f"Module [ {split_component_class_path[0]} ] not found.")
+                    logging.error(f"Module for component [ {device_name} ] not found.")
                     raise ComponentsSpecificationError()
                 except ImportError:
-                    logging.error(f"Error importing module [ {split_component_class_path[0]} ].")
+                    logging.error(f"Error importing module for component [ {device_name} ].")
                     raise ComponentsSpecificationError()
+                # Load the module for component
+                spec.loader.exec_module(component_module)
                 try:
-                    component_class = getattr(component_module, split_component_class_path[1])
+                    class_name = component["component_name"]
+                except KeyError:
+                    logging.error(f"Component name attribute missing in component [ {device_name} ] specification.")
+                    raise ComponentsSpecificationError()
+                # Obtain the class from the module
+                try:
+                    component_class = getattr(component_module, class_name)
                 except AttributeError:
                     logging.error(
-                        f"Component class [ {split_component_class_path[1]} ] not found in module [ {split_component_class_path[0]} ].")
+                        f"Component class [ {class_name} ] not found in module [ {component_name} ].")
                     raise ComponentsSpecificationError()
                 # Component class was correctly loaded
                 # Check whether component has visual features or not
