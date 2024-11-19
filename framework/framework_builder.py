@@ -240,22 +240,37 @@ class FrameworkBuilder:
                 # Check whether component has visual features or not
                 if issubclass(component_class, VisualComponent):
                     # The component has visual features
-                    if "visual_component" in component:
-                        # Extract component class
-                        visual_component_class_path = component["visual_component"]
-                        split_visual_component_class_path = visual_component_class_path.rsplit(".", 1)
+                    if "visual_component_file" in component and "visual_component_name" in component:
+# Corregir desde acá
+                        # Determine full class path for visual component
+                        if "visual_component_path" in component:
+                            absolute_visual_component_path = os.path.abspath(component["visual_component_path"])
+                        else:
+                            absolute_visual_component_path = absolute_general_components_path
+                        visual_component_path = absolute_visual_component_path + "/" + component["visual_component_file"]
+                        visual_component_name = component["visual_component_file"].split(".")[0]
+                        spec = importlib.util.spec_from_file_location(visual_component_name, visual_component_path)
+                        if spec is None:
+                            logging.error(
+                                f"Could not create module specification [ {visual_component_name} ] from file [ {visual_component_path} ].")
+                            raise ComponentsSpecificationError()
                         try:
-                            component_module = importlib.import_module(split_visual_component_class_path[0])
+                            visual_component_module = importlib.util.module_from_spec(spec)
                         except ModuleNotFoundError:
-                            logging.error(f"Module [ {split_visual_component_class_path[0]} ] not found.")
+                            logging.error(f"Module for visual component for component [ {device_name} ] not found.")
                             raise ComponentsSpecificationError()
                         except ImportError:
-                            logging.error(f"Error importing module [ {split_visual_component_class_path[0]} ].")
+                            logging.error(f"Error importing module for visual component for component [ {device_name} ].")
                             raise ComponentsSpecificationError()
+                        # Load the module for component
+                        spec.loader.exec_module(visual_component_module)
+                        visual_component_class_name = component["visual_component_name"]
+                        # Obtain the class from the module
                         try:
-                            visual_component_class = getattr(component_module, split_visual_component_class_path[1])
+                            visual_component_class = getattr(visual_component_module, visual_component_class_name)
                         except AttributeError:
-                            logging.error(f"Component class [ {split_visual_component_class_path[1]} ] not found in module [ {split_visual_component_class_path[0]} ].")
+                            logging.error(
+                                f"Visual component class [ {visual_component_class_name} ] not found in module [ {visual_component_name} ].")
                             raise ComponentsSpecificationError()
                         if visual_global:
                             # Determine whether the component will execute with the associated visual feature
