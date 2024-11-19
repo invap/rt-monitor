@@ -15,6 +15,7 @@ from logging_configuration import (
     _configure_logging_level
 )
 from monitor import Monitor
+from monitor_builder import MonitorBuilder
 
 
 class MonitoringPanel(wx.Panel):
@@ -48,14 +49,12 @@ class MonitoringPanel(wx.Panel):
         _configure_logging_destination(self.Parent.logging_destination())
         _configure_logging_level(self.Parent.logging_verbosity())
         # Create the Monitor
+        monitor_builder = MonitorBuilder(
+            self.Parent.monitor_configuration_panel.framework_file_path_field.Value,
+            self.Parent.monitor_configuration_panel.report_list_file_path_field.Value,
+        )
         try:
-            self._monitor = (
-                Monitor.new_from_files(
-                    self.Parent.monitor_configuration_panel.framework_file_path_field.Value,
-                    self.Parent.monitor_configuration_panel.report_list_file_path_field.Value,
-                    True
-                )
-            )
+            self._monitor = monitor_builder.build_monitor(True)
         except FrameworkError:
             logging.error(f"Monitor construction failed due to a framework creation error.")
         except EventLogListError:

@@ -18,6 +18,7 @@ from logging_configuration import (
     _configure_logging_level
 )
 from monitor import Monitor
+from monitor_builder import MonitorBuilder
 
 
 class AnalysisStatus(Enum):
@@ -169,9 +170,10 @@ def main():
     _set_up_logging()
     _configure_logging_destination(logging_destination)
     _configure_logging_level(logging_level)
-    # Create the Monitor.
+    # Create the Monitor
+    monitor_builder = MonitorBuilder(argument_map["framework"], argument_map["reports"])
     try:
-        monitor = Monitor.new_from_files(argument_map["framework"], argument_map["reports"], False)
+        monitor = monitor_builder.build_monitor(False)
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     except EventLogListError:

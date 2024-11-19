@@ -5,9 +5,6 @@
 import logging
 import threading
 
-import toml
-from toml.decoder import TomlDecodeError
-
 from errors.clock_errors import (
     ClockError,
     UndeclaredClockError,
@@ -19,21 +16,16 @@ from errors.clock_errors import (
 from errors.component_errors import FunctionNotImplementedError
 from errors.evaluator_errors import BuildSpecificationError
 from errors.event_decoder_errors import InvalidEvent
-from errors.framework_errors import FrameworkSpecificationError
 from errors.monitor_errors import (
-    FrameworkError,
-    EventLogListError,
     UndeclaredComponentVariableError,
     UnknownVariableClassError,
     UndeclaredVariableError,
-    MonitorConstructionError,
     TaskDoesNotExistError,
     CheckpointDoesNotExistError,
     AbortRun,
     ComponentDoesNotExistError,
     ComponentError
 )
-from framework.process.framework import Framework
 from logging_configuration import LoggingLevel
 from framework.clock import Clock
 from reporting.event_decoder import EventDecoder
@@ -107,63 +99,6 @@ class Monitor(threading.Thread):
         self._stop_event = stop_event
         self._has_stopped_event = has_stoped_event
 
-    # Raises: FrameworkError(), EventLogListError(), MonitorConstructionError()
-    @staticmethod
-    def new_from_files(framework_file, report_list_file, visual=False):
-        logging.info(f"Creating monitor with files: [ {framework_file} ] and [ {report_list_file} ].")
-        try:
-            framework = Framework.new_from_files(framework_file, visual)
-        except FrameworkSpecificationError:
-            logging.error(f"Error creating framework.")
-            raise FrameworkError()
-        # Exception EventLogListError() is propagated
-        reports_map = Monitor._build_reports_map(report_list_file)
-        # Build monitor
-        logging.info(f"Creating monitor...")
-        try:
-            monitor = Monitor(framework, reports_map)
-        except UndeclaredComponentVariableError:
-            raise MonitorConstructionError()
-        except UnknownVariableClassError:
-            raise MonitorConstructionError()
-        logging.info(f"Monitor created.")
-        return monitor
-
-    @staticmethod
-    def _build_reports_map (report_list_file):
-        # Build report list map
-        reports_map = {}
-        logging.info(f"Loading event report list from file: {report_list_file}...")
-        try:
-            toml_reports_map = toml.load(report_list_file)
-        except FileNotFoundError:
-            logging.error(f"Event report list file [ {report_list_file} ] not found.")
-            raise EventLogListError()
-        except TomlDecodeError as e:
-            logging.error(f"TOML decoding of file [ {report_list_file} ] failed in [ line {e.lineno}, column {e.colno} ].")
-            raise EventLogListError()
-        except PermissionError:
-            logging.error(f"Permissions error opening file [ {report_list_file} ].")
-            raise EventLogListError()
-        if len(toml_reports_map.keys()) > 1 or "event_reports" not in toml_reports_map:
-            logging.error(f"Event report list file format error.")
-            raise EventLogListError()
-        for event_report in toml_reports_map["event_reports"]:
-            report_name = event_report["name"]
-            report_filename = event_report["file"]
-            logging.info(f"\tLoading event report for component [ {report_name} ] from file [ {report_filename} ].")
-            try:
-                reports_map[report_name] = open(report_filename, "r")
-            except FileNotFoundError:
-                logging.error(f"Event report file [ {report_filename} ] not found.")
-                raise EventLogListError()
-        if "main" not in reports_map:
-            logging.error(f"Main event report file not found.")
-            raise EventLogListError()
-        # There was no problem building the event log map.
-        logging.info(f"Event report list loaded")
-        return reports_map
-
     # Raises: AbortRun()
     def run(self):
         is_a_valid_report = True
@@ -176,7 +111,7 @@ class Monitor(threading.Thread):
                 raise AbortRun()
             logging.info(f"Processing: {decoded_event.serialized()}")
             mark = decoded_event.time()
-            # Process the events of all self-logged components until time mark of the next event.
+            # Process the events of all self-logging components until time mark of the next event.
             for component in self._reports_map:
                 if not component == "main":
                     logging.info(f"Processing log for self-logging component: {component}")
@@ -227,7 +162,7 @@ class Monitor(threading.Thread):
                         f"[ {decoded_event.serialized()} ]"
                     )
                     break
-        self._framework.stop_components_monitoring()
+        self._framework.stop_components()
         # Log the result of when the verification finishes.
         if self._stop_event.is_set():
             if not is_a_valid_report:
