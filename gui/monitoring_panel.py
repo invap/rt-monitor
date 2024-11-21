@@ -151,6 +151,8 @@ class MonitoringPanel(wx.Panel):
         process_thread.join()
         # Change analysis status.
         self._analysis_process_status = MonitoringPanel.AnalysisStatus.NOT_RUNNING
+        # Stop components after correctly running
+        self._monitor.stop_components()
         # Update visual interface according to STOPPED or FINISHED.
         self._enable_logging_configuration_components()
         self.show_multi_action_button_as_start()

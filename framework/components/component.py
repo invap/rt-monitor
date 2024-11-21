@@ -4,6 +4,7 @@
 
 from abc import ABC, abstractmethod
 
+
 class Component(ABC):
     def __init__(self):
         pass
@@ -28,8 +29,8 @@ class Component(ABC):
         raise NotImplementedError
 
 
-class VisualComponent(Component):
-    def __init__(self, visual_component_class, visual = False):
+class VisualComponent(Component, ABC):
+    def __init__(self, visual_component_class, visual=False):
         super().__init__()
         self._visual = visual
         self._visual_component_class = visual_component_class

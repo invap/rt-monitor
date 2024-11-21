@@ -35,17 +35,26 @@ class MonitorBuilder:
             logging.error(f"Error creating framework.")
             raise FrameworkError()
         # Exception EventLogListError() is propagated
-        reports_map = MonitorBuilder._build_reports_map()
+        try:
+            reports_map = MonitorBuilder._build_reports_map()
+        except EventLogListError:
+            # Stop components after correctly building the framework but failing to build the Event Log map.
+            framework.stop_components()
+            raise EventLogListError()
         # Check that names of components and names of event reports coincide.
         for report_key in reports_map.keys():
             if (report_key != "main" and
                     not any(report_key == component_key for component_key in framework.components().keys())):
                 logging.info(f"Missing component [ {report_key} ] in [ {MonitorBuilder.framework_file} ].")
+                # Stop components after correctly building the framework but failing to build the Monitor.
+                framework.stop_components()
                 raise MonitorConstructionError()
         for component_key in framework.components().keys():
             if (isinstance(framework.components()[component_key], SelfLoggingComponent) and
                     not any(component_key == report_key for report_key in reports_map.keys())):
                 logging.info(f"Missing event report for component [ {component_key} ] in [ {MonitorBuilder.report_list_file} ].")
+                # Stop components after correctly building the framework but failing to build the Monitor.
+                framework.stop_components()
                 raise MonitorConstructionError()
         # Build monitor
         logging.info(f"Creating monitor...")

@@ -94,6 +94,9 @@ class Monitor(threading.Thread):
         self._stop_event = stop_event
         self._has_stopped_event = has_stoped_event
 
+    def stop_components(self):
+        self._framework.stop_components()
+
     # Raises: AbortRun()
     def run(self):
         is_a_valid_report = True

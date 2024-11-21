@@ -225,7 +225,11 @@ class FrameworkBuilder:
                     logging.error(f"Error importing module for component [ {device_name} ].")
                     raise ComponentsSpecificationError()
                 # Load the module for component
-                spec.loader.exec_module(component_module)
+                try:
+                    spec.loader.exec_module(component_module)
+                except FileNotFoundError:
+                    logging.error(f"Module for component [ {device_name} ] not found.")
+                    raise ComponentsSpecificationError()
                 try:
                     class_name = component["component_name"]
                 except KeyError:
@@ -244,7 +248,7 @@ class FrameworkBuilder:
                 # Note: if there is no global visual attribute, visual capability is blocked.
                 if issubclass(component_class, VisualComponent):
                     if ("visual_component_file" not in component or
-                        "visual_component_name" not in component):
+                            "visual_component_name" not in component):
                         logging.error(f"Visual component for component [ {component_name} ] missing.")
                         raise ComponentsSpecificationError()
                     # Information is present so, determine full class path for visual component

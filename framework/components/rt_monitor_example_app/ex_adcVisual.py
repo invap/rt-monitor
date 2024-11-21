@@ -15,7 +15,7 @@ class adcVisual(wx.Frame):
 
     def close(self):
         self.timer.Stop()
-        self.Hide()
+        self.Destroy()
 
     def on_timer(self):
         self.counter_display_number.SetLabel(self._counter_value())

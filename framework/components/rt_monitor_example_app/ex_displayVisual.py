@@ -21,7 +21,7 @@ class displayVisual(wx.Frame):
 
     def close(self):
         self.timer.Stop()
-        self.Hide()
+        self.Destroy()
 
     def on_timer(self):
         self.Refresh()
