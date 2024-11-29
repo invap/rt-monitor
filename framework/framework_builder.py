@@ -401,8 +401,9 @@ class FrameworkBuilder:
                     properties.add(_property_from_str(prop["name"], prop["format"], prop["variables"],
                                                       prop["formula"]))
                 else:  # "file" in prop
-                    file_name = prop["file"] if prop["file"][0] == "/" or prop["file"][
-                        0] == "." else FrameworkBuilder.files_path + "/" + prop["file"]
+                    file_name = prop["file"] \
+                        if prop["file"][0] == "/" or prop["file"][0] == "." \
+                        else FrameworkBuilder.files_path + prop["file"]
                     # This operation might raise a PropertySpecificationError exception.
                     properties.add(_property_from_file(prop["name"], prop["format"], file_name))
         return properties
