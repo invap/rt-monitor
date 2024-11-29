@@ -11,8 +11,8 @@ class PyProperty(Property):
 
     @staticmethod
     def property_from_file(property_name, file_name):
-        variables, spec = Property.preproperty_from_file(file_name)
-        return PyProperty(property_name, variables, spec, file_name)
+        variables, formula = Property.preproperty_from_file(file_name)
+        return PyProperty(property_name, variables, formula, file_name)
 
     @staticmethod
     def property_from_str(property_name, property_variables, property_formula):
