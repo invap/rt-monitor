@@ -13,10 +13,6 @@ class adcVisual(wx.Frame):
         self.timer = wx.CallLater(50, self.on_timer)
         self.Show()
 
-    def close(self):
-        self.timer.Stop()
-        self.Destroy()
-
     def on_timer(self):
         self.counter_display_number.SetLabel(self._counter_value())
         self.measured_value_display.SetLabel(self._measured_value())

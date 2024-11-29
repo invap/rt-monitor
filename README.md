@@ -259,9 +259,11 @@ Write.
 
 ---
 
-### Self-loggables software components
+### Self-logging software components
 
 ---
+
+Remember to say that if the toml file providing the event logs list includes a certain component (for example, the adc in Example app) the event log file referenced in the toml file has to have the same component name as the component declared in the analysis framework specification
 
 Write.
 
@@ -280,6 +282,10 @@ Write.
 
 ---
 
+
+By default, the files are expected to be found in the location designated by the attribute `working_directory`. If such attribute is not present, then the path of the analysis framework specification is used instead. Nonetheless, if the `file` attribute of a property is specifies by a string starting with `/` of `.`, the path section of the value of the attribute (i.e., the substring starting at position 0 and ending right before the last occurrence of `/`) overrides the default.
+
+Components have a general path and specific paths for components. If the specific path is not preset, the general one is used. If both are missing the component is assumed to be in the directory from with the tool was launched ".".
 Write.
 
 ---

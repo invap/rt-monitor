@@ -8,7 +8,7 @@ from enum import Enum, auto
 
 import wx
 
-from errors.monitor_errors import FrameworkError, EventLogListError, MonitorConstructionError, AbortRun
+from errors.monitor_errors import FrameworkError, EventLogListError, MonitorConstructionError
 from logging_configuration import (
     _set_up_logging,
     _configure_logging_destination,
@@ -86,10 +86,7 @@ class MonitoringPanel(wx.Panel):
             self._show_multi_action_button_as_pause()
             self._enable_stop_button()
             self._start_timer()
-            try:
-                application_thread.start()
-            except AbortRun():
-                logging.critical(f"Runtime verification process ABORTED.")
+            application_thread.start()
 
     def on_pause(self, event):
         if self._analysis_process_status == MonitoringPanel.AnalysisStatus.RUNNING:

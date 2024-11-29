@@ -23,12 +23,6 @@ class MonitorConstructionError(Exception):
         super().__init__()
 
 
-# Exceptions related to the analysis process
-class AbortRun(Exception):
-    def __init__(self):
-        super().__init__()
-
-
 # Variable exceptions
 class UndeclaredVariableError(Exception):
     def __init__(self):

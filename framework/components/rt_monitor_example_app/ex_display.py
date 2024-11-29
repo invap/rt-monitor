@@ -601,8 +601,8 @@ class display(VisualComponent):
     def stop(self):
         if self._visual:
             # Closes the visualization features associated.
-            self._visual_component.close()
-
+            self._visual_component.timer.Stop()
+            self._visual_component.Hide()
 
 class Font6_8:
     def __init__(self):

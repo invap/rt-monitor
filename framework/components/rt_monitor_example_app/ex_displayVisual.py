@@ -19,10 +19,6 @@ class displayVisual(wx.Frame):
         self.timer = wx.CallLater(50, self.on_timer)
         self.Show()
 
-    def close(self):
-        self.timer.Stop()
-        self.Destroy()
-
     def on_timer(self):
         self.Refresh()
         self.Update()

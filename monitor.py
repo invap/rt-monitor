@@ -20,7 +20,6 @@ from errors.monitor_errors import (
     UndeclaredVariableError,
     TaskDoesNotExistError,
     CheckpointDoesNotExistError,
-    AbortRun,
     ComponentDoesNotExistError,
     ComponentError
 )
@@ -100,76 +99,93 @@ class Monitor(threading.Thread):
     # Raises: AbortRun()
     def run(self):
         is_a_valid_report = True
+        abort = False
         for line in self._reports_map["main"]:
             # Decode next event.
             try:
                 decoded_event = EventDecoder.decode(line.strip())
             except InvalidEvent as e:
                 logging.critical(f"Invalid event [ {e.event().serialized()} ].")
-                raise AbortRun()
-            logging.info(f"Processing: {decoded_event.serialized()}")
-            mark = decoded_event.time()
-            # Process the events of all self-logging components until time mark of the next event.
-            for component in self._reports_map:
-                if not component == "main":
-                    logging.info(f"Processing log for self-logging component: {component}")
-                    self._framework.components()[component].process_log(self._reports_map[component], mark)
-            # Process main event.
-            try:
-                is_a_valid_report = decoded_event.process_with(self)
-            # Execution state related exceptions.
-            except UndeclaredVariableError:
-                logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                raise AbortRun()
-            # Clock related exceptions.
-            except ClockError:
-                logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                raise AbortRun()
-            # Task related exceptions.
-            except TaskDoesNotExistError:
-                logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                raise AbortRun()
-            # Checkpoint related exceptions.
-            except CheckpointDoesNotExistError:
-                logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                raise AbortRun()
-            # Component related exceptions.
-            except ComponentDoesNotExistError:
-                logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                raise AbortRun()
-            except ComponentError:
-                logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                raise AbortRun()
+                abort = True
+                break
             else:
-                # Thread control.
-                if not self._pause_event.is_set():
-                    # Notifies that the analysis has gracefully paused.
-                    self._has_paused_event.clear()
-                    self._pause_event.wait()
-                    self._has_paused_event.set()
-                if not self._stop_event.is_set():
-                    # Notifies that the analysis has gracefully stopped.
-                    self._has_stopped_event.clear()
+                logging.info(f"Processing: {decoded_event.serialized()}")
+                mark = decoded_event.time()
+                # Process the events of all self-logging components until time mark of the next event.
+                for component in self._reports_map:
+                    if not component == "main":
+                        logging.info(f"Processing log for self-logging component: {component}")
+                        self._framework.components()[component].process_log(self._reports_map[component], mark)
+                # Process main event.
+                try:
+                    is_a_valid_report = decoded_event.process_with(self)
+                # Evaluation related exceptions.
+                except BuildSpecificationError:
+                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
                     break
-                # There was no exception in processing the event.
-                self._amount_of_processed_events = self._amount_of_processed_events + 1
-                # Action if the event cause the verification to fail.
-                if not is_a_valid_report:
-                    logging.info(
-                        f"The following event caused the verification to fail: "
-                        f"[ {decoded_event.serialized()} ]"
-                    )
+                # Execution state related exceptions.
+                except UndeclaredVariableError:
+                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
                     break
+                # Clock related exceptions.
+                except ClockError:
+                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
+                    break
+                # Task related exceptions.
+                except TaskDoesNotExistError:
+                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
+                    break
+                # Checkpoint related exceptions.
+                except CheckpointDoesNotExistError:
+                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
+                    break
+                # Component related exceptions.
+                except ComponentDoesNotExistError:
+                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
+                    break
+                except ComponentError:
+                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
+                    break
+                else:
+                    # Thread control.
+                    if not self._pause_event.is_set():
+                        # Notifies that the analysis has gracefully paused.
+                        self._has_paused_event.clear()
+                        self._pause_event.wait()
+                        self._has_paused_event.set()
+                    if not self._stop_event.is_set():
+                        # Notifies that the analysis has gracefully stopped.
+                        self._has_stopped_event.clear()
+                        break
+                    # There was no exception in processing the event.
+                    self._amount_of_processed_events = self._amount_of_processed_events + 1
+                    # Action if the event cause the verification to fail.
+                    if not is_a_valid_report:
+                        logging.info(
+                            f"The following event caused the verification to fail: "
+                            f"[ {decoded_event.serialized()} ]"
+                        )
+                        break
         self._framework.stop_components()
         # Log the result of when the verification finishes.
-        if self._stop_event.is_set():
-            if not is_a_valid_report:
-                logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
-            else:
-                logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
+        if abort:
+            logging.critical(f"Runtime verification process ABORTED.")
+        else:
+            if self._stop_event.is_set():
+                if not is_a_valid_report:
+                    logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
+                else:
+                    logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
 
     # Raises: TaskDoesNotExistError()
-    # Propagates: AbortRun() from _are_all_properties_satisfied
+    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
         if not self._framework.process().task_exists(task_name):
@@ -190,7 +206,7 @@ class Monitor(threading.Thread):
         self._process_state.add(task_name + Monitor.TASK_STARTED_SUFFIX)
 
     # Raises: TaskDoesNotExistError()
-    # Propagates: AbortRun() from _are_all_properties_satisfied
+    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
         if not self._framework.process().task_exists(task_name):
@@ -210,7 +226,8 @@ class Monitor(threading.Thread):
         self._process_state.clear()
         self._process_state.add(task_name + Monitor.TASK_FINISHED_SUFFIX)
 
-    # Propagates: AbortRun() from _is_property_satisfied
+    # Propagates: BuildSpecificationError() from
+    #       _process_global_checkpoint_reached and _process_local_checkpoint_reached
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
         if (not self._framework.process().global_checkpoint_exists(checkpoint_name) and
@@ -222,7 +239,7 @@ class Monitor(threading.Thread):
         if self._framework.process().local_checkpoint_exists(checkpoint_name):
             return self._process_local_checkpoint_reached(checkpoint_reached_event)
 
-    # Propagates: AbortRun() from _are_all_properties_satisfied
+    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def _process_global_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
         can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
@@ -232,7 +249,7 @@ class Monitor(threading.Thread):
         self._update_process_state_with_reached_global_checkpoint(checkpoint_reached_event)
         return can_be_reached and properties_are_met
 
-    # Propagates: AbortRun() from _are_all_properties_satisfied
+    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def _process_local_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
         can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
@@ -346,7 +363,7 @@ class Monitor(threading.Thread):
         }
         self._process_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
 
-    # Propagates: AbortRun() from _is_property_satisfied
+    # Propagates: BuildSpecificationError() from _is_property_satisfied
     def _are_all_properties_satisfied(self, event_time, logic_properties):
         neg_properties_sat = False
         for logic_property in logic_properties:
@@ -355,14 +372,14 @@ class Monitor(threading.Thread):
             neg_properties_sat = self._is_property_satisfied(event_time, logic_property)
         return not neg_properties_sat
 
-    # Raises: AbortRun()
+    # Propagates: BuildSpecificationError()
     def _is_property_satisfied(self, event_time, logic_property):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {logic_property.name()}...")
         try:
             negation_is_sat = self._evaluator.eval(logic_property, event_time)
         except BuildSpecificationError:
             logging.error(f"Error evaluating formula [ {logic_property.name()} ]")
-            raise AbortRun()
+            raise BuildSpecificationError()
         if not negation_is_sat:
             logging.log(LoggingLevel.ANALYSIS, f"Property {logic_property.name()} PASSED")
         else:

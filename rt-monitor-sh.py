@@ -9,7 +9,7 @@ from enum import Enum, auto
 
 from pynput import keyboard
 
-from errors.monitor_errors import FrameworkError, MonitorConstructionError, EventLogListError, AbortRun
+from errors.monitor_errors import FrameworkError, MonitorConstructionError, EventLogListError
 from logging_configuration import (
     LoggingLevel,
     LoggingDestination,
@@ -190,10 +190,7 @@ def main():
         application_thread = threading.Thread(
             target=_run_verification, args=[monitor]
         )
-        try:
-            application_thread.start()
-        except AbortRun():
-            logging.critical(f"Runtime verification process ABORTED.")
+        application_thread.start()
 
 
 if __name__ == "__main__":
