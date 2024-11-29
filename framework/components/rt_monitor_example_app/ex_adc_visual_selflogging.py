@@ -100,4 +100,5 @@ class adc(VisualComponent, SelfLoggingComponent):
     def stop(self):
         if self._visual:
             # Closes the visualization features associated.
-            self._visual_component.close()
+            self._visual_component.timer.Stop()
+            self._visual_component.Hide()
