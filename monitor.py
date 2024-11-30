@@ -134,6 +134,10 @@ class Monitor(threading.Thread):
                     logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
                     abort = True
                     break
+                except UndeclaredClockError:
+                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    abort = True
+                    break
                 # Task related exceptions.
                 except TaskDoesNotExistError:
                     logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
