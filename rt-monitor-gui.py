@@ -4,7 +4,7 @@
 
 import wx
 
-from gui.main import MainWindow
+from gui.main_window import MainWindow
 
 if __name__ == "__main__":
     app = wx.App()
