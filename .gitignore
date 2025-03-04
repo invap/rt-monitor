@@ -2,4 +2,4 @@
 .idea/*
 .github/*
 /sandbox/rt-monitor-example-app/framework/
-/sandbox/c-example-app/framework/
+/poetry.lock

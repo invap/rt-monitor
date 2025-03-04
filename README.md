@@ -1,16 +1,17 @@
 # The Runtime Monitor
-This project contains an implementation of a Runtime Monitor (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given:
-1. an analysis framework specification (see Section [Specification language for describing the analysis framework](#Specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format)
-2. an [event logs map file](#event-logs-map-file) for a description of the file format) containing: 
-	- a reference to the **main** event log file (see Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading: 
-		- Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of the [Runtime Reporte](https://github.com/invap/rt-reporter/) project (an example tool (RR) that produces event log files that can be processed by the RM), and 
-		- Section [Implementation of the reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the software under test (SUT), which can later be processed by the RR for producing an event log file), and 
-	- references to the event log files of all the self-loggable components declared in the analysis framework specification [ref. 1.] (see Section [Self-loggables software components](#self-loggables-software-components) for a discussion on how these event log files are processed)
 
-The analysis process 
+This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given:
+1. an analysis framework specification (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format)
+2. an [event reports map file](#event-reports-map-file) for a description of the file format) containing: 
+	- a reference to the **main** event report file, and 
+	- references to the event report files of the self-loggable components declared in the analysis framework specification (see Section [Self-loggables software components](#self-loggables-software-components) for a discussion on how these event report files are processed)
 
+The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading:
+ 
+- Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and 
+- Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the software under test (SUT), which can later be processed by the RR for producing an event log file). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/)
 
-
+The analysis process consists of checking if an appropriate set of event reports obtained from an execution of the SUT, through the application of a runtime reporter tool (RR) (for example, [The Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") and [The DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")), satisfy the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification.
 
 
 ## Installation
@@ -20,6 +21,7 @@ In this section we will review relevant aspects of how to setup this project, bo
 
 1. Python v.3.12+ (https://www.python.org/)
 2. PIP v.24.3.1+ (https://pip.pypa.io/en/stable/installation/)
+3. Setup tools v.75.3.0+ / Poetry v.2.1.1+ (https://python-poetry.org)
 
 ### Setting up a Python virtual environment
 To create a Python virtual environment, follow these steps:
@@ -79,8 +81,40 @@ Your environment will remain in the project folder for you to reactivate as need
 pip install -r requirements.txt
 ```
 - **Content of [`requirements.txt`](https://github.com/invap/rt-monitor/blob/main/requirements.txt):**
+  - black~=24.10.0
+  - boto~=2.49.0
+  - igraph~=0.11.6
+  - mpmath~=1.3.0
+  - numpy~=2.1.2
+  - pip~=24.2
+  - pynput~=1.7.7
+  - pyobjc-core~=10.3.1
+  - pyobjc-framework-ApplicationServices~=10.3.1
+  - pyobjc-framework-Cocoa~=10.3.1
+  - pyobjc-framework-CoreText~=10.3.1
+  - pyobjc-framework-Quartz~=10.3.1
+  - setuptools~=75.3.0
+  - six~=1.16.0
+  - sympy~=1.13.3
+  - texttable~=1.7.0
+  - toml~=0.10.2
+  - wxPython~=4.2.2
+  - z3-solver~=4.13.0.0
 
+### Setting up the project using Poetry
+This section contains instructions for setting up the project using [Poetry](https://python-poetry.org)
 
+1. **Install Poetry:** Find instructions for your system [here](https://python-poetry.org) 
+2. **Install the project:** To install the Python project using Poetry, navigate to the directory where the project is and run:
+```bash
+poetry install
+```
+3. **Activate the virtual environment**: To activate the virtual environment created by the previous command run:
+```bash
+poetry env use [your_python_command]
+poetry env activate
+```
+this will ensure you are using the right Python virtual machine and then, activate the virtual environment.
 
 ### Linting Python code (with Black)
 A linter in Python is a tool that analyzes your code for potential errors, code quality issues, and stylistic inconsistencies. Linters help enforce a consistent code style and identify common programming mistakes, which can improve the readability and maintainability of your code. They’re especially useful in team environments to maintain coding standards.
@@ -124,24 +158,33 @@ To build a package from the Python project follow these steps:
 The RR project is organized as follows:
 ```graphql
 rt-reporter/
-├── gui/                                  # Graphical user interface components
-│   ├── main_window.py                         # Main window of the GUI
-│   ├── reporter_communication_channel.py      # Main module for lauching the SUT and building the event logs
-│   └── reporter_generation_status.py          # Status windows showing the event generation information
-├── README_images/                        # Images for the read me file
-│   ├── file_selector_window.png               # File selector window capture
-│   └── main_window.png                        # Main window capture
-├── requirements                          # Package requirements of the project
-│   ├── development_requirements.txt           # Package requirements for development 
-│   └── development_requirements.txt           # Package requirements for running
-├── src/                                  # Common components graphical and command line interfaces 
-│   └── communication_channel_conf.py          # Information for configuring the communication channel
-├── COPYING                               # Licence of the project 
-├── pyproject.toml                        # Configuration file (optional, recommended)
-├── README.md                             # Read me file of the project
-├── rt-reporter-gui                       # Entry point of the GUI of the RR
-├── rt-reporter-sh                        # Entry point of the command line interface of the RR
-└── setup.py                              # Metadata and build configuration
+├── rt-monitor                # Package folder
+│   ├── errors                # Folder containing the implementation of the runtime exceptions
+│   ├── framework
+│   │   ├── components
+│   │   │   ├── ...           # Folders hosting the python components used by the SUT
+│   │   │   └── component.py  # Implements the interface of the python components used by the SUT
+│   │   ├── process               # Contains the python files implementing structured sequential processes
+│   │   ├── clock.py              # Implementation of the notion of clock used for checking timed properties
+│   │   ├── framework.py          # Implementation of the analysis framework
+│   │   └── framework_builder.py
+│   ├── gui                       # Folder containing the implementation of the GUI
+│   ├── property_evaluator        # Folder containing the implementation of the property evaluators
+│   ├── reporting                 # Folder containing the implementation of event decoder and the event types
+│   ├── logging_configuration.py  # Implementation of the structure for configuring the logger
+│   ├── monitor.py                # Implementation of the analysis framework
+│   ├── monitor_builder.py
+│   ├── novalue.py
+│   ├── rt-monitor-gui.py         # Entry point of the GUI of the RM
+│   └── rt-monitor-sh.py          # Entry point of the command line interface of the RR
+├── README_images            # Images for the read me file
+│   ├── ...                  # ...
+│   └── ...                  # ...
+├── COPYING                   # Licence of the project 
+├── pyproject.toml            # Configuration file (optional, recommended)
+├── README.md                 # Read me file of the project
+├── requirements.txt          # Package requirements of the project
+└── setup.py                  # Metadata and build configuration
 ```
 
 2. **The [`setup.py`](https://github.com/invap/rt-reporter/blob/main/setup.py) file:**
@@ -160,10 +203,10 @@ setup(
     version="0.1.0",
     author="Carlos Gustavo Lopez Pombo",
     author_email="clpombo@gmail.com",
-    description="An implementation of an instrumentation-based runtime event reporter.",
+    description="An implementation of a runtime monitor.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/invap/rt-reporter/",
+    url="https://github.com/invap/rt-monitor/",
     packages=find_packages(),
     install_requires=read_requirements("./requirements.txt"),
     classifiers=[
@@ -177,8 +220,8 @@ setup(
 )
 ```
 
-3. **Add [`pyproject.toml`](https://github.com/invap/rt-reporter/blob/main/pyproject.toml) (Optional but Recommended):**
-The [`pyproject.toml`](https://github.com/invap/rt-reporter/blob/main/pyproject.toml) file specifies build requirements and configurations, especially when using tools like setuptools or poetry. Here’s a basic example:
+3. **Add [`pyproject.toml`](https://github.com/invap/rt-monitor/blob/main/pyproject.toml) (Optional but Recommended):**
+The [`pyproject.toml`](https://github.com/invap/rt-monitor/blob/main/pyproject.toml) file specifies build requirements and configurations, especially when using tools like setuptools or poetry. Here’s a basic example:
 ```toml
 [build-system]
 requires = ["setuptools", "wheel"]
@@ -225,15 +268,84 @@ If you want to make your package publicly available, you can upload it to the Py
 
 
 ## The Runtime Monitor architecture
+[Figure 1](#rt-monitor-architecture) shows a high level view of the architecture of the RM. In it, we highlight the most relevant components and how 
 
----
+<figure id="rt-monitor-architecture" style="text-align: center;">
+  <img src="./README_images/rt-monitor-architecture.png" width="600" alt="The Runtime Monitor architecture.">
+  <figcaption style="font-style: italic;"><b>Figure 1</b>: The Runtime Monitor architecture.
+  </figcaption>
+</figure>
 
-Write.
+As we mentioned in the introduction, the `Runtime Monitor` takes two inputs: **1)** a *Set of event reports* obtained from a concrete execution of the `Software under Test` by an `Event reporter` (see Section [Event reports map file](#event-reports-map-file) for details about the input file format), and **2)** an *Analysis framework* consisting of: **a)** a formalization of the Structured Sequential Process (SSP) (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for details about the language for describing SPP and the input file format) and **b)** a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions). Given that input, the `Analyzer` uses de `Event processor` to crawl the event reports whose events are decoded by the `Event decoder` and then executed producing: **1)** changes in the *Execution's state*, **2)** the execution of a function associated to a specific component through the `Components' command dispatcher` which, in turn, will produce the corresponding changes in the *Component state*, or **3)** changes in the current location (task or checkpoint) in the traversing of the SSP.
 
----
+Processing events associated with the traversing of the SSP triggers the analysis of properties associated to specific points in the SSP. In this way, an event of type `task_started` will result in checking that the preconditions of the task mentioned in the event are true in the current state, analogously, an event of type `task_finished` will result in checking that the postconditions of the task are true, finally, an event of type `checkpoint_reached` will result in checking that the properties associated to that point in the SSP are true.
+
+Each property is declared to be of a certain type which requires a purpose specific `Specification builder` specific solvers, for example, [The Z3 Theorem prover](https://www.microsoft.com/en-us/research/project/z3-3/) for SMT2 properties, [SymPy](https://www.sympy.org/en/index.html) for properties that require the use of a Computer Algebra System (CAS), or a Python program to solve simple arithmetic.
 
 
 ## Event language for monitoring
+From the six different types of events, `timed_event`, `state_event`, `process_event`, `component_event`, `self_loggable_component_log_init_event`, and `self_loggable_component_event`, only four are relevant to the monitoring process because `self_loggable_component_log_init_event` and `self_loggable_component_event` are only used by the RR for recording the event reports associated to self-loggable components. The remaining four are:
+
+- `timed_event`: the event is expected to have the format `[timestamp],timed_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the timed event reported and has the shape `[clock action],[clock variable]`, where `[clock action]` is in the set {`clock_start`, `clock_pause`, `clock_resume`, `clock_reset`} and `[clock variable]` is the name of a free clock variable occurring in any property of the SSP (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties"),
+- `state_event`: the event is expected to have the format `[timestamp],state_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the state event reported and has the shape `variable_value_assigned,[variable name],[value]` where `[variable name]` is the name of a free state variable occurring in any property of the structured sequential process (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties") for details on the language for writing properties of structured sequential processes),
+- `process_event`: the event is expected to have the format `[timestamp],process_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the process event reported and has the shape `task_started,[name]`, `task_finished,[name]` or `checkpoint_reached,[name]`, where `[name]` is a unique identifier corresponding to a task o checkpoint, respectively, in the structured sequential process (see Section [Structured Sequential Process](#structured-sequential-process "Structured Sequential Process") for details on the language for declaring structured sequential processes),
+- `component_event`: the event is expected to have the format `[timestamp],component_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the component event reported and has the shape `[component name],[function name],[parameter list],[result]`, where `[component name]` is a unique identifier corresponding to a component declared in the specification of the analysis framework (see Section [Specification language for describing the analysis framework](https://github.com/invap/rt-monitor/blob/main/README.md#specification-language-for-describing-the-analysis-framework "Specification language for describing the analysis framework") for details on the language for specifying the analysis framework), `[function name]` is the name of a function implemented by the component, `[parameter list]` is the list of parameters required by the function `[function name]`, separated by commas, and `[result]` is the value returned by the invocation, provided that the function returns a value, see for example the entries resulting from the code fragment from [Line 70](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L70) to [Line 76](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L76) of the function [`main`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L17), in the file [`main.c`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c), where the invocation of function `sample` is followed by a code fragment reporting a component event:
+```c
+value = sample ();
+// [ INSTRUMENTACION: Component event. ]
+pause(&reporting_clk);
+sprintf(str, "adc,sample,%d",value);
+report(component_event,str);
+resume(&reporting_clk);
+//
+```
+
+As we will discuss in Section [Self-logging software components](#self-logging-software-components) there is no predefined format for the event report produced by self-logging components and for that reeason, the are forzed to provide its own implemetation of the functionality for processing their event reports.
+
+
+## Specification language for describing the analysis framework
+An *Analysis framework* consists of: **a)** a formalization of the SSP and **b)** a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions).
+
+### Syntax for writing SSPs
+Structured sequential processes are defined inductively by the following grammar in Backus–Naur form (BNF):
+```bnf
+        <SSP> ::= task (<ID>, <FORMULAE>, <FORMULAE>, <CHECKPOINTS>) | 
+                  checkpoint (<ID>, <FORMULAE>) | 
+                  <SSP> + <SSP> | 
+                  <SSP> ; <SSP> | 
+                  <SSP>* | 
+                  <SSP>w
+<CHECKPOINTS> ::= <CHECKPOINT> | <CHECKPOINT> <CHECKPOINTS>
+<FORMULAE>    ::= <FORMULA> | <FORMULA> <FORMULAE>
+<FORMULA>     ::= <SMT2-FORMULA> | <PY-FORMULA> | <SYMPY-FORMULA>
+         <ID> ::= <CHAR> | <ID><CHAR>
+       <CHAR> ::= <SYMBOL> | <LETTER> | <DIGIT>
+<LETTER>      ::= "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z"
+      <DIGIT> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+     <SYMBOL> ::= "|" | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"
+```
+
+Alternatively, one can think of an SSP as a directed graph whose nodes are labeled either with a task of the form `task (<ID>, <FORMULAE>, <FORMULAE>, <CHECKPOINTS>)` or with a checkpoint of the form `checkpoint (<ID>, <FORMULAE>)`.
+
+### Syntax for writing properties
+Formulae come in different flavours depending on the tool required to solve its satisfiability. There are three formula typeseach of which corresponds to one of the non-terminal symbols of the grammar shown above:
+
+- SMT formulae (corresponding to the non-terminal symbols `<SMT2-FORMULA>`):
+- Simple arithmetic based formulae (corresponding to the non-terminal symbols `<PY-FORMULA>`):
+- Complex mathematical formulae (corresponding to the non-terminal symbols `<SYMPY-FORMULA>`): this type of formular require a CAS
+
+
+
+
+### Input format
+By default, the files are expected to be found in the location designated by the attribute `working_directory`. If such attribute is not present, then the path of the analysis framework specification is used instead. Nonetheless, if the `file` attribute of a property is specifies by a string starting with `/` of `.`, the path section of the value of the attribute (i.e., the substring starting at position 0 and ending right before the last occurrence of `/`) overrides the default.
+
+Components have a general path and specific paths for components. If the specific path is not preset, the general one is used. If both are missing the component is assumed to be in the directory from with the tool was launched ".".
+
+
+
+
+## Event reports map file
 
 ---
 
@@ -242,13 +354,16 @@ Write.
 ---
 
 
-## The monitoring process
 
----
 
-Write.
+## The runtime monitoring process
+We already gave a high level view of the verification process in Section [The Runtime Monitor architecture](#the-untime-onitor-architecture). Now we will dive into de process in a more structured and detailed way.
 
----
+As we mentioned before the RM has to be provided: **1)** a *Set of event reports* obtained from a concrete execution of the `Software under Test` by an `Event reporter` (see Section [Event reports map file](#event-reports-map-file) for details about the input file format), and **2)** an *Analysis framework* consisting of: **a)** a formalization of the Structured Sequential Process (SSP) (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for details about the language for describing SPP and the input file format) and **b)** a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions).
+
+We will 
+
+In the first place, the RM constructs a representation of SSP that stores precedences 
 
 
 ## Monitoring components
@@ -278,36 +393,6 @@ Write.
 ---
 
 
-## Specification language for describing the analysis framework
-
----
-
-
-By default, the files are expected to be found in the location designated by the attribute `working_directory`. If such attribute is not present, then the path of the analysis framework specification is used instead. Nonetheless, if the `file` attribute of a property is specifies by a string starting with `/` of `.`, the path section of the value of the attribute (i.e., the substring starting at position 0 and ending right before the last occurrence of `/`) overrides the default.
-
-Components have a general path and specific paths for components. If the specific path is not preset, the general one is used. If both are missing the component is assumed to be in the directory from with the tool was launched ".".
-Write.
-
----
-
-### Syntax for writing properties
-
----
-
-Write.
-
----
-
-
-## Event logs map file
-
----
-
-Write.
-
----
-
-
 ## Runtime verification with hardware in the loop
 
 ---
@@ -320,7 +405,7 @@ Write.
 -------
 
 ## Relevant information ebout the implementation
-The RR provides the basic functionality; once the SUT is chossen, the former runs the latter within a thread and captures its output pipe for pocessing the events and writing them in the corresponding event log files. The main log file is named `?_log.csv`, where `?` is the name of the SUT; for monitoring purposes this log file must be declared with the reference name "main" in the [event logs map file](https://github.com/invap/rt-monitor/blob/main/README.md#event-logs-map-file "Event logs map file") required by the [RM](https://github.com/invap/rt-monitor "Runtime Monitor") to execute the verification. The event log files produced by the self-loggable components receive their name from the name declared in the self-loggable component log initialization event, suffixed with `_log.csv`.
+The RR provides the basic functionality; once the SUT is chossen, the former runs the latter within a thread and captures its output pipe for pocessing the events and writing them in the corresponding event log files. The main log file is named `?_log.csv`, where `?` is the name of the SUT; for monitoring purposes this log file must be declared with the reference name "main" in the [event logs map file](https://github.com/invap/rt-monitor/blob/main/README.md#event-reports-map-file "Event logs map file") required by the [RM](https://github.com/invap/rt-monitor "Runtime Monitor") to execute the verification. The event log files produced by the self-loggable components receive their name from the name declared in the self-loggable component log initialization event, suffixed with `_log.csv`.
 
 The SUT is assume to be instrumented for ouputing a stream of predefined event types packed in appropriate package types. Event types are defined in agreement between the RR and the reporter API; in our case, the definition can be seen in [Line 49](https://github.com/invap/c-reporter-api/blob/main/include/data_channel_defs.h#L49 "Event types") of file [`data_channel_defs.h`](https://github.com/invap/c-reporter-api/blob/main/include/data_channel_defs.h) as a C enumerated type:
 ```c
@@ -444,74 +529,4 @@ You shall sign a DCO (Developer Certificate of Origin) for each submission from 
 ### How to purchase the proprietary version:
 
 The proprietary version can be purchased by contacting us at info@fundacionsadosky.org.ar
-
-
-------
-
-
-# Runtime Verification for Real Time DAQs
-
-
-## Project Setup in Ubuntu
-
-
-### Base Python installation
-
-1. Python (https://www.python.org/)
-2. PIP (https://pip.pypa.io/en/stable/installation/)
-
-
-### IDE setup
-
-Use `Python 3.10`
-
-
-#### PyCharm
-
-1. Go to `PyCharm -> Preferences -> Project -> Python Interpreter`
-2. Add `WxPhython` and `z3-solver`
-
-
-#### IntelliJ IDEA Ultimate
-
-1. Go to `File -> Project Structure`
-2. Go to `Platform Settings -> SDKs`
-3. Select `Add new SDK -> Add Python SDK`
-4. Create a **_new_** `Virtualenv Environment`
-5. Go to `Platform Settings -> Project`
-6. Choose the newly created SDK
-7. Select `Apply` and `OK`
-
-*Install all PIP packages inside the Python environment, using IDEA's console.
-
-
-### Libraries and packages
-
-Run the following terminal commands for each step.
-1. Ubuntu package dependencies: `sudo make install-ubuntu-dependencies`
-2. Python package dependencies: `install-python-dependencies-for-development` (make sure the terminal is using the Python environment, if you have previously set it up)
-
-**Optional:** To install the prototype's dependencies, run `make install-prototype-python-dependencies`
-*This will take some minutes. It should not be done unless you need to work inside the prototype's folder.
-
-
-## Linting
-
-To run the linter in autocorrect mode, just execute `make lint` in the root folder.
-Make sure to run it inside the Python environment, if you use one. 
-
-
-## Build and install as library
-
-1. Build it by running `make build-package`
-2. Install it by running `make install-package`
-
-
-## Example usage
-
-1. Choose a valid or invalid report from the available ones in the `example_usage/` directory.
-2. Import it in the `usage.py` file, and pass it as an argument to the monitor's method.
-3. Execute `make run-example-usage`.
-4. The result of the verification will be printed in the console.
-
 

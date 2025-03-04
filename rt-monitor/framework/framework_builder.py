@@ -191,7 +191,7 @@ class FrameworkBuilder:
             component_map = {}
         else:
             # Determine general path for components
-            general_components_path = "."
+            general_components_path = ""
             if "location" in FrameworkBuilder.framework_dict["components"]:
                 general_components_path = FrameworkBuilder.framework_dict["components"]["location"]
             absolute_general_components_path = os.path.abspath(general_components_path)
