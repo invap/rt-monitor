@@ -157,13 +157,13 @@ To build a package from the Python project follow these steps:
 1. **Structure the project:**
 The RR project is organized as follows:
 ```graphql
-rt-reporter/
-├── rt-monitor                # Package folder
-│   ├── errors                # Folder containing the implementation of the runtime exceptions
+rt-monitor/
+├── rt-monitor                    # Package folder
+│   ├── errors                    # Folder containing the implementation of the runtime exceptions
 │   ├── framework
 │   │   ├── components
-│   │   │   ├── ...           # Folders hosting the python components used by the SUT
-│   │   │   └── component.py  # Implements the interface of the python components used by the SUT
+│   │   │   ├── ...               # Folders hosting the python components used by the SUT
+│   │   │   └── component.py      # Implements the interface of the python components used by the SUT
 │   │   ├── process               # Contains the python files implementing structured sequential processes
 │   │   ├── clock.py              # Implementation of the notion of clock used for checking timed properties
 │   │   ├── framework.py          # Implementation of the analysis framework
@@ -177,14 +177,14 @@ rt-reporter/
 │   ├── novalue.py
 │   ├── rt-monitor-gui.py         # Entry point of the GUI of the RM
 │   └── rt-monitor-sh.py          # Entry point of the command line interface of the RR
-├── README_images            # Images for the read me file
-│   ├── ...                  # ...
-│   └── ...                  # ...
-├── COPYING                   # Licence of the project 
-├── pyproject.toml            # Configuration file (optional, recommended)
-├── README.md                 # Read me file of the project
-├── requirements.txt          # Package requirements of the project
-└── setup.py                  # Metadata and build configuration
+├── README_images                 # Images for the read me file
+│   ├── ...                       # ...
+│   └── ...                       # ...
+├── COPYING                       # Licence of the project 
+├── pyproject.toml                # Configuration file (optional, recommended)
+├── README.md                     # Read me file of the project
+├── requirements.txt              # Package requirements of the project
+└── setup.py                      # Metadata and build configuration
 ```
 
 2. **The [`setup.py`](https://github.com/invap/rt-reporter/blob/main/setup.py) file:**
