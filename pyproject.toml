@@ -5,12 +5,10 @@ description = "This project contains an implementation of a Runtime Monitoring t
 authors = ["Carlos Gustavo Lopez Pombo <clpombo@gmail.com>"]
 readme = "README.md"
 license = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
-#homepage = "https://example.com/my-awesome-project"
 repository = "https://github.com/invap/rt-monitor"
-#documentation = "https://example.com/docs"
 
 [[tool.poetry.packages]]
-include = "rt-monitor"
+include = "rt_monitor"
 from = "./"
 
 [tool.poetry.dependencies]
@@ -36,3 +34,6 @@ texttable = "~=1.7.0"
 toml = "~=0.10.2"
 z3-solver = "~=4.13.0.0"
 
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

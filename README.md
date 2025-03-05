@@ -13,6 +13,39 @@ The reader is pointed to Section [Event language for monitoring](#event-language
 
 The analysis process consists of checking if an appropriate set of event reports obtained from an execution of the SUT, through the application of a runtime reporter tool (RR) (for example, [The Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") and [The DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")), satisfy the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification.
 
+## Structure the project
+The RM project is organized as follows:
+```graphql
+rt-monitor/
+├── rt_monitor                    # Package folder
+│   ├── errors                    # Folder containing the implementation of the runtime exceptions
+│   ├── framework
+│   │   ├── components
+│   │   │   ├── ...               # Folders hosting the python components used by the SUT
+│   │   │   └── component.py      # Implements the interface of the python components used by the SUT
+│   │   ├── process               # Contains the python files implementing structured sequential processes
+│   │   ├── clock.py              # Implementation of the notion of clock used for checking timed properties
+│   │   ├── framework.py          # Implementation of the analysis framework
+│   │   └── framework_builder.py
+│   ├── gui                       # Folder containing the implementation of the GUI
+│   ├── property_evaluator        # Folder containing the implementation of the property evaluators
+│   ├── reporting                 # Folder containing the implementation of event decoder and the event types
+│   ├── logging_configuration.py  # Implementation of the structure for configuring the logger
+│   ├── monitor.py                # Implementation of the analysis framework
+│   ├── monitor_builder.py
+│   ├── novalue.py
+│   ├── rt-monitor-gui.py         # Entry point of the GUI of the RM
+│   └── rt-monitor-sh.py          # Entry point of the command line interface of the RR
+├── README_images                 # Images for the read me file
+│   ├── ...                       # ...
+│   └── ...                       # ...
+├── COPYING                       # Licence of the project 
+├── pyproject.toml                # Configuration file (optional, recommended)
+├── README.md                     # Read me file of the project
+├── requirements.txt              # Package requirements of the project
+└── setup.py                      # Metadata and build configuration
+```
+
 
 ## Installation
 In this section we will review relevant aspects of how to setup this project, both for developing new features for the RM, and for using it in the runtime verification of other software artifacts.
@@ -23,11 +56,12 @@ In this section we will review relevant aspects of how to setup this project, bo
 2. PIP v.24.3.1+ (https://pip.pypa.io/en/stable/installation/)
 3. Setup tools v.75.3.0+ / Poetry v.2.1.1+ (https://python-poetry.org)
 
+
 ### Setting up a Python virtual environment
 To create a Python virtual environment, follow these steps:
 
 1. **Open a terminal or command prompt:**
-Start by opening your terminal (on Mac OS or Linux) or Command Prompt/PowerShell (on Windows).
+Start by opening your terminal (on MacOS or Linux) or Command Prompt/PowerShell (on Windows).
 
 2. **Navigate to your project directory:**
 If you have a specific directory for your project, navigate to it using the cd command:
@@ -66,55 +100,106 @@ With the environment activated, you can now install packages using `pip`, and th
 ```bash
 pip install package_name
 ```
-Perform this command for each of the packages required (see Section [Required libraries](#required-libraries) above) replacing `package_name` with the name of each package.
-6. **Deactivate the virtual environment:**
+Perform this command for each of the packages required replacing `package_name` with the name of each package in the file [`requirements.txt`](https://github.com/invap/rt-monitor/blob/main/requirements.txt) or just run:
+```bash
+pip install -r requirements.txt
+```
+- **Content of [`requirements.txt`](https://github.com/invap/rt-monitor/blob/main/requirements.txt):**
+- black~=24.10.0
+- boto~=2.49.0
+- igraph~=0.11.6
+- mpmath~=1.3.0
+- numpy~=2.1.2
+- pip~=24.2
+- pynput~=1.7.7
+- pyobjc-core~=10.3.1
+- pyobjc-framework-ApplicationServices~=10.3.1
+- pyobjc-framework-Cocoa~=10.3.1
+- pyobjc-framework-CoreText~=10.3.1
+- pyobjc-framework-Quartz~=10.3.1
+- setuptools~=75.3.0
+- six~=1.16.0
+- sympy~=1.13.3
+- texttable~=1.7.0
+- toml~=0.10.2
+- wxPython~=4.2.2
+- z3-solver~=4.13.0.0
+7. **Do something with RR...**
+8. **Deactivate the virtual environment:**
 To exit the virtual environment, simply type:
 ```bash
 deactivate
 ```
 Your environment will remain in the project folder for you to reactivate as needed.
 
-### Libraries and packages
-
-- **Install Python dependencies for the application:**
-```bash
-pip install -r requirements.txt
-```
-- **Content of [`requirements.txt`](https://github.com/invap/rt-monitor/blob/main/requirements.txt):**
-  - black~=24.10.0
-  - boto~=2.49.0
-  - igraph~=0.11.6
-  - mpmath~=1.3.0
-  - numpy~=2.1.2
-  - pip~=24.2
-  - pynput~=1.7.7
-  - pyobjc-core~=10.3.1
-  - pyobjc-framework-ApplicationServices~=10.3.1
-  - pyobjc-framework-Cocoa~=10.3.1
-  - pyobjc-framework-CoreText~=10.3.1
-  - pyobjc-framework-Quartz~=10.3.1
-  - setuptools~=75.3.0
-  - six~=1.16.0
-  - sympy~=1.13.3
-  - texttable~=1.7.0
-  - toml~=0.10.2
-  - wxPython~=4.2.2
-  - z3-solver~=4.13.0.0
-
 ### Setting up the project using Poetry
-This section contains instructions for setting up the project using [Poetry](https://python-poetry.org)
+This section provide instructions for setting up the project using [Poetry](https://python-poetry.org)
+1. **Install Poetry:** find instructions for your system [here](https://python-poetry.org) 
+2. **Add [`pyproject.toml`](https://github.com/invap/rt-monitor/blob/main/pyproject.toml):** the content of the `pyproject.toml` file needed for setting up the project using poetry is shown below.
+```toml
+[tool.poetry]
+name = "rt-monitor"
+version = "0.1.0"
+description = "This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given: 1. an analysis framework specification, and 2. an event reports map file containing: a. a reference to the **main** event report file, and b. references to the event report files of the self-loggable components declared in the analysis framework specification."
+authors = ["Carlos Gustavo Lopez Pombo <clpombo@gmail.com>"]
+readme = "README.md"
+license = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
+repository = "https://github.com/invap/rt-monitor"
 
-1. **Install Poetry:** Find instructions for your system [here](https://python-poetry.org) 
-2. **Install the project:** To install the Python project using Poetry, navigate to the directory where the project is and run:
-```bash
-poetry install
+[[tool.poetry.packages]]
+include = "rt_monitor"
+from = "./"
+
+[tool.poetry.dependencies]
+black =">=24.10.0,<24.11.0"
+python = ">=3.12"
+pyobjc-core =">=10.3.1,<10.4.0"
+pyobjc-framework-applicationservices =">=10.3.1,<10.4.0"
+pyobjc-framework-cocoa =">=10.3.1,<10.4.0"
+pyobjc-framework-coretext =">=10.3.1,<10.4.0"
+pyobjc-framework-quartz =">=10.3.1,<10.4.0"
+pip =">=24.3.1,<24.4.0"
+pynput =">=1.7.7,<1.8.0"
+setuptools =">=75.3.0,<75.4.0"
+six =">=1.16.0,<1.17.0"
+wxpython =">=4.2.2,<4.3.0"
+twine =">=5.1.1,<5.2.0"
+boto ="~=2.49.0"
+igraph ="~=0.11.6"
+mpmath ="~=1.3.0"
+numpy = "~=2.1.2"
+sympy = "~=1.13.3"
+texttable = "~=1.7.0"
+toml = "~=0.10.2"
+z3-solver = "~=4.13.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 ```
+3. **Install the project:** To install the Python project using Poetry, navigate to the directory where the project is and run:
+   ```bash	
+   poetry install
+   ```
 3. **Activate the virtual environment**: To activate the virtual environment created by the previous command run:
-```bash
-poetry env use [your_python_command]
-poetry env activate
-```
+   ```bash
+   poetry env use [your_python_command]
+   poetry env activate
+   ```
 this will ensure you are using the right Python virtual machine and then, activate the virtual environment.
+
+
+### Using the project with docker
+1. **Build the image:**
+    ```bash
+    docker build . -t rt-reporter-env
+    ```
+2. **Run the container:**
+	```bash
+	docker run -it -v$PWD:/home/workspace rt-reporter-env
+	```
+3. **Do something with RR...**
+
 
 ### Linting Python code (with Black)
 A linter in Python is a tool that analyzes your code for potential errors, code quality issues, and stylistic inconsistencies. Linters help enforce a consistent code style and identify common programming mistakes, which can improve the readability and maintainability of your code. They’re especially useful in team environments to maintain coding standards.
@@ -151,44 +236,23 @@ Here, `.` also indicates the current directory. This is mainly useful when the s
 Look in the current directory (`-s .`) for any test files that match the naming pattern `test*.py`.
 Run all the tests it finds, starting from the current directory (`-t .`) and treating it as the top-level directory.
 
-### Build the application as a library
+
+### Build the application as a library with poetry
+To build a package from the Python project follow these steps:
+Now that your configuration files are set, you can build the package using poetry running the build command in the root directory of the project:
+```bash
+poetry build
+```
+This will create two files in a new `dist` directory:
+- A source distribution: [rt_reporter-0.1.0.tar.gz](https://github.com/invap/rt-reporter/blob/main/dist/rt_reporter-0.1.0.tar.gz)
+- A wheel distribution: [rt_reporter-0.1.0-py3-none-any.whl](https://github.com/invap/rt-reporter/blob/main/dist/rt_reporter-0.1.0-py3-none-any.whl)
+
+
+### Build the application as a library with setuptools
 To build a package from the Python project follow these steps:
 
-1. **Structure the project:**
-The RR project is organized as follows:
-```graphql
-rt-monitor/
-├── rt-monitor                    # Package folder
-│   ├── errors                    # Folder containing the implementation of the runtime exceptions
-│   ├── framework
-│   │   ├── components
-│   │   │   ├── ...               # Folders hosting the python components used by the SUT
-│   │   │   └── component.py      # Implements the interface of the python components used by the SUT
-│   │   ├── process               # Contains the python files implementing structured sequential processes
-│   │   ├── clock.py              # Implementation of the notion of clock used for checking timed properties
-│   │   ├── framework.py          # Implementation of the analysis framework
-│   │   └── framework_builder.py
-│   ├── gui                       # Folder containing the implementation of the GUI
-│   ├── property_evaluator        # Folder containing the implementation of the property evaluators
-│   ├── reporting                 # Folder containing the implementation of event decoder and the event types
-│   ├── logging_configuration.py  # Implementation of the structure for configuring the logger
-│   ├── monitor.py                # Implementation of the analysis framework
-│   ├── monitor_builder.py
-│   ├── novalue.py
-│   ├── rt-monitor-gui.py         # Entry point of the GUI of the RM
-│   └── rt-monitor-sh.py          # Entry point of the command line interface of the RR
-├── README_images                 # Images for the read me file
-│   ├── ...                       # ...
-│   └── ...                       # ...
-├── COPYING                       # Licence of the project 
-├── pyproject.toml                # Configuration file (optional, recommended)
-├── README.md                     # Read me file of the project
-├── requirements.txt              # Package requirements of the project
-└── setup.py                      # Metadata and build configuration
-```
-
-2. **The [`setup.py`](https://github.com/invap/rt-reporter/blob/main/setup.py) file:**
-The [`setup.py`](https://github.com/invap/rt-reporter/blob/main/setup.py) file is the main configuration file for packaging in Python. Here’s a minimal example:
+1. **The `setup.py` file:**
+the [`setup.py`](https://github.com/invap/rt-monitor/blob/main/setup.py) file is the main configuration file for packaging in Python. See the content of the file below:
 ```python
 from setuptools import setup, find_packages
 
@@ -199,7 +263,7 @@ def read_requirements(file):
 
 
 setup(
-    name="rt-reporter",
+    name="rt-monitor",
     version="0.1.0",
     author="Carlos Gustavo Lopez Pombo",
     author_email="clpombo@gmail.com",
@@ -219,17 +283,15 @@ setup(
     python_requires='>=3.12',
 )
 ```
-
-3. **Add [`pyproject.toml`](https://github.com/invap/rt-monitor/blob/main/pyproject.toml) (Optional but Recommended):**
-The [`pyproject.toml`](https://github.com/invap/rt-monitor/blob/main/pyproject.toml) file specifies build requirements and configurations, especially when using tools like setuptools or poetry. Here’s a basic example:
+2. **Add `pyproject.toml` (Optional but Recommended):** 
+the content of the `pyproject.toml` file for building the project using setuptools is shown below:
 ```toml
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 ```
 This configuration tells Python to use `setuptools` and `wheel` for building the package.
-
-4. **Build the package:**
+3. **Build the package:**
 Now that your configuration files are set, you can build the package using setuptools and wheel.
 - Install the necessary tools (if not already installed):
 ```bash
@@ -240,15 +302,16 @@ pip install setuptools wheel
 python setup.py sdist bdist_wheel
 ```
 This will create two files in a new dist/ directory:
-- A source distribution (.tar.gz file)
-- A wheel distribution (.whl file)
+- A source distribution: [rt_monitor-0.1.0.tar.gz](https://github.com/invap/rt-monitor/blob/main/dist/rt_reporter-0.1.0.tar.gz)
+- A wheel distribution: [rt_monitor-0.1.0-py3-none-any.whl](https://github.com/invap/rt-monitor/blob/main/dist/rt_reporter-0.1.0-py3-none-any.whl)
+
 
 ### Install the application as a library locally
 Follow the steps below for installing the RR as a local library:
 1. **Build the application as a library:**
 Follow the steps in Section [Build the application as a library](#build-the-application-as-a-library)
 2. **Install the package locally:** 
-Use the command `pip install dist/my_package-0.1.0-py3-none-any.whl`, replacing `my_package-0.1.0-py3-none-any.whl` with the actual filename generated in the dist folder.
+Use the command `pip install dist/rt_reporter-0.1.0-py3-none-any.whl`.
 
 ### Distribute the application as a library
 Follow the steps below for distributing the RR as a library in PyPI:
