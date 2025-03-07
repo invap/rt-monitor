@@ -4,7 +4,7 @@
 
 import logging
 
-from errors.evaluator_errors import UnboundVariablesError
+from rt_monitor.errors.evaluator_errors import UnboundVariablesError
 
 
 class PropertyEvaluator:

@@ -2,8 +2,8 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from framework.process.process_node.checkpoint import Checkpoint
-from framework.process.process_node.task import Task
+from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
+from rt_monitor.framework.process.process_node.task import Task
 
 
 class Process:

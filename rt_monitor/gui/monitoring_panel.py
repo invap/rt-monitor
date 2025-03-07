@@ -8,13 +8,13 @@ from enum import Enum, auto
 
 import wx
 
-from errors.monitor_errors import FrameworkError, EventLogListError, MonitorConstructionError
-from logging_configuration import (
+from rt_monitor.errors.monitor_errors import FrameworkError, EventLogListError, MonitorConstructionError
+from rt_monitor.logging_configuration import (
     _set_up_logging,
     _configure_logging_destination,
     _configure_logging_level
 )
-from monitor_builder import MonitorBuilder
+from rt_monitor.monitor_builder import MonitorBuilder
 
 
 class MonitoringPanel(wx.Panel):

@@ -5,13 +5,13 @@
 import logging
 from typing import Iterable
 
-from errors.clock_errors import ClockWasNotStartedError
-from errors.evaluator_errors import (
+from rt_monitor.errors.clock_errors import ClockWasNotStartedError
+from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError,
     NoValueAssignedToVariableError, UnboundVariablesError, EvaluationError
 )
-from novalue import NoValue
-from property_evaluator.property_evaluator import PropertyEvaluator
+from rt_monitor.novalue import NoValue
+from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
 class PyPropertyEvaluator(PropertyEvaluator):

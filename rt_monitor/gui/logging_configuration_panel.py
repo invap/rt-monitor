@@ -4,7 +4,7 @@
 
 import wx
 
-from logging_configuration import LoggingLevel, LoggingDestination
+from rt_monitor.logging_configuration import LoggingLevel, LoggingDestination
 
 
 class LoggingConfigurationPanel(wx.Panel):

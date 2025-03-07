@@ -8,8 +8,8 @@ from enum import Enum
 
 import numpy as np
 
-from errors.component_errors import FunctionNotImplementedError
-from framework.components.component import VisualComponent
+from rt_monitor.errors.component_errors import FunctionNotImplementedError
+from rt_monitor.framework.components.component import VisualComponent
 
 
 class LCDCmdsCodes:

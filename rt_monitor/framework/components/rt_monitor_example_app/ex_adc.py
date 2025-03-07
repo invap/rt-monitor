@@ -6,9 +6,9 @@ import inspect
 
 import numpy as np
 
-from errors.component_errors import FunctionNotImplementedError
-from framework.components.component import Component
-from novalue import NoValue
+from rt_monitor.errors.component_errors import FunctionNotImplementedError
+from rt_monitor.framework.components.component import Component
+from rt_monitor.novalue import NoValue
 
 
 class adc(Component):

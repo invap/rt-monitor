@@ -2,7 +2,7 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from reporting.event.state_event import StateEvent
+from rt_monitor.reporting.event.state_event import StateEvent
 
 
 class VariableValueAssignedEvent(StateEvent):

@@ -2,19 +2,19 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from errors.event_decoder_errors import InvalidEvent
-from reporting.event.timed_event import TimedEvent
-from reporting.event.state_event import StateEvent
-from reporting.event.component_event import ComponentEvent
-from reporting.event.process_event import ProcessEvent
-from reporting.event.clock_start_event import ClockStartEvent
-from reporting.event.clock_pause_event import ClockPauseEvent
-from reporting.event.clock_resume_event import ClockResumeEvent
-from reporting.event.clock_reset_event import ClockResetEvent
-from reporting.event.variable_value_assigned_event import VariableValueAssignedEvent
-from reporting.event.task_started_event import TaskStartedEvent
-from reporting.event.task_finished_event import TaskFinishedEvent
-from reporting.event.checkpoint_reached_event import CheckpointReachedEvent
+from rt_monitor.errors.event_decoder_errors import InvalidEvent
+from rt_monitor.reporting.event.timed_event import TimedEvent
+from rt_monitor.reporting.event.state_event import StateEvent
+from rt_monitor.reporting.event.component_event import ComponentEvent
+from rt_monitor.reporting.event.process_event import ProcessEvent
+from rt_monitor.reporting.event.clock_start_event import ClockStartEvent
+from rt_monitor.reporting.event.clock_pause_event import ClockPauseEvent
+from rt_monitor.reporting.event.clock_resume_event import ClockResumeEvent
+from rt_monitor.reporting.event.clock_reset_event import ClockResetEvent
+from rt_monitor.reporting.event.variable_value_assigned_event import VariableValueAssignedEvent
+from rt_monitor.reporting.event.task_started_event import TaskStartedEvent
+from rt_monitor.reporting.event.task_finished_event import TaskFinishedEvent
+from rt_monitor.reporting.event.checkpoint_reached_event import CheckpointReachedEvent
 
 
 #Raises: InvalidEvent()

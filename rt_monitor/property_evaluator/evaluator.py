@@ -4,10 +4,10 @@
 
 import logging
 
-from errors.evaluator_errors import EvaluationError
-from property_evaluator.py_property_evaluator import PyPropertyEvaluator
-from property_evaluator.smt2_property_evaluator import SMT2PropertyEvaluator
-from property_evaluator.sympy_property_evaluator import SymPyPropertyEvaluator
+from rt_monitor.errors.evaluator_errors import EvaluationError
+from rt_monitor.property_evaluator.py_property_evaluator import PyPropertyEvaluator
+from rt_monitor.property_evaluator.smt2_property_evaluator import SMT2PropertyEvaluator
+from rt_monitor.property_evaluator.sympy_property_evaluator import SymPyPropertyEvaluator
 
 
 class Evaluator:

@@ -4,9 +4,9 @@
 
 import wx
 
-from gui.logging_configuration_panel import LoggingConfigurationPanel
-from gui.monitor_configuration_panel import MonitorConfigurationPanel
-from gui.monitoring_panel import MonitoringPanel
+from rt_monitor.gui.logging_configuration_panel import LoggingConfigurationPanel
+from rt_monitor.gui.monitor_configuration_panel import MonitorConfigurationPanel
+from rt_monitor.gui.monitoring_panel import MonitoringPanel
 
 
 class MainWindow(wx.Frame):

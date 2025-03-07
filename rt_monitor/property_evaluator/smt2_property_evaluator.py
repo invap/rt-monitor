@@ -8,15 +8,15 @@ from typing import Iterable
 import numpy as np
 from z3 import z3
 
-from errors.clock_errors import ClockWasNotStartedError
-from errors.evaluator_errors import (
+from rt_monitor.errors.clock_errors import ClockWasNotStartedError
+from rt_monitor.errors.evaluator_errors import (
     NoValueAssignedToVariableError,
     UnboundVariablesError,
     BuildSpecificationError,
     UnsupportedSMT2VariableTypeError
 )
-from novalue import NoValue
-from property_evaluator.property_evaluator import PropertyEvaluator
+from rt_monitor.novalue import NoValue
+from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
 class SMT2PropertyEvaluator(PropertyEvaluator):

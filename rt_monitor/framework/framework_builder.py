@@ -9,7 +9,7 @@ import os
 import toml
 from igraph import Graph
 
-from errors.framework_errors import (
+from rt_monitor.errors.framework_errors import (
     FrameworkSpecificationError,
     LocalCheckpointSpecificationError,
     TaskSpecificationError,
@@ -19,15 +19,15 @@ from errors.framework_errors import (
     PropertySpecificationError,
     VariablesSpecificationError
 )
-from framework.components.component import VisualComponent
-from framework.framework import Framework
-from framework.process.py_property import PyProperty
-from framework.process.smt2_property import SMT2Property
-from framework.process.sympy_property import SymPyProperty
-from framework.process.process_node.checkpoint import Checkpoint
-from framework.process.process_node.operator import Operator
-from framework.process.process_node.task import Task
-from framework.process.process import Process
+from rt_monitor.framework.components.component import VisualComponent
+from rt_monitor.framework.framework import Framework
+from rt_monitor.framework.process.py_property import PyProperty
+from rt_monitor.framework.process.smt2_property import SMT2Property
+from rt_monitor.framework.process.sympy_property import SymPyProperty
+from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
+from rt_monitor.framework.process.process_node.operator import Operator
+from rt_monitor.framework.process.process_node.task import Task
+from rt_monitor.framework.process.process import Process
 
 
 class FrameworkBuilder:
