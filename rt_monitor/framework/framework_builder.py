@@ -118,7 +118,7 @@ class FrameworkBuilder:
                     node = process_dict["structure"]["nodes"][node_number]
                     if not isinstance(node, list) or len(node) != 2:
                         logging.error(f"The {node_number + 1} node in the list of nodes is not well formed. It should "
-                                      f"be [ node type, node name ]")
+                                      f"be [ node name , node type ]")
                         raise ProcessSpecificationError()
                     node_name = process_dict["structure"]["nodes"][node_number][0]
                     node_type = process_dict["structure"]["nodes"][node_number][1]
