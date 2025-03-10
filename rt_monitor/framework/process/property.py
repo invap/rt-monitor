@@ -22,6 +22,12 @@ class Property:
     def formula(self):
         return self._formula
 
+    def __eq__(self, other):
+        return ((self._property_name == other._property_name) and
+                (self._filename == other._filename) and
+                (self._variables == other._variables) and
+                (self._formula == other._formula))
+
     def eval(self, components, execution_state, timed_state, now):
         raise NotImplementedError
 
