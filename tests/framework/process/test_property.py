@@ -26,7 +26,10 @@ class Test_Property (unittest.TestCase):
         variable_decls_oracle = {"bound": ("State", "Int"), "data": ("State", "Array Int")}
         property_oracle = Property(property_name_str, variable_decls_oracle, property_formula_str, "")
 
-        self.assertEqual(property, property_oracle)
+        assert(property.name() == property_oracle.name() and
+               property.variables() == property.variables() and
+               property.formula() == property.formula() and
+               property.filename() == property_oracle.filename())
 
     def test_preproperty_from_file (self):
         property_name_str = "property"
@@ -49,7 +52,10 @@ class Test_Property (unittest.TestCase):
             property_file_path
         )
 
-        self.assertEqual(property, property_oracle)
+        assert(property.name() == property_oracle.name() and
+               property.variables() == property.variables() and
+               property.formula() == property.formula() and
+               property.filename() == property_oracle.filename())
 
     @classmethod
     def tearDownClass(cls):

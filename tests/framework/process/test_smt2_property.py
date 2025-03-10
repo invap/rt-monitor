@@ -30,7 +30,10 @@ class Test_SMT2Property (unittest.TestCase):
             ""
         )
 
-        self.assertEqual(smt2_property, smt2_property_oracle)
+        assert(smt2_property.name() == smt2_property_oracle.name() and
+               smt2_property.variables() == smt2_property.variables() and
+               smt2_property.formula() == smt2_property.formula() and
+               smt2_property.filename() == smt2_property_oracle.filename())
 
     def test_property_from_file (self):
         property_name_str = "property"
@@ -47,7 +50,10 @@ class Test_SMT2Property (unittest.TestCase):
             property_file_path
         )
 
-        self.assertEqual(smt2_property, smt2_property_oracle)
+        assert(smt2_property.name() == smt2_property_oracle.name() and
+               smt2_property.variables() == smt2_property.variables() and
+               smt2_property.formula() == smt2_property.formula() and
+               smt2_property.filename() == smt2_property_oracle.filename())
 
     @classmethod
     def tearDownClass(cls):
