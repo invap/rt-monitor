@@ -16,8 +16,8 @@ class SMT2Property(Property):
 
     @staticmethod
     def property_from_str(property_name, property_variables, property_formula):
-        variables, formula = Property.preproperty_from_str(property_variables, property_formula)
-        return SMT2Property(property_name, variables, formula, "")
+        variables = Property.build_variable_declarations(property_variables)
+        return SMT2Property(property_name, variables, property_formula, "")
 
     def format(self):
         return "protosmt2"

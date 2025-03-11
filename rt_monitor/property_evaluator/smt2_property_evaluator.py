@@ -71,29 +71,44 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     # Raises: NoValueAssignedToVariableError()
     @staticmethod
     def _build_assumption(variable, variable_value):
-        # Check whether the variable has a value assigned.
-        if isinstance(variable_value, Iterable):
-            if any([isinstance(x, NoValue) for x in variable_value]):
+        if isinstance(variable_value, dict):
+            assumption = "(assert \n"
+            assumption += "(and \n"
+            for key in variable_value:
+                # key if of the form [i0][i1]...[in]
+                split_key = key.removeprefix("[").removesuffix("]").split("][")
+                assumption += "(= "
+                for _i in range(0, len(split_key)):
+                    assumption += f"(select "
+                assumption += f"{variable} "
+                for i in split_key:
+                    assumption += f"{i}) "
+                assumption += f"{variable_value[key]})\n"
+            assumption += ")\n)\n"
+        else:
+            # Check whether the variable has a value assigned.
+            if isinstance(variable_value, Iterable):
+                if any([isinstance(x, NoValue) for x in variable_value]):
+                    logging.error(f"No value [ {variable} ] has not been assigned a value.")
+                    raise NoValueAssignedToVariableError()
+            if isinstance(variable_value, NoValue):
                 logging.error(f"No value [ {variable} ] has not been assigned a value.")
                 raise NoValueAssignedToVariableError()
-        elif isinstance(variable_value, NoValue):
-            logging.error(f"No value [ {variable} ] has not been assigned a value.")
-            raise NoValueAssignedToVariableError()
-        # The variable has a value assigned.
-        assumption = "(assert \n"
-        if not isinstance(variable_value, np.ndarray):
-            assumption = assumption + f"(= {variable} {variable_value})\n"
-        else:
-            assumption = assumption + "(and \n"
-            var_value_shape = variable_value.shape
-            current = [0] * (len(var_value_shape) + 1)
-            while _more(current):
-                value = _get_value(variable_value, current)
-                selector = _build_selector(variable, current)
-                assumption = assumption + f"(= {selector} {value})\n"
-                _plus_one(var_value_shape, current)
-            assumption = assumption + ")\n"
-        assumption = assumption + ")"
+            # The variable has a value assigned.
+            assumption = "(assert \n"
+            if not isinstance(variable_value, np.ndarray):
+                assumption = assumption + f"(= {variable} {variable_value})\n"
+            else:
+                assumption = assumption + "(and \n"
+                var_value_shape = variable_value.shape
+                current = [0] * (len(var_value_shape) + 1)
+                while _more(current):
+                    value = _get_value(variable_value, current)
+                    selector = _build_selector(variable, current)
+                    assumption = assumption + f"(= {selector} {value})\n"
+                    _plus_one(var_value_shape, current)
+                assumption = assumption + ")\n"
+            assumption = assumption + ")"
         return assumption
 
     # Raises: ClockWasNotStartedError()

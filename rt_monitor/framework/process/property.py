@@ -22,11 +22,6 @@ class Property:
     def formula(self):
         return self._formula
 
-    def __eq__(self, other):
-        return ((self._property_name == other._property_name) and
-                (self._filename == other._filename) and
-                (self._variables == other._variables) and
-                (self._formula == other._formula))
 
     def eval(self, components, execution_state, timed_state, now):
         raise NotImplementedError
@@ -57,7 +52,7 @@ class Property:
         return variable_decls, formula
 
     @staticmethod
-    def preproperty_from_str(property_variables, property_formula):
+    def build_variable_declarations(property_variables):
         variable_decls = {}
         split_property_variables = property_variables.split(",")
         if split_property_variables[0] != "None":
@@ -66,7 +61,7 @@ class Property:
                 split_variable_name_class_type = variable_name_class_type.split(" ", 1)
                 split_variable_name_class = split_variable_name_class_type[0].split(":")
                 variable_decls[split_variable_name_class[0]] = (split_variable_name_class[1], split_variable_name_class_type[1])
-        return variable_decls, property_formula
+        return variable_decls
 
     def format(self):
         raise NotImplementedError
