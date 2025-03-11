@@ -20,8 +20,8 @@ class Test_Property (unittest.TestCase):
 
         property_variables_str = "(bound:State Int),(data:State Array Int)"
         property_formula_str = "(forall (i Int) (implies (and (<= 0 i) (<= i bound)) (and (<= 1 (select data i))) (<= (select data i) 10)))"
-        variable_decls, property_formula = Property.preproperty_from_str (property_variables_str, property_formula_str)
-        property = Property(property_name_str, variable_decls, property_formula, "")
+        variable_decls = Property.build_variable_declarations(property_variables_str)
+        property = Property(property_name_str, variable_decls, property_formula_str, "")
 
         variable_decls_oracle = {"bound": ("State", "Int"), "data": ("State", "Array Int")}
         property_oracle = Property(property_name_str, variable_decls_oracle, property_formula_str, "")
