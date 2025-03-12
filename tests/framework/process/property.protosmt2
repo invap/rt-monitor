@@ -1,2 +1,0 @@
-(bound:State Int),(data:State Array Int)
-(forall (i Int) (implies (and (<= 0 i) (<= i bound)) (and (<= 1 (select data i))) (<= (select data i) 10)))

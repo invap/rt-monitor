@@ -24,7 +24,7 @@ class PropertyEvaluator:
 
     # Raises: UnboundVariablesError()
     # Propagates: UnsupportedVariableTypeError() from _build_declaration
-    def _build_declarations(self, property):
+    def _build_variable_declarations(self, property):
         declarations = []
         variables = list((property.variables()).keys())
         # building declarations for variables in the components state

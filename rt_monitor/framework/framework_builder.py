@@ -21,9 +21,7 @@ from rt_monitor.errors.framework_errors import (
 )
 from rt_monitor.framework.components.component import VisualComponent
 from rt_monitor.framework.framework import Framework
-from rt_monitor.framework.process.py_property import PyProperty
-from rt_monitor.framework.process.smt2_property import SMT2Property
-from rt_monitor.framework.process.sympy_property import SymPyProperty
+from rt_monitor.framework.process.property import Property
 from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
 from rt_monitor.framework.process.process_node.operator import Operator
 from rt_monitor.framework.process.process_node.task import Task
@@ -391,54 +389,24 @@ class FrameworkBuilder:
         if not properties_list == [{}]:
             for prop in properties_list:
                 if "name" not in prop:
-                    logging.error(f"Property name not found.")
+                    logging.error(f"Property must have a name.")
                     raise PropertySpecificationError()
-                if "file" not in prop and not ("formula" in prop and "variables" in prop):
+                if "file" in prop and "formula" in prop:
+                    logging.error(f"Property [ {prop["name"]} ] cannot have both a file specification and an inline specification.")
+                    raise PropertySpecificationError()
+                if "file" not in prop and "formula" not in prop:
                     logging.error(f"Property [ {prop["name"]} ] source unknown not found.")
                     raise PropertySpecificationError()
-                if "formula" in prop:  # and "variables" in prop
+                if "formula" in prop:
                     # This operation might raise a PropertySpecificationError exception.
-                    properties.add(_property_from_str(prop["name"], prop["format"], prop["variables"],
-                                                      prop["formula"]))
+                    properties.add(Property.property_from_toml_dict(prop["name"], prop))
                 else:  # "file" in prop
                     file_name = prop["file"] \
                         if prop["file"][0] == "/" or prop["file"][0] == "." \
                         else FrameworkBuilder.files_path + prop["file"]
                     # This operation might raise a PropertySpecificationError exception.
-                    properties.add(_property_from_file(prop["name"], prop["format"], file_name))
+                    properties.add(Property.property_from_file(prop["name"], file_name))
         return properties
-
-
-# Raises: PropertySpecificationError()
-def _property_from_file(property_name, property_format, file_name):
-    try:
-        match property_format:
-            case "protosmt2":
-                return SMT2Property.property_from_file(property_name, file_name)
-            case "protosympy":
-                return SymPyProperty.property_from_file(property_name, file_name)
-            case "protopy":
-                return PyProperty.property_from_file(property_name, file_name)
-            case _:
-                logging.error(f"Property format [ {property_format} ] unknown.")
-                raise PropertySpecificationError()
-    except FileNotFoundError:
-        logging.error(f"File [ {file_name} ] for property [ {property_name} ] not found.")
-        raise PropertySpecificationError()
-
-
-# Raises: PropertySpecificationError()
-def _property_from_str(property_name, property_format, property_variables, property_formula):
-    match property_format:
-        case "protosmt2":
-            return SMT2Property.property_from_str(property_name, property_variables, property_formula)
-        case "protosympy":
-            return SymPyProperty.property_from_str(property_name, property_variables, property_formula)
-        case "protopy":
-            return PyProperty.property_from_str(property_name, property_variables, property_formula)
-        case _:
-            logging.error(f"Property format [ {property_format} ] unknown.")
-            raise PropertySpecificationError()
 
 
 # Raises: UnsupportedNodeType(), PropertySpecificationError()
@@ -484,6 +452,6 @@ def _get_variables_from_nodes(nodes):
             for formula in node.properties():
                 variables.update(formula.variables())
         else:
-            # Nodes have already been checked for being of type Task of Checkpoint.
+            # Nodes have already been checked for being of type Task or Checkpoint.
             pass
     return variables

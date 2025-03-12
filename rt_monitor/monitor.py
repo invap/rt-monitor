@@ -59,11 +59,15 @@ class Monitor(threading.Thread):
         self._execution_state = {}
         self._timed_state = {}
         # Build the state dictionary discarding the variable class
-        # (i.e., self._framework.process().get_variables()[variable][0]) {State|Component|Clock}.
+        # (i.e., self._framework.process().get_variables()[variable][0]) {State|Component|Clock}
+        # self._framework.process().variables()[variable][1] is the variable SMT-Lib type.
         for variable in self._framework.process().variables():
             match self._framework.process().variables()[variable][0]:
                 case "State":
-                    self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue)
+                    if "Array" in self._framework.process().variables()[variable][1]:
+                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], {})
+                    else:
+                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue)
                 case "Component":
                     # There is nothing to do here; the existence of the variables mentioned in the process in any of
                     # the declared components is checked at the momento of creation of the framework.
@@ -266,12 +270,22 @@ class Monitor(threading.Thread):
 
     # Raises: UndeclaredVariableError()
     def process_variable_value_assigned(self, variable_value_assigned_event):
-        variable_name = variable_value_assigned_event.variable_name()
+        split_variable_name = variable_value_assigned_event.variable_name().split("[", 1)
+        variable_name = split_variable_name[0]
+        if len(split_variable_name) == 1:
+            array = False
+        else:
+            array = True
+            variable_loc = "["+split_variable_name[1]
         variable_value = variable_value_assigned_event.variable_value()
         if variable_name not in self._execution_state:
             logging.error(f"Variable [ {variable_name} ] was not declared.")
             raise UndeclaredVariableError()
-        self._execution_state[variable_name] = (self._execution_state[variable_name][0], variable_value)
+        if array:
+            array_values = self._execution_state[variable_name][1]
+            array_values[variable_loc] = variable_value
+        else:
+            self._execution_state[variable_name] = (self._execution_state[variable_name][0], variable_value)
         return True
 
     # Raises: ComponentDoesNotExistError(), ComponentError()

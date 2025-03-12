@@ -26,7 +26,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     # Raises: EvaluationError()
     def eval(self, property, now):
         spec = self._build_spec(property, now)
-        filename = property.filename()
+        filename = property.name()
         temp_solver = z3.Solver()
         temp_solver.from_string(spec)
         negation_is_sat = z3.sat == temp_solver.check()
@@ -42,9 +42,10 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     # Raises: BuildSpecificationError()
     def _build_spec(self, prop, now):
         try:
-            declarations = self._build_declarations(prop)
+            var_declarations = self._build_variable_declarations(prop)
             assumptions = self._build_assumptions(prop, now)
-            spec = (f"{"".join([decl + "\n" for decl in declarations])}\n" +
+            spec = (f"{"".join([decl + "\n" for decl in var_declarations])}\n" +
+                    f"{prop.declarations()}\n\n"
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"(assert (not {prop.formula()}))\n")
             return spec

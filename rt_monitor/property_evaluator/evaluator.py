@@ -19,11 +19,11 @@ class Evaluator:
     # Raises: EvaluationError()
     def eval(self, prop, now):
         match prop.format():
-            case "protosmt2":
+            case "smt2":
                 return self._smt2_evaluator.eval(prop, now)
-            case "protopy":
+            case "py":
                 return self._py_evaluator.eval(prop, now)
-            case "protosympy":
+            case "sympy":
                 return self._sympy_evaluator.eval(prop, now)
             case _:
                 logging.error(f"Property format [ {prop.format()} ] unknown.")

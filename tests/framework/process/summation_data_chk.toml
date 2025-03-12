@@ -1,0 +1,12 @@
+format = "smt2"
+variables = "(bound:State Int),(data:State ((Array Int Int)))"
+formula = """(declare-fun sum ((Array Int Int) Int Int) Int)
+
+                   (and (forall ((a (Array Int Int)) (i Int)) (= (sum a i i) 0))
+                        (forall ((a (Array Int Int)) (i Int) (j Int))
+                             (=> (< i j)
+                                 (= (sum a i j) (+ (select a i) (sum a (+ i 1) j)))
+                             )
+                        )
+                        (<= (sum data 0 10) (* 10 bound))
+                   )"""

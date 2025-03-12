@@ -27,13 +27,12 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
         except BuildSpecificationError:
             logging.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
-        filename = prop.filename()
         locs = {}
         exec(spec, globals(), locs)
         negation_is_true = locs['result']
         if negation_is_true:
             # Output counterexample as toml_tasks_list
-            spec_filename = filename + "@" + str(now) + ".py"
+            spec_filename = prop.name() + "@" + str(now) + ".py"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)
             spec_file.close()
@@ -43,7 +42,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
     # Raises: BuildSpecificationError()
     def _build_spec(self, prop, now):
         try:
-            declarations = self._build_declarations(prop)
+            declarations = self._build_variable_declarations(prop)
             assumptions = self._build_assumptions(prop, now)
             spec = (f"from sympy import Symbol\n" +
                     f"{"".join([decl + "\n" for decl in declarations])}\n" +
