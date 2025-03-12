@@ -450,7 +450,16 @@ def _get_variables_from_nodes(nodes):
                         variables[variable] = formula.variables()[variable]
         elif isinstance(node, Checkpoint):
             for formula in node.properties():
-                variables.update(formula.variables())
+                for variable in formula.variables():
+                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
+                        logging.error(
+                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
+                        raise VariablesSpecificationError()
+                    if variable in variables and not variables[variable] == formula.variables()[variable]:
+                        logging.error(
+                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
+                        raise VariablesSpecificationError()
+                    variables[variable] = formula.variables()[variable]
         else:
             # Nodes have already been checked for being of type Task or Checkpoint.
             pass
