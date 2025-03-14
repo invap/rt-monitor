@@ -7,10 +7,10 @@ from typing import Iterable
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
-    UnsupportedSymPyVariableTypeError,
     NoValueAssignedToVariableError,
     UnboundVariablesError,
-    BuildSpecificationError, EvaluationError
+    BuildSpecificationError,
+    EvaluationError, UnsupportedSymPyVariableTypeError
 )
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -49,8 +49,6 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"result = not {prop.formula()}\n")
             return spec
-        except UnsupportedSymPyVariableTypeError:
-            pass
         except NoValueAssignedToVariableError:
             pass
         except UnboundVariablesError:
@@ -77,12 +75,8 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
     @staticmethod
     def _build_assumption(variable, variable_value):
         # Check whether the variable has a value assigned.
-        if isinstance(variable_value, Iterable):
-            if any([isinstance(x, NoValue) for x in variable_value]):
-                logging.error(f"No value [ {variable} ] has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-        elif isinstance(variable_value, NoValue):
-            logging.error(f"No value [ {variable} ] has not been assigned a value.")
+        if isinstance(variable_value, NoValue):
+            logging.error(f"The variable [ {variable} ] has not been assigned a value.")
             raise NoValueAssignedToVariableError()
         # The variable has a value assigned.
         return f"{variable} = {variable_value}"

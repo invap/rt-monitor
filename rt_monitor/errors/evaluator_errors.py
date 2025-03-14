@@ -28,11 +28,6 @@ class UnsupportedVariableTypeError(Exception):
         super().__init__()
 
 
-class UnsupportedSMT2VariableTypeError(UnsupportedVariableTypeError):
-    def __init__(self):
-        super().__init__()
-
-
 class UnsupportedSymPyVariableTypeError(UnsupportedVariableTypeError):
     def __init__(self):
         super().__init__()

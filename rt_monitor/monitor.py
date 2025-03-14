@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+import re
 import threading
 
 from errors.clock_errors import (
@@ -270,13 +271,13 @@ class Monitor(threading.Thread):
 
     # Raises: UndeclaredVariableError()
     def process_variable_value_assigned(self, variable_value_assigned_event):
-        split_variable_name = variable_value_assigned_event.variable_name().split("[", 1)
+        split_variable_name = re.split(r'(?=\[)', variable_value_assigned_event.variable_name(), maxsplit=1)
         variable_name = split_variable_name[0]
         if len(split_variable_name) == 1:
             array = False
         else:
             array = True
-            variable_loc = "["+split_variable_name[1]
+            variable_loc = split_variable_name[1]
         variable_value = variable_value_assigned_event.variable_value()
         if variable_name not in self._execution_state:
             logging.error(f"Variable [ {variable_name} ] was not declared.")

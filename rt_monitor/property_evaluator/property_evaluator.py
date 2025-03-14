@@ -45,7 +45,7 @@ class PropertyEvaluator:
                 declarations.append(self._build_declaration(variable, property.variables()[variable][1]))
                 variables.remove(variable)
         if len(variables) != 0:
-            logging.error(f"Variales [ {variables} ] are not bound.")
+            logging.error(f"Variables [ {variables} ] are not bound.")
             raise UnboundVariablesError()
         return declarations
 
@@ -73,7 +73,7 @@ class PropertyEvaluator:
                 assumptions.append(self._build_time_assumption(variable, self._timed_state[variable][1], now))
                 variables.remove(variable)
         if len(variables) != 0:
-            logging.error(f"Variales [ {variables} ] are not bound.")
+            logging.error(f"Variables [ {variables} ] are not bound.")
             raise UnboundVariablesError()
         return assumptions
 
