@@ -21,11 +21,10 @@ from rt_monitor.errors.framework_errors import (
 )
 from rt_monitor.framework.components.component import VisualComponent
 from rt_monitor.framework.framework import Framework
+from rt_monitor.framework.process.graph_process import GraphProcess
 from rt_monitor.framework.process.property import Property
 from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
-from rt_monitor.framework.process.process_node.operator import Operator
 from rt_monitor.framework.process.process_node.task import Task
-from rt_monitor.framework.process.process import Process
 
 
 class FrameworkBuilder:
@@ -124,20 +123,6 @@ class FrameworkBuilder:
                     # In the case of operators the shape of node_type is 'operator:<operator type>'.
                     split_node_type = node_type.split(":", 1)
                     match split_node_type[0]:
-                        case "operator":
-                            try:
-                                ordered_nodes.append(Operator.new_of_type(split_node_type[1]))
-                                # For the time being we are ignoring the name of the operators because they
-                                # are not being used.
-                                #
-                                # Important note: The fact that the names are not being use right now does not give
-                                # you the right to be a prick with your fellow workers by using shitty names like
-                                # "op42" or "composition16". Be nice to people surrounding you, do not be that
-                                # person everybody hates.
-                            except IndexError():
-                                logging.error(f"The operator node [ {node_name} ] is not well formed. It should be "
-                                              f"of shape 'operator:<operator type>'.")
-                                raise ProcessSpecificationError()
                         case "task":
                             try:
                                 decoded_task = FrameworkBuilder._decode_task(node_name, process_dict["tasks"])
@@ -160,27 +145,26 @@ class FrameworkBuilder:
                                           f"tell me that you did not forget to put the 'operator:' in front of a "
                                           f"node of type operator...")
                             raise ProcessSpecificationError()
+                dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in
+                                process_dict["structure"]["edges"]}
+                amount_of_elements = len(ordered_nodes)
+                graph = Graph(
+                    amount_of_elements,
+                    dependencies,
+                    vertex_attrs={"process_node": ordered_nodes},
+                    directed=True,
+                )
+                starting_element = graph.vs[reverse_node_name_map[process_dict["structure"]["start"]]]["process_node"]
+                try:
+                    variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements)])
+                except VariablesSpecificationError:
+                    logging.error(f"Variables specification error.")
+                    raise ProcessSpecificationError()
+                else:
+                    return GraphProcess(graph, starting_element, variables)
             case _:
                 logging.error(f"Process format unknown.")
                 raise ProcessSpecificationError()
-        dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in
-                        process_dict["structure"]["edges"]}
-        amount_of_elements = len(ordered_nodes)
-        graph = Graph(
-            amount_of_elements,
-            dependencies,
-            vertex_attrs={"process_node": ordered_nodes},
-            directed=True,
-        )
-        starting_element = graph.vs[reverse_node_name_map[process_dict["structure"]["start"]]]["process_node"]
-        try:
-            variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements) if
-                                                   not isinstance(ordered_nodes[node], Operator)])
-        except VariablesSpecificationError:
-            logging.error(f"Variables specification error.")
-            raise ProcessSpecificationError()
-        else:
-            return Process(graph, starting_element, variables)
 
     # Raises: ComponentError()
     @staticmethod
