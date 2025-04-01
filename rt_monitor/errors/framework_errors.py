@@ -12,32 +12,3 @@ class ComponentsSpecificationError(Exception):
     def __init__(self):
         super().__init__()
 
-
-class ProcessSpecificationError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class TaskSpecificationError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class LocalCheckpointSpecificationError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class GlobalCheckpointSpecificationError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class PropertySpecificationError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class VariablesSpecificationError(Exception):
-    def __init__(self):
-        super().__init__()

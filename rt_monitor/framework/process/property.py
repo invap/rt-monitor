@@ -4,7 +4,8 @@
 import logging
 import toml
 
-from rt_monitor.errors.framework_errors import FrameworkSpecificationError, PropertySpecificationError
+from rt_monitor.errors.framework_errors import FrameworkSpecificationError
+from rt_monitor.errors.process_errors import PropertySpecificationError
 
 
 class Property:

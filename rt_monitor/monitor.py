@@ -6,6 +6,8 @@ import logging
 import re
 import threading
 
+from pyformlang.finite_automaton import Symbol
+
 from errors.clock_errors import (
     ClockError,
     UndeclaredClockError,
@@ -32,17 +34,12 @@ from property_evaluator.evaluator import Evaluator
 
 
 class Monitor(threading.Thread):
-    PROCESS_IDLE_STATE = "process_idle"
-    PROCESS_FINISHED = "process_finished"
-
-    TASK_STARTED_SUFFIX = "_started"
-    TASK_FINISHED_SUFFIX = "_finished"
-    CHECKPOINT_REACHED_SUFFIX = "_reached"
 
     def __init__(self, framework, reports_map):
         super().__init__()
         # Analysis framework
         self._framework = framework
+        self._current_state = self._framework.process().dfa().start_state
         # Event reports map
         self._reports_map = reports_map
         # Events for controlling the execution of the monitor (TBS by set_events)
@@ -200,19 +197,25 @@ class Monitor(threading.Thread):
         if not self._framework.process().task_exists(task_name):
             logging.error(f"Task [ {task_name} ] does not exist.")
             raise TaskDoesNotExistError()
-        can_start = self._task_can_start(task_name)
-        task_specification = self._framework.process().task_specification_named(task_name)
-        preconditions_are_met = self._are_all_properties_satisfied(
-            task_started_event.time(),
-            task_specification.preconditions(),
-        )
-        self._update_process_state_with_started_task(task_started_event)
-        return can_start and preconditions_are_met
-
-    def _update_process_state_with_started_task(self, task_started_event):
-        task_name = task_started_event.name()
-        self._process_state.clear()
-        self._process_state.add(task_name + Monitor.TASK_STARTED_SUFFIX)
+        # A task named task_name can start only if the DFA of the process of the analysis framework
+        # (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
+        # (self._current_state) labelled f"task_started_{task_name}"; this is equivalent to test whether
+        # the list of destinations from the current state through transitions labelled with that symbol
+        # is not empty.
+        destinations = self._framework.process().dfa()(self._current_state, Symbol(f"task_started_{task_name}"))
+        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # assert(len(destinations) <= 1)
+        if destinations == []:
+            return False
+        else:
+            task_specification = self._framework.process().task_specification_named(task_name)
+            preconditions_are_met = self._are_all_properties_satisfied(
+                task_started_event.time(),
+                task_specification.preconditions(),
+            )
+            self._current_state = destinations[0]
+            return preconditions_are_met
+        #
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
@@ -221,53 +224,53 @@ class Monitor(threading.Thread):
         if not self._framework.process().task_exists(task_name):
             logging.error(f"Task [ {task_name} ] does not exist.")
             raise TaskDoesNotExistError()
-        had_previously_started = self._task_had_started(task_name)
-        task_specification = self._framework.process().task_specification_named(task_name)
-        postconditions_are_met = self._are_all_properties_satisfied(
-            task_finished_event.time(),
-            task_specification.postconditions(),
-        )
-        self._update_process_state_with_finished_task(task_finished_event)
-        return had_previously_started and postconditions_are_met
+        # A task named task_name can finish only if the DFA of the process of the analysis framework
+        # (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
+        # (self._current_state) labelled f"task_finished_{task_name}"; this is equivalent to test whether
+        # the list of destinations from the current state through transitions labelled with that symbol
+        # is not empty.
+        destinations = self._framework.process().dfa()(self._current_state, Symbol(f"task_finished_{task_name}"))
+        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        assert(len(destinations) <= 1)
+        if destinations == []:
+            return False
+        else:
+            task_specification = self._framework.process().task_specification_named(task_name)
+            postconditions_are_met = self._are_all_properties_satisfied(
+                task_finished_event.time(),
+                task_specification.postconditions(),
+            )
+            self._current_state = destinations[0]
+            return postconditions_are_met
 
-    def _update_process_state_with_finished_task(self, task_finished_event):
-        task_name = task_finished_event.name()
-        self._process_state.clear()
-        self._process_state.add(task_name + Monitor.TASK_FINISHED_SUFFIX)
-
-    # Propagates: BuildSpecificationError() from
-    #       _process_global_checkpoint_reached and _process_local_checkpoint_reached
+    # Raises: CheckpointDoesNotExistError
+    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-        if (not self._framework.process().global_checkpoint_exists(checkpoint_name) and
-                not self._framework.process().local_checkpoint_exists(checkpoint_name)):
+        if not self._framework.process().global_checkpoint_exists(checkpoint_name) and not self._framework.process().local_checkpoint_exists(checkpoint_name):
             logging.error(f"Checkpoint [ {checkpoint_name} ] does not exist.")
             raise CheckpointDoesNotExistError()
-        if self._framework.process().global_checkpoint_exists(checkpoint_name):
-            return self._process_global_checkpoint_reached(checkpoint_reached_event)
-        if self._framework.process().local_checkpoint_exists(checkpoint_name):
-            return self._process_local_checkpoint_reached(checkpoint_reached_event)
-
-    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
-    def _process_global_checkpoint_reached(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-        can_be_reached = self._global_checkpoint_can_be_reached(checkpoint_name)
-        checkpoint = self._framework.process().global_checkpoint_named(checkpoint_name)
-        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(),
-                                                                checkpoint.properties())
-        self._update_process_state_with_reached_global_checkpoint(checkpoint_reached_event)
-        return can_be_reached and properties_are_met
-
-    # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
-    def _process_local_checkpoint_reached(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-        can_be_reached = self._local_checkpoint_can_be_reached(checkpoint_name)
-        checkpoint = self._framework.process().local_checkpoint_named(checkpoint_name)
-        properties_are_met = self._are_all_properties_satisfied(checkpoint_reached_event.time(),
-                                                                checkpoint.properties())
-        started_task_name = self._started_task_name_from_state()
-        self._update_process_state_with_reached_local_checkpoint(checkpoint_reached_event, started_task_name)
-        return can_be_reached and properties_are_met
+        # A checkpoint named checkpoint_name can be reached only if the DFA of the process of the analysis
+        # framework (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
+        # (self._current_state) labelled f"checkpoint_reached_{checkpoint_name}"; this is equivalent to test
+        # whether the list of destinations from the current state through transitions labelled with that symbol
+        # is not empty.
+        destinations = self._framework.process().dfa()(self._current_state, Symbol(f"checkpoint_reached_{checkpoint_name}"))
+        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        assert(len(destinations) <= 1)
+        if destinations == []:
+            return False
+        else:
+            if self._framework.process().global_checkpoint_exists(checkpoint_name):
+                checkpoint_specification = self._framework.process().global_checkpoint_named(checkpoint_name)
+            else:
+                checkpoint_specification = self._framework.process().local_checkpoint_named(checkpoint_name)
+            checkpoint_conditions_are_met = self._are_all_properties_satisfied(
+                checkpoint_reached_event.time(),
+                checkpoint_specification.properties(),
+            )
+            self._current_state = destinations[0]
+            return checkpoint_conditions_are_met
 
     # Raises: UndeclaredVariableError()
     def process_variable_value_assigned(self, variable_value_assigned_event):
@@ -364,24 +367,6 @@ class Monitor(threading.Thread):
             raise ClockError()
         return True
 
-    def _update_process_state_with_reached_global_checkpoint(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-        self._process_state = {
-            state_word
-            for state_word in self._process_state
-            if not state_word.endswith(Monitor.CHECKPOINT_REACHED_SUFFIX)
-        }
-        self._process_state.add(checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
-
-    def _update_process_state_with_reached_local_checkpoint(self, checkpoint_reached_event, task_name):
-        checkpoint_name = checkpoint_reached_event.name()
-        self._process_state = {
-            state_word
-            for state_word in self._process_state
-            if not state_word.endswith(Monitor.CHECKPOINT_REACHED_SUFFIX)
-        }
-        self._process_state.add(task_name + "." + checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX)
-
     # Propagates: BuildSpecificationError() from _is_property_satisfied
     def _are_all_properties_satisfied(self, event_time, logic_properties):
         neg_properties_sat = False
@@ -405,61 +390,3 @@ class Monitor(threading.Thread):
             logging.log(LoggingLevel.ANALYSIS, f"Property {logic_property.name()} FAILED")
         return negation_is_sat
 
-    # ToDo: Reformulate the record of the evolution of the process
-    def _task_can_start(self, task_name):
-        return self._is_process_state_valid_for_reaching_element_named(task_name)
-
-    def _global_checkpoint_can_be_reached(self, checkpoint_name):
-        return self._is_process_state_valid_for_reaching_element_named(checkpoint_name)
-
-    def _local_checkpoint_can_be_reached(self, checkpoint_name):
-        there_is_a_task_in_progress = self._there_is_a_task_in_progress()
-        if not there_is_a_task_in_progress:
-            return False
-        task_in_progress_name = self._started_task_name_from_state()
-        task_in_progress = self._framework.process().task_specification_named(task_in_progress_name)
-        task_in_progress_has_that_checkpoint = any(checkpoint.is_named(checkpoint_name)
-                                                   for checkpoint in task_in_progress.checkpoints())
-        return task_in_progress_has_that_checkpoint
-
-    def _is_process_state_valid_for_reaching_element_named(self, element_name):
-        preceding_elements = (
-            self._framework.process().immediately_preceding_elements_for(element_name)
-        )
-        follows_a_corresponding_finishing_task = any(self._task_had_finished(preceding_element.name())
-                                                     for preceding_element in preceding_elements)
-        follows_a_corresponding_reached_checkpoint = any(
-            self._checkpoint_had_been_reached(preceding_element.name())
-            for preceding_element in preceding_elements
-        )
-        is_starting_element_and_state_is_empty = (
-                self._framework.process().is_starting_element(element_name)
-                and self._process_state == set()
-        )
-        return (
-                follows_a_corresponding_finishing_task
-                or follows_a_corresponding_reached_checkpoint
-                or is_starting_element_and_state_is_empty
-        )
-
-    def _task_had_started(self, task_name):
-        return (task_name + Monitor.TASK_STARTED_SUFFIX) in self._process_state
-
-    def _task_had_finished(self, task_name):
-        return (task_name + Monitor.TASK_FINISHED_SUFFIX) in self._process_state
-
-    def _checkpoint_had_been_reached(self, checkpoint_name):
-        state_word = checkpoint_name + Monitor.CHECKPOINT_REACHED_SUFFIX
-        return state_word in self._process_state
-
-    def _there_is_a_task_in_progress(self):
-        return any(
-            state_word.endswith(Monitor.TASK_STARTED_SUFFIX)
-            for state_word in self._process_state
-        )
-
-    def _started_task_name_from_state(self):
-        # This method assumes that there is a task in progress.
-        for state_word in self._process_state:
-            if state_word.endswith(Monitor.TASK_STARTED_SUFFIX):
-                return state_word[: state_word.find(Monitor.TASK_STARTED_SUFFIX)]

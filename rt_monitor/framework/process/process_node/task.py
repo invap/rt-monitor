@@ -43,18 +43,6 @@ class Task(Element):
             )
         )
 
-    def has_checkpoint_named(self, checkpoint_name):
-        return any(
-            checkpoint.is_named(checkpoint_name) for checkpoint in self._checkpoints
-        )
-
-    def checkpoint_named(self, checkpoint_name):
-        return next(
-            checkpoint
-            for checkpoint in self._checkpoints
-            if checkpoint.is_named(checkpoint_name)
-        )
-
     def preconditions(self):
         return self._preconditions
 

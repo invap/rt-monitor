@@ -17,3 +17,5 @@ texttable~=1.7.0
 toml~=0.10.2
 wxPython~=4.2.2
 z3-solver~=4.13.0.0
+graphviz~=0.20.3
+pyformlang~=1.0.11

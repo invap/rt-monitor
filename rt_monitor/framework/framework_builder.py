@@ -1,30 +1,20 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
-
 import importlib.util
 import logging
 import os
 
 import toml
-from igraph import Graph
 
 from rt_monitor.errors.framework_errors import (
-    FrameworkSpecificationError,
-    LocalCheckpointSpecificationError,
-    TaskSpecificationError,
-    GlobalCheckpointSpecificationError,
-    ProcessSpecificationError,
     ComponentsSpecificationError,
-    PropertySpecificationError,
-    VariablesSpecificationError
+    FrameworkSpecificationError
 )
+from rt_monitor.errors.process_errors import ProcessSpecificationError
 from rt_monitor.framework.components.component import VisualComponent
 from rt_monitor.framework.framework import Framework
-from rt_monitor.framework.process.graph_process import GraphProcess
-from rt_monitor.framework.process.property import Property
-from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
-from rt_monitor.framework.process.process_node.task import Task
+from rt_monitor.framework.process.process_builder import ProcessBuilder
 
 
 class FrameworkBuilder:
@@ -105,66 +95,7 @@ class FrameworkBuilder:
         if "format" not in process_dict:
             logging.error(f"Process format not found.")
             raise ProcessSpecificationError()
-        match process_dict["format"]:
-            case "regex":
-                logging.error(f"Process specification as regular expression not implemented yet.")
-                raise ProcessSpecificationError()
-            case "graph":
-                reverse_node_name_map = {}  # Build a reverse map between node numbers and node names
-                for node_number in range(0, len(process_dict["structure"]["nodes"])):
-                    node = process_dict["structure"]["nodes"][node_number]
-                    if not isinstance(node, list) or len(node) != 2:
-                        logging.error(f"The {node_number + 1} node in the list of nodes is not well formed. It should "
-                                      f"be [ node name , node type ]")
-                        raise ProcessSpecificationError()
-                    node_name = process_dict["structure"]["nodes"][node_number][0]
-                    node_type = process_dict["structure"]["nodes"][node_number][1]
-                    reverse_node_name_map[node_name] = node_number
-                    # In the case of operators the shape of node_type is 'operator:<operator type>'.
-                    split_node_type = node_type.split(":", 1)
-                    match split_node_type[0]:
-                        case "task":
-                            try:
-                                decoded_task = FrameworkBuilder._decode_task(node_name, process_dict["tasks"])
-                            except TaskSpecificationError:
-                                logging.error(f"Error decoding task from process node [ {node_name} ].")
-                                raise ProcessSpecificationError()
-                            ordered_nodes.append(decoded_task)
-                        case "checkpoint":
-                            try:
-                                global_checkpoint = FrameworkBuilder._decode_global_checkpoints(
-                                    node_name,
-                                    process_dict["checkpoints"]
-                                )
-                            except GlobalCheckpointSpecificationError:
-                                logging.error(f"Error decoding global checkpoint from process node [ {node_name} ].")
-                                raise ProcessSpecificationError()
-                            ordered_nodes.append(global_checkpoint)
-                        case _:
-                            logging.error(f"Type [ {node_type} ] of process node [ {node_name} ] unknown. Please "
-                                          f"tell me that you did not forget to put the 'operator:' in front of a "
-                                          f"node of type operator...")
-                            raise ProcessSpecificationError()
-                dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in
-                                process_dict["structure"]["edges"]}
-                amount_of_elements = len(ordered_nodes)
-                graph = Graph(
-                    amount_of_elements,
-                    dependencies,
-                    vertex_attrs={"process_node": ordered_nodes},
-                    directed=True,
-                )
-                starting_element = graph.vs[reverse_node_name_map[process_dict["structure"]["start"]]]["process_node"]
-                try:
-                    variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements)])
-                except VariablesSpecificationError:
-                    logging.error(f"Variables specification error.")
-                    raise ProcessSpecificationError()
-                else:
-                    return GraphProcess(graph, starting_element, variables)
-            case _:
-                logging.error(f"Process format unknown.")
-                raise ProcessSpecificationError()
+        return ProcessBuilder.build_process(process_dict, FrameworkBuilder.files_path)
 
     # Raises: ComponentError()
     @staticmethod
@@ -278,173 +209,3 @@ class FrameworkBuilder:
                 else:
                     component_map[device_name] = component_class()
         return component_map
-
-    # Raises: TaskSpecificationError()
-    @staticmethod
-    def _decode_task(task_name, toml_tasks_list):
-        preconditions_list = []
-        found = False
-        for i in range(0, len(toml_tasks_list)):
-            if found:
-                break
-            if toml_tasks_list[i]["name"] == task_name:
-                found = True
-                preconditions_list = toml_tasks_list[i]["pres"] if "pres" in toml_tasks_list[i] else []
-        try:
-            preconditions = FrameworkBuilder._properties_from_list(preconditions_list)
-        except PropertySpecificationError:
-            logging.error(f"Error decoding preconditions for task [ {task_name} ].")
-            raise TaskSpecificationError()
-        postconditions_list = []
-        found = False
-        for i in range(0, len(toml_tasks_list)):
-            if found:
-                break
-            if toml_tasks_list[i]["name"] == task_name and "posts" in toml_tasks_list[i]:
-                found = True
-                postconditions_list = toml_tasks_list[i]["posts"] if "posts" in toml_tasks_list[i] else []
-        try:
-            postconditions = FrameworkBuilder._properties_from_list(postconditions_list)
-        except PropertySpecificationError:
-            logging.error(f"Error decoding postconditions for task [ {task_name} ].")
-            raise TaskSpecificationError()
-        checkpoints_list = []
-        found = False
-        for i in range(0, len(toml_tasks_list)):
-            if found:
-                break
-            if toml_tasks_list[i]["name"] == task_name:
-                found = True
-                checkpoints_list = toml_tasks_list[i]["checkpoints"] if "checkpoints" in toml_tasks_list[i] else []
-        try:
-            local_checkpoints = FrameworkBuilder._decode_local_checkpoints(checkpoints_list)
-        except LocalCheckpointSpecificationError:
-            logging.error(f"Error decoding local checkpoints for task [ {task_name} ].")
-            raise TaskSpecificationError()
-        return Task(
-            task_name,
-            preconditions=preconditions,
-            postconditions=postconditions,
-            checkpoints=local_checkpoints
-        )
-
-    # Raises: GlobalCheckpointSpecificationError()
-    @staticmethod
-    def _decode_global_checkpoints(checkpoint_name, toml_checkpoints_list):
-        properties_list = []
-        found = False
-        for i in range(0, len(toml_checkpoints_list)):
-            if found:
-                break
-            if toml_checkpoints_list[i]["name"] == checkpoint_name:
-                found = True
-                properties_list = toml_checkpoints_list[i]["properties"]
-        try:
-            properties_from_list = FrameworkBuilder._properties_from_list(properties_list)
-        except PropertySpecificationError:
-            logging.error(f"Error decoding global checkpoint [ {checkpoint_name} ].")
-            raise GlobalCheckpointSpecificationError()
-        return Checkpoint(checkpoint_name, properties_from_list)
-
-    # Raises: LocalCheckpointSpecificationError()
-    @staticmethod
-    def _decode_local_checkpoints(checkpoints_list):
-        checkpoints = set()
-        if not checkpoints_list == [{}]:
-            for checkpoint in checkpoints_list:
-                if "name" not in checkpoint:
-                    logging.error(f"Local checkpoint name missing.")
-                    raise LocalCheckpointSpecificationError()
-                if "properties" not in checkpoint:
-                    logging.error(f"Properties of local checkpoint [ {checkpoint["name"]} ] missing.")
-                    raise LocalCheckpointSpecificationError()
-                try:
-                    properties_from_list = FrameworkBuilder._properties_from_list(checkpoint["properties"])
-                except PropertySpecificationError:
-                    logging.error(f"Error decoding local checkpoint [ {checkpoint["name"]} ].")
-                    raise LocalCheckpointSpecificationError()
-                checkpoints.add(Checkpoint(checkpoint["name"], properties_from_list))
-        return checkpoints
-
-    # Propagates: PropertySpecificationError()
-    @staticmethod
-    def _properties_from_list(properties_list):
-        properties = set()
-        if not properties_list == [{}]:
-            for prop in properties_list:
-                if "name" not in prop:
-                    logging.error(f"Property must have a name.")
-                    raise PropertySpecificationError()
-                if "file" in prop and "formula" in prop:
-                    logging.error(f"Property [ {prop["name"]} ] cannot have both a file specification and an inline specification.")
-                    raise PropertySpecificationError()
-                if "file" not in prop and "formula" not in prop:
-                    logging.error(f"Property [ {prop["name"]} ] source unknown not found.")
-                    raise PropertySpecificationError()
-                if "formula" in prop:
-                    # This operation might raise a PropertySpecificationError exception.
-                    properties.add(Property.property_from_toml_dict(prop["name"], prop))
-                else:  # "file" in prop
-                    file_name = prop["file"] \
-                        if prop["file"][0] == "/" or prop["file"][0] == "." \
-                        else FrameworkBuilder.files_path + prop["file"]
-                    # This operation might raise a PropertySpecificationError exception.
-                    properties.add(Property.property_from_file(prop["name"], file_name))
-        return properties
-
-
-# Raises: UnsupportedNodeType(), PropertySpecificationError()
-def _get_variables_from_nodes(nodes):
-    variables = {}
-    for node in nodes:
-        if isinstance(node, Task):
-            for formula in node.preconditions():
-                for variable in formula.variables():
-                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                        logging.error(
-                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                        raise VariablesSpecificationError()
-                    if variable in variables and not variables[variable] == formula.variables()[variable]:
-                        logging.error(
-                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise VariablesSpecificationError()
-                    variables[variable] = formula.variables()[variable]
-            for formula in node.postconditions():
-                for variable in formula.variables():
-                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                        logging.error(
-                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                        raise VariablesSpecificationError()
-                    if variable in variables and not variables[variable] == formula.variables()[variable]:
-                        logging.error(
-                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise VariablesSpecificationError()
-                    variables[variable] = formula.variables()[variable]
-            for checkpoint in node.checkpoints():
-                for formula in checkpoint.properties():
-                    for variable in formula.variables():
-                        if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                            logging.error(
-                                f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                            raise VariablesSpecificationError()
-                        if variable in variables and not variables[variable] == formula.variables()[variable]:
-                            logging.error(
-                                f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                            raise VariablesSpecificationError()
-                        variables[variable] = formula.variables()[variable]
-        elif isinstance(node, Checkpoint):
-            for formula in node.properties():
-                for variable in formula.variables():
-                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                        logging.error(
-                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                        raise VariablesSpecificationError()
-                    if variable in variables and not variables[variable] == formula.variables()[variable]:
-                        logging.error(
-                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise VariablesSpecificationError()
-                    variables[variable] = formula.variables()[variable]
-        else:
-            # Nodes have already been checked for being of type Task or Checkpoint.
-            pass
-    return variables

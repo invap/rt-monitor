@@ -3,9 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 import unittest
 
-import rt_monitor.monitor
-from rt_monitor.reporting.event.variable_value_assigned_event import VariableValueAssignedEvent
-
 
 class Test_Monitor(unittest.TestCase):
 
