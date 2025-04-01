@@ -114,7 +114,7 @@ class Process(ABC):
     # Raises: LocalCheckpointSpecificationError()
     @staticmethod
     def _decode_local_checkpoints(checkpoints_list, files_path):
-        checkpoints = set()
+        checkpoints = {}
         if not checkpoints_list == [{}]:
             for checkpoint in checkpoints_list:
                 if "name" not in checkpoint:
@@ -128,7 +128,7 @@ class Process(ABC):
                 except PropertySpecificationError:
                     logging.error(f"Error decoding local checkpoint [ {checkpoint["name"]} ].")
                     raise LocalCheckpointSpecificationError()
-                checkpoints.add(Checkpoint(checkpoint["name"], properties_from_list))
+                checkpoints[checkpoint["name"]] = Checkpoint(checkpoint["name"], properties_from_list)
         return checkpoints
 
     # Propagates: PropertySpecificationError()

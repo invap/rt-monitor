@@ -74,7 +74,7 @@ class RegExProcess(Process):
                     task_node = State(f"task_{source_state}_{ssp_node_name}_{target_state}")
                     dfa_copy.add_transition(source_state, Symbol(f"task_started_{ssp_node_name}"), task_node)
                     dfa_copy.add_transition(task_node, Symbol(f"task_finished_{ssp_node_name}"), target_state)
-                    for local_checkpoint_name in [checkpoint.name() for checkpoint in tasks[ssp_node_name].checkpoints()]:
+                    for local_checkpoint_name in [checkpoint for checkpoint in tasks[ssp_node_name].checkpoints()]:
                         dfa_copy.add_transition(task_node, Symbol(f"checkpoint_reached_{local_checkpoint_name}"), task_node)
                 else:  # ssp_node_name in checkpoint
                     ################################################################################################
@@ -100,7 +100,7 @@ class RegExProcess(Process):
         for task in self._tasks.values():
             if found:
                 break
-            found = any(checkpoint.name() for checkpoint in task.checkpoints())
+            found = any(checkpoint for checkpoint in task.checkpoints() if checkpoint == checkpoint_name)
         return found
 
     def task_specification_named(self, task_name):
@@ -114,9 +114,8 @@ class RegExProcess(Process):
     def local_checkpoint_named(self, checkpoint_name):
         # This method assumes there is a local checkpoint named that way.
         for task in self._tasks.values():
-            for checkpoint in task.checkpoints():
-                if checkpoint.name() == checkpoint_name:
-                    return checkpoint
+            if checkpoint_name in task.checkpoints():
+                return task.checkpoints()[checkpoint_name]
 
     def variables(self):
         return self._variables
@@ -148,8 +147,8 @@ def _get_variables_from_dicts(tasks, checkpoints):
                         f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
                     raise VariablesSpecificationError()
                 variables[variable] = formula.variables()[variable]
-        for checkpoint in tasks[task_name].checkpoints():
-            for formula in checkpoint.properties():
+        for checkpoint_name in tasks[task_name].checkpoints():
+            for formula in tasks[task_name].checkpoints()[checkpoint_name].properties():
                 for variable in formula.variables():
                     if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
                         logging.error(
