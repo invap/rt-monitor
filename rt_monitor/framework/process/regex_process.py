@@ -96,12 +96,7 @@ class RegExProcess(Process):
         return checkpoint_name in self._checkpoints
 
     def local_checkpoint_exists(self, checkpoint_name):
-        found = False
-        for task in self._tasks.values():
-            if found:
-                break
-            found = any(checkpoint for checkpoint in task.checkpoints() if checkpoint == checkpoint_name)
-        return found
+        return any(any(checkpoint == checkpoint_name for checkpoint in task.checkpoints()) for task in self._tasks.values())
 
     def task_specification_named(self, task_name):
         # This method assumes there is a task named that way.
