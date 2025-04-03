@@ -41,9 +41,6 @@ class Process(ABC):
     def local_checkpoint_exists(self, checkpoint_name):
         raise NotImplementedError
 
-    ################################################################
-    # Functions for building tasks and checkpoints from toml lists #
-    ################################################################
     # Raises: TaskSpecificationError()
     @staticmethod
     def _decode_task(task_name, toml_tasks_list, files_path):

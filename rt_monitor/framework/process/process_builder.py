@@ -25,3 +25,4 @@ class ProcessBuilder:
         if process_type not in factory:
             raise ProcessSpecificationError
         return factory[process_type].process_from_toml_dict(process_dict, files_path)
+
