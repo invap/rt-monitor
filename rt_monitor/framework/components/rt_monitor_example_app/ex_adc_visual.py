@@ -14,10 +14,7 @@ from rt_monitor.novalue import NoValue
 class adc(VisualComponent):
     def __init__(self, visual_component_class, visual):
         super().__init__(visual_component_class, visual)
-        AcumCalib = 0
-        Calib = 0
-        ContCalib = 0
-        self._adc_read = NoValue
+        # self._adc_read = NoValue
         # statistics variables
         self.__total_values_read = 0
         self.__current_value = 0
@@ -25,16 +22,16 @@ class adc(VisualComponent):
         self.initialize_visual_component()
 
     def state(self):
-        state = {"adc_read": ("Int", self._adc_read)}
-        return state
+        # state = {"adc_read": ("Int", self._adc_read)}
+        return {}  # state
 
     def adc_init(self):
         pass
 
-    def sample(self, read: np.uint16):
-        self._adc_read = read
+    def sample(self):  #, read: np.uint16):
+        # self._adc_read = read
         self.__total_values_read += 1
-        self.__current_value = read
+        #self.__current_value = read
 
     def get_status(self):
         return [self.__total_values_read, self.__current_value]

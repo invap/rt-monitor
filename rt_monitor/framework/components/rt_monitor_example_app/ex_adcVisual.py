@@ -15,8 +15,6 @@ class adcVisual(wx.Frame):
 
     def on_timer(self):
         self.counter_display_number.SetLabel(self._counter_value())
-        self.measured_value_display.SetLabel(self._measured_value())
-        self.measured_binary_value_display.SetLabel(self._measured_binary_value())
         self.Refresh()
         self.Update()
         self.timer.Restart()
@@ -30,9 +28,6 @@ class adcVisual(wx.Frame):
 
     def _set_up_components(self):
         self._set_up_counter_display()
-        self._add_dividing_line()
-        self._set_up_value_display()
-        self._set_up_binary_value_display()
 
     def _add_dividing_line(self):
         self.sizer.Add(wx.StaticLine(self), 0, wx.EXPAND)
@@ -52,32 +47,6 @@ class adcVisual(wx.Frame):
         )
         self._set_up_display(self.counter_display_number, counter_display_sizer)
         self.sizer.Add(counter_display_sizer, 0, wx.EXPAND)
-
-    def _set_up_value_display(self):
-        value_display_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        measured_value_label = wx.StaticText(self, label="Valor medido: ")
-        value_display_sizer.Add(
-            measured_value_label,
-            0,
-            wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT,
-            border=10,
-        )
-        value_display_sizer.AddStretchSpacer()
-        self.measured_value_display = wx.StaticText(
-            self, label=self._measured_value(), style=wx.ALIGN_RIGHT
-        )
-        self._set_up_display(
-            self.measured_value_display, value_display_sizer, adcVisual._blue()
-        )
-        self.sizer.Add(value_display_sizer, 0, wx.EXPAND)
-
-    def _set_up_binary_value_display(self):
-        self.measured_binary_value_display = wx.StaticText(
-            self, label=self._measured_binary_value(), style=wx.ALIGN_RIGHT
-        )
-        self._set_up_display(
-            self.measured_binary_value_display, self.sizer, maximum_digits=25
-        )
 
     @staticmethod
     def _set_up_display(display_text, sizer, foreground_color=None, maximum_digits=10):
