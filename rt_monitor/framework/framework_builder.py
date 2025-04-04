@@ -90,8 +90,6 @@ class FrameworkBuilder:
             logging.error(f"Process specification not found.")
             raise ProcessSpecificationError()
         process_dict = FrameworkBuilder.framework_dict["process"]
-        # Building the process toml_tasks_list
-        ordered_nodes = []
         if "format" not in process_dict:
             logging.error(f"Process format not found.")
             raise ProcessSpecificationError()
