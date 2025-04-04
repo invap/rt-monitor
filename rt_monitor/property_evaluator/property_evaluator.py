@@ -3,11 +3,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+from enum import Enum
 
 from rt_monitor.errors.evaluator_errors import UnboundVariablesError
 
 
 class PropertyEvaluator:
+    class PropertyEvaluationResult (Enum):
+        PASSED = "PASSED"
+        FAILED = "FAILED"
+
     def __init__(self, components, process_state, execution_state, timed_state):
         self._components = components
         self._process_state = process_state

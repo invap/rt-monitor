@@ -31,6 +31,7 @@ from framework.clock import Clock
 from reporting.event_decoder import EventDecoder
 from novalue import NoValue
 from property_evaluator.evaluator import Evaluator
+from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
 class Monitor(threading.Thread):
@@ -209,7 +210,7 @@ class Monitor(threading.Thread):
             return False
         else:
             task_specification = self._framework.process().task_specification_named(task_name)
-            preconditions_are_met = self._are_all_properties_satisfied(
+            preconditions_are_met = self._are_all_properties_true(
                 task_started_event.time(),
                 task_specification.preconditions(),
             )
@@ -236,7 +237,7 @@ class Monitor(threading.Thread):
             return False
         else:
             task_specification = self._framework.process().task_specification_named(task_name)
-            postconditions_are_met = self._are_all_properties_satisfied(
+            postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
                 task_specification.postconditions(),
             )
@@ -265,7 +266,7 @@ class Monitor(threading.Thread):
                 checkpoint_specification = self._framework.process().global_checkpoint_named(checkpoint_name)
             else:
                 checkpoint_specification = self._framework.process().local_checkpoint_named(checkpoint_name)
-            checkpoint_conditions_are_met = self._are_all_properties_satisfied(
+            checkpoint_conditions_are_met = self._are_all_properties_true(
                 checkpoint_reached_event.time(),
                 checkpoint_specification.properties(),
             )
@@ -368,25 +369,20 @@ class Monitor(threading.Thread):
         return True
 
     # Propagates: BuildSpecificationError() from _is_property_satisfied
-    def _are_all_properties_satisfied(self, event_time, logic_properties):
-        neg_properties_sat = False
+    def _are_all_properties_true(self, event_time, logic_properties):
+        property_is_true = True
         for logic_property in logic_properties:
-            if neg_properties_sat:
+            if not property_is_true:
                 break
-            neg_properties_sat = self._is_property_satisfied(event_time, logic_property)
-        return not neg_properties_sat
+            property_is_true = self._is_property_true(event_time, logic_property)
+        return property_is_true
 
     # Propagates: BuildSpecificationError()
-    def _is_property_satisfied(self, event_time, logic_property):
-        logging.log(LoggingLevel.ANALYSIS, f"Checking property {logic_property.name()}...")
+    def _is_property_true(self, event_time, logic_property):
         try:
-            negation_is_sat = self._evaluator.eval(logic_property, event_time)
+            evaluation_result = self._evaluator.eval(logic_property, event_time)
         except BuildSpecificationError:
             logging.error(f"Error evaluating formula [ {logic_property.name()} ]")
             raise BuildSpecificationError()
-        if not negation_is_sat:
-            logging.log(LoggingLevel.ANALYSIS, f"Property {logic_property.name()} PASSED")
-        else:
-            logging.log(LoggingLevel.ANALYSIS, f"Property {logic_property.name()} FAILED")
-        return negation_is_sat
+        return evaluation_result == PropertyEvaluator.PropertyEvaluationResult.PASSED
 

@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import logging
 import numpy as np
 from z3 import z3
@@ -11,6 +12,7 @@ from rt_monitor.errors.evaluator_errors import (
     UnboundVariablesError,
     BuildSpecificationError,
 )
+from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
@@ -20,22 +22,36 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         super().__init__(components, process_state, execution_state, timed_state)
 
     # Raises: EvaluationError()
-    def eval(self, property, now):
-        spec = self._build_spec(property, now)
-        filename = property.name()
+    def eval(self, prop, now):
+        logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
+        spec = self._build_spec(prop, now)
+        filename = prop.name()
         temp_solver = z3.Solver()
         temp_solver.from_string(spec)
-        negation_is_sat = z3.sat == temp_solver.check()
-        if negation_is_sat:
-            # Output counterexample as toml_tasks_list
+        # The negation of the formula is checked for satisfiability
+        result = temp_solver.check()
+        match result:
+            case z3.unsat:
+                # If the negation of the formula is unsatisfiable, then the prop of interest passed.
+                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
+            case z3.sat:
+                # If the negation of the formula is satisfiable, then the prop of interest failed.
+                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
+            case z3.unknown:
+                # If the negation of the formula is unknown, then the prop of interest is not guarantied to pass.
+                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} MIGHT FAIL")
+        if result == z3.sat or result == z3.unknown:
+            # Output counterexample as smt2 specification
             spec_filename = filename + "@" + str(now) + ".smt2"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)
             spec_file.close()
             logging.info(f"Specification dumped: [ {spec_filename} ]")
-        return negation_is_sat
+            return PropertyEvaluator.PropertyEvaluationResult.FAILED
+        else:
+            return PropertyEvaluator.PropertyEvaluationResult.PASSED
 
-    # Raises: BuildSpecificationError()
+        # Raises: BuildSpecificationError()
     def _build_spec(self, prop, now):
         try:
             var_declarations = self._build_variable_declarations(prop)

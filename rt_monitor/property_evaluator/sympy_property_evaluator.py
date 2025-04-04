@@ -12,6 +12,7 @@ from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError,
     EvaluationError, UnsupportedSymPyVariableTypeError
 )
+from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
@@ -28,16 +29,26 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
             logging.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
         locs = {}
+        # The formula is checked to be either true or false
         exec(spec, globals(), locs)
-        negation_is_true = locs['result']
-        if negation_is_true:
-            # Output counterexample as toml_tasks_list
+        result = locs['result']
+        match result:
+            case True:
+                # If the formula is true, then the property of interest passed.
+                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
+            case False:
+                # If the formula is false, then the property of interest failed.
+                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
+        if result == False:
+            # Output counterexample as python program
             spec_filename = prop.name() + "@" + str(now) + ".py"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)
             spec_file.close()
             logging.info(f"Specification dumped: [ {spec_filename} ]")
-        return negation_is_true
+            return PropertyEvaluator.PropertyEvaluationResult.FAILED
+        else:
+            return PropertyEvaluator.PropertyEvaluationResult.PASSED
 
     # Raises: BuildSpecificationError()
     def _build_spec(self, prop, now):
@@ -47,7 +58,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
             spec = (f"from sympy import Symbol\n" +
                     f"{"".join([decl + "\n" for decl in declarations])}\n" +
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"result = not {prop.formula()}\n")
+                    f"result = {prop.formula()}\n")
             return spec
         except NoValueAssignedToVariableError:
             pass
