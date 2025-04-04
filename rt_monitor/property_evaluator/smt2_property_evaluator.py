@@ -10,7 +10,7 @@ from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     NoValueAssignedToVariableError,
     UnboundVariablesError,
-    BuildSpecificationError,
+    BuildSpecificationError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
@@ -24,7 +24,11 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     # Raises: EvaluationError()
     def eval(self, prop, now):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
-        spec = self._build_spec(prop, now)
+        try:
+            spec = self._build_spec(prop, now)
+        except BuildSpecificationError:
+            logging.error(f"Building specification for property [ {prop.name()} ] error.")
+            raise EvaluationError()
         filename = prop.name()
         temp_solver = z3.Solver()
         temp_solver.from_string(spec)

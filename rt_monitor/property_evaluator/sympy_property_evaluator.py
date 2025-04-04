@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-from typing import Iterable
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
@@ -23,6 +22,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
 
     # Raises: EvaluationError()
     def eval(self, prop, now):
+        logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:

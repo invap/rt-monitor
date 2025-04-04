@@ -1,13 +1,15 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import logging
 import numpy as np
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError,
-    NoValueAssignedToVariableError, UnboundVariablesError, EvaluationError
+    NoValueAssignedToVariableError,
+    UnboundVariablesError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
@@ -20,6 +22,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
 
     # Raises: EvaluationError()
     def eval(self, prop, now):
+        logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
