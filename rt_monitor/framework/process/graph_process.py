@@ -3,8 +3,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 import logging
 
-from igraph import Graph
-
+from pyformlang.finite_automaton import (
+    State,
+    Symbol,
+    EpsilonNFA, Epsilon
+)
 from rt_monitor.errors.process_errors import (
     ProcessSpecificationError,
     TaskSpecificationError,
@@ -18,157 +21,84 @@ from rt_monitor.framework.process.process_node.task import Task
 
 class GraphProcess(Process):
     def __init__(self, dfa, tasks, checkpoints, variables):
-        super().__init__(variables)
-        self._dfa = dfa
-        self._tasks = tasks
-        self._checkpoints = checkpoints
+        super().__init__(dfa, tasks, checkpoints, variables)
 
     @staticmethod
     def process_from_toml_dict(process_dict, files_path):
-        reverse_node_name_map = {}  # Build a reverse map between node numbers and node names
-        ordered_nodes = []
-        for node_number in range(0, len(process_dict["structure"]["nodes"])):
-            node = process_dict["structure"]["nodes"][node_number]
-            if not isinstance(node, list) or len(node) != 2:
-                logging.error(f"The {node_number + 1} node in the list of nodes is not well formed. It should "
-                              f"be [ node name , node type ]")
-                raise ProcessSpecificationError()
-            node_name = process_dict["structure"]["nodes"][node_number][0]
-            node_type = process_dict["structure"]["nodes"][node_number][1]
-            reverse_node_name_map[node_name] = node_number
-            # In the case of operators the shape of node_type is 'operator:<operator type>'.
-            split_node_type = node_type.split(":", 1)
-            match split_node_type[0]:
-                case "task":
-                    try:
-                        decoded_task = Process._decode_task(node_name, process_dict["tasks"], files_path)
-                    except TaskSpecificationError:
-                        logging.error(f"Error decoding task from process node [ {node_name} ].")
-                        raise ProcessSpecificationError()
-                    ordered_nodes.append(decoded_task)
-                case "checkpoint":
-                    try:
-                        global_checkpoint = Process._decode_global_checkpoint(
-                            node_name,
-                            process_dict["checkpoints"],
-                            files_path
-                        )
-                    except GlobalCheckpointSpecificationError:
-                        logging.error(f"Error decoding global checkpoint from process node [ {node_name} ].")
-                        raise ProcessSpecificationError()
-                    ordered_nodes.append(global_checkpoint)
+        if "structure" not in process_dict:
+            logging.error(f"Regular expression not found.")
+            raise ProcessSpecificationError()
+        nfa = EpsilonNFA()
+        # Build dictionaries containing tasks and checkpoints
+        tasks, checkpoints = Process.dictionaries_from_toml_dict(process_dict, files_path)
+        # Build the NFA
+        nodes = process_dict["structure"]["nodes"]
+        start_node_name = process_dict["structure"]["start"]
+        start_node_type = "no_type"
+        final_states_names = []
+        for node in nodes:
+            node_name, node_type = node[0], node[1]
+            if node_name == start_node_name:
+                start_node_type = node_type
+            if node_type == "task":
+                ################################################################################################
+                #
+                # Add:
+                #                                                                 checkpoint_reached_{local_checkpoint_name}
+                #                                                                 +---------------------------------------+
+                #                                                                 |                                       |
+                #                                                                 |                                      \/
+                #   task_{node_name}_source_state ---task_started_{node_name}--> task_source_state_{node_name}_target_state ---task_finished_{node_name}---> task_{node_name}_target_state
+                #
+                ################################################################################################
+                st_0 = State(f"task_{node_name}_source_state")
+                st = State(f"task_source_state_{node_name}_target_state")
+                st_f = State(f"task_{node_name}_target_state")
+                final_states_names += [f"task_{node_name}_source_state", f"task_source_state_{node_name}_target_state", f"task_{node_name}_target_state"]
+                nfa.add_transition(st_0, Symbol(f"task_started_{node_name}"), st)
+                for local_checkpoint_name in [checkpoint for checkpoint in tasks[node_name].checkpoints()]:
+                    nfa.add_transition(st, Symbol(f"checkpoint_reached_{local_checkpoint_name}"), st)
+                nfa.add_transition(st, Symbol(f"task_finished_{node_name}"), st_f)
+            else: # node_type is "checkpoint"
+                ################################################################################################
+                #
+                # Add:
+                #
+                #   task_{node_name}_source_state -- checkpoint_reached_{global_checkpoint_name} --> task_{node_name}_target_state
+                #
+                ################################################################################################
+                st_0 = State(f"checkpoint_{node_name}_source_state")
+                st_f = State(f"checkpoint_{node_name}_target_state")
+                nfa.add_transition(st_0, Symbol(f"checkpoint_reached_{node_name}"), st_f)
+                final_states_names += [f"checkpoint_{node_name}_source_state", f"checkpoint_{node_name}_target_state"]
+        edges = process_dict["structure"]["edges"]
+        for edge in edges:
+            src_node_name, trg_node_name = edge[0], edge[1]
+            src_node_type = "task" if src_node_name in tasks else "checkpoint" if src_node_name in checkpoints else "invalid"
+            trg_node_type = "task" if trg_node_name in tasks else "checkpoint" if trg_node_name in checkpoints else "invalid"
+            match src_node_type, trg_node_type:
+                case "task", "task":
+                    nfa.add_transition(State(f"task_{src_node_name}_target_state"), Epsilon(), State(f"task_{trg_node_name}_source_state"))
+                case "task", "checkpoint":
+                    nfa.add_transition(State(f"task_{src_node_name}_target_state"), Epsilon(), State(f"checkpoint_{trg_node_name}_source_state"))
+                case "checkpoint", "task":
+                    nfa.add_transition(State(f"checkpoint_{src_node_name}_target_state"), Epsilon(), State(f"task_{trg_node_name}_source_state"))
+                case "checkpoint", "checkpoint":
+                    nfa.add_transition(State(f"checkpoint_{src_node_name}_target_state"), Epsilon(), State(f"checkpoint_{trg_node_name}_source_state"))
                 case _:
-                    logging.error(f"Type [ {node_type} ] of process node [ {node_name} ] unknown. Please "
-                                  f"tell me that you did not forget to put the 'operator:' in front of a "
-                                  f"node of type operator...")
+                    logging.error(f"Graph node type error.")
                     raise ProcessSpecificationError()
-        dependencies = {(reverse_node_name_map[src], reverse_node_name_map[trg]) for [src, trg] in
-                        process_dict["structure"]["edges"]}
-        amount_of_elements = len(ordered_nodes)
-        graph = Graph(
-            amount_of_elements,
-            dependencies,
-            vertex_attrs={"process_node": ordered_nodes},
-            directed=True,
-        )
-        starting_element = graph.vs[reverse_node_name_map[process_dict["structure"]["start"]]]["process_node"]
+        if start_node_type == "no_type":
+            logging.error(f"Starting node not in graph.")
+            raise ProcessSpecificationError()
+        nfa.add_start_state(State(f"{start_node_type}_{start_node_name}_source_state"))
+        for state_name in final_states_names:
+            nfa.add_final_state(State(state_name))
+        dfa = nfa.to_deterministic()
         try:
-            variables = _get_variables_from_nodes([ordered_nodes[node] for node in range(0, amount_of_elements)])
+            variables = Process._get_variables_from_dicts(tasks, checkpoints)
         except VariablesSpecificationError:
             logging.error(f"Variables specification error.")
             raise ProcessSpecificationError()
         else:
-            return GraphProcess(graph, starting_element, variables)
-
-    def task_exists(self, task_name):
-        return any(task.is_named(task_name) for task in self._task_specifications())
-
-    def global_checkpoint_exists(self, checkpoint_name):
-        return any(
-            checkpoint.is_named(checkpoint_name)
-            for checkpoint in self._global_checkpoints()
-        )
-
-    def local_checkpoint_exists(self, checkpoint_name):
-        return any(
-            task.has_checkpoint_named(checkpoint_name)
-            for task in self._task_specifications()
-        )
-
-    def task_specification_named(self, task_name):
-        # This method assumes there is a task named that way.
-        for task_specification in self._task_specifications():
-            if task_specification.is_named(task_name):
-                return task_specification
-
-    def global_checkpoint_named(self, checkpoint_name):
-        # This method assumes there is a global checkpoint named that way.
-        for checkpoint in self._global_checkpoints():
-            if checkpoint.is_named(checkpoint_name):
-                return checkpoint
-
-    def local_checkpoint_named(self, checkpoint_name):
-        # This method assumes there is a local checkpoint named that way.
-        for task in self._task_specifications():
-            if task.has_checkpoint_named(checkpoint_name):
-                return task.checkpoint_named(checkpoint_name)
-
-    def variables(self):
-        return self._variables
-
-
-# Raises: UnsupportedNodeType(), PropertySpecificationError()
-def _get_variables_from_nodes(nodes):
-    variables = {}
-    for node in nodes:
-        if isinstance(node, Task):
-            for formula in node.preconditions():
-                for variable in formula.variables():
-                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                        logging.error(
-                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                        raise VariablesSpecificationError()
-                    if variable in variables and not variables[variable] == formula.variables()[variable]:
-                        logging.error(
-                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise VariablesSpecificationError()
-                    variables[variable] = formula.variables()[variable]
-            for formula in node.postconditions():
-                for variable in formula.variables():
-                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                        logging.error(
-                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                        raise VariablesSpecificationError()
-                    if variable in variables and not variables[variable] == formula.variables()[variable]:
-                        logging.error(
-                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise VariablesSpecificationError()
-                    variables[variable] = formula.variables()[variable]
-            for checkpoint in node.checkpoints():
-                for formula in checkpoint.properties():
-                    for variable in formula.variables():
-                        if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                            logging.error(
-                                f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                            raise VariablesSpecificationError()
-                        if variable in variables and not variables[variable] == formula.variables()[variable]:
-                            logging.error(
-                                f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                            raise VariablesSpecificationError()
-                        variables[variable] = formula.variables()[variable]
-        elif isinstance(node, Checkpoint):
-            for formula in node.properties():
-                for variable in formula.variables():
-                    if formula.variables()[variable][0] not in {"Component", "State", "Clock"}:
-                        logging.error(
-                            f"Variables class [ {formula.variables()[variable][0]} ] unsupported.")
-                        raise VariablesSpecificationError()
-                    if variable in variables and not variables[variable] == formula.variables()[variable]:
-                        logging.error(
-                            f"Inconsistent declaration for variable [ {variable} ] - [ {variables[variable]} != {formula.variables()[variable]} ].")
-                        raise VariablesSpecificationError()
-                    variables[variable] = formula.variables()[variable]
-        else:
-            # Nodes have already been checked for being of type Task or Checkpoint.
-            pass
-    return variables
+            return GraphProcess(dfa, tasks, checkpoints, variables)
