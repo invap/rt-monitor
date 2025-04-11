@@ -5,10 +5,10 @@
 import logging
 import copy
 
-from pyformlang.finite_automaton import State, Symbol
+from pyformlang.finite_automaton import State, Symbol, DeterministicFiniteAutomaton
 from pyformlang.regular_expression import Regex
 
-from rt_monitor.errors.process_errors import ProcessSpecificationError
+from rt_monitor.errors.process_errors import ProcessSpecificationError, VariablesSpecificationError
 from rt_monitor.framework.process.process import Process
 
 
@@ -23,9 +23,14 @@ class RegExProcess(Process):
             raise ProcessSpecificationError()
         # Create DFA from regex
         dfa_start = Regex(process_dict["structure"].replace(";", ".")).to_epsilon_nfa().to_deterministic()
-        dfa = copy.deepcopy(dfa_start)
+        dfa = DeterministicFiniteAutomaton()
         # Build dictionaries containing tasks and checkpoints
         tasks, checkpoints = Process.dictionaries_from_toml_dict(process_dict, files_path)
+        # Add the start state
+        start_node_name = dfa_start.start_state.value
+        dfa.add_start_state(State(f"{start_node_name}"))
+        # Collect all final states (i.e., all the states)
+        final_states_names = []
         # Update the DFA to have the transitions corresponding to the events associated to each
         # element in the SSP.
         for source_state in dfa_start.states:
@@ -47,10 +52,12 @@ class RegExProcess(Process):
                     # source_state --"task_started_[ssp_node_name]"--> "task_{source_state}_{ssp_node_name}_{target_state}" --"task_finished_[ssp_node_name]"--> target_state
                     ################################################################################################
                     task_node = State(f"task_{source_state}_{ssp_node_name}_{target_state}")
+                    # Collect all final states (i.e., all the states)
+                    final_states_names += [f"{source_state}", f"task_{source_state}_{ssp_node_name}_{target_state}", f"{target_state}"]
                     dfa.add_transition(source_state, Symbol(f"task_started_{ssp_node_name}"), task_node)
-                    dfa.add_transition(task_node, Symbol(f"task_finished_{ssp_node_name}"), target_state)
                     for local_checkpoint_name in [checkpoint for checkpoint in tasks[ssp_node_name].checkpoints()]:
                         dfa.add_transition(task_node, Symbol(f"checkpoint_reached_{local_checkpoint_name}"), task_node)
+                    dfa.add_transition(task_node, Symbol(f"task_finished_{ssp_node_name}"), target_state)
                 else:  # ssp_node_name in checkpoint
                     ################################################################################################
                     # Add:
@@ -61,6 +68,16 @@ class RegExProcess(Process):
                     # source_state --"global_checkpoint_name"--> target_state
                     ################################################################################################
                     dfa.add_transition(source_state, Symbol(f"checkpoint_reached_{ssp_node_name}"), target_state)
-        variables = Process._get_variables_from_dicts(tasks, checkpoints)
-        return RegExProcess(dfa, tasks, checkpoints, variables)
+                    # Collect all final states (i.e., all the states)
+                    final_states_names += [f"{source_state}", f"{target_state}"]
+        # Add all final states
+        for state_name in final_states_names:
+            dfa.add_final_state(State(state_name))
+        try:
+            variables = Process._get_variables_from_dicts(tasks, checkpoints)
+        except VariablesSpecificationError:
+            logging.error(f"Variables specification error.")
+            raise ProcessSpecificationError()
+        else:
+            return RegExProcess(dfa, tasks, checkpoints, variables)
 
