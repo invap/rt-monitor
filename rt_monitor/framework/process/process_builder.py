@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import logging
 
 from rt_monitor.errors.process_errors import ProcessSpecificationError
@@ -13,6 +14,7 @@ class ProcessBuilder:
         pass
 
     @staticmethod
+    # Raises: ProcessSpecificationError()
     def build_process(process_dict, files_path):
         if "format" not in process_dict:
             logging.error(f"Process format not found.")

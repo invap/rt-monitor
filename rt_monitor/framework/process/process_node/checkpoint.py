@@ -13,5 +13,9 @@ class Checkpoint(Element):
     def properties(self):
         return self._properties
 
-    def type(self):
-        return "Checkpoint"
+    @staticmethod
+    def checkpoint_from_toml_dict(checkpoint_name, checkpoint_dict):
+        return Checkpoint(
+            checkpoint_name,
+            checkpoint_dict["properties"] if "properties" in checkpoint_dict else set()
+        )

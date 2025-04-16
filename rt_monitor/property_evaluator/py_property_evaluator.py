@@ -21,7 +21,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
         super().__init__(components, process_state, execution_state, timed_state)
 
     # Raises: EvaluationError()
-    def eval(self, prop, now):
+    def eval(self, now, prop):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
         try:
             spec = self._build_spec(prop, now)
@@ -53,8 +53,10 @@ class PyPropertyEvaluator(PropertyEvaluator):
     # Raises: BuildSpecificationError()
     def _build_spec(self, prop, now):
         try:
+            # TODO: Add the possibility of having declarations.
             assumptions = self._build_assumptions(prop, now)
             spec = (f"{"".join([ass + "\n" for ass in assumptions])}\n" +
+                    f"{prop.declarations()}\n\n"
                     f"result = {prop.formula()}\n")
             return spec
         except NoValueAssignedToVariableError:

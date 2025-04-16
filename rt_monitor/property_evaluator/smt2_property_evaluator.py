@@ -22,7 +22,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         super().__init__(components, process_state, execution_state, timed_state)
 
     # Raises: EvaluationError()
-    def eval(self, prop, now):
+    def eval(self, now, prop):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
         try:
             spec = self._build_spec(prop, now)
@@ -36,13 +36,13 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         result = temp_solver.check()
         match result:
             case z3.unsat:
-                # If the negation of the formula is unsatisfiable, then the prop of interest passed.
+                # If the negation of the formula is unsatisfiable, then the prop_dict of interest passed.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
             case z3.sat:
-                # If the negation of the formula is satisfiable, then the prop of interest failed.
+                # If the negation of the formula is satisfiable, then the prop_dict of interest failed.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
             case z3.unknown:
-                # If the negation of the formula is unknown, then the prop of interest is not guarantied to pass.
+                # If the negation of the formula is unknown, then the prop_dict of interest is not guarantied to pass.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} MIGHT FAIL")
         if result == z3.sat or result == z3.unknown:
             # Output counterexample as smt2 specification

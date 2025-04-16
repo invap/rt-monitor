@@ -6,42 +6,11 @@ from rt_monitor.framework.process.process_node.element import Element
 
 
 class Task(Element):
-    def __init__(self, name, preconditions=None, postconditions=None, checkpoints=None):
+    def __init__(self, name, preconditions, postconditions, checkpoints):
         super().__init__(name)
-        if preconditions is None:
-            preconditions = set()
-        if postconditions is None:
-            postconditions = set()
-        if checkpoints is None:
-            checkpoints = set()
         self._preconditions = preconditions
         self._postconditions = postconditions
         self._checkpoints = checkpoints
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        it_has_the_same_name = self._name == other._name
-        it_has_the_same_preconditions = self._preconditions == other._preconditions
-        it_has_the_same_postconditions = self._postconditions == other._postconditions
-        it_has_the_same_checkpoints = self._checkpoints == other._checkpoints
-        return (
-            it_has_the_same_name
-            and it_has_the_same_preconditions
-            and it_has_the_same_postconditions
-            and it_has_the_same_checkpoints
-        )
-
-    def __hash__(self) -> int:
-        return hash(
-            (
-                self.__class__.__name__,
-                self._name,
-                tuple(self._preconditions),
-                tuple(self._postconditions),
-                tuple(self._checkpoints),
-            )
-        )
 
     def preconditions(self):
         return self._preconditions
@@ -52,5 +21,11 @@ class Task(Element):
     def checkpoints(self):
         return self._checkpoints
 
-    def type(self):
-        return "Task"
+    @staticmethod
+    def task_from_toml_dict(task_name, task_dict):
+        return Task(
+            task_name,
+            task_dict["preconditions"] if "preconditions" in task_dict else set(),
+            task_dict["postconditions"] if "postconditions" in task_dict else set(),
+            task_dict["checkpoints"] if "checkpoints" in task_dict else set(),
+        )

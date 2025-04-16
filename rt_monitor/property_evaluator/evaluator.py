@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import logging
 
 from rt_monitor.errors.evaluator_errors import EvaluationError
@@ -16,14 +17,14 @@ class Evaluator:
         self._sympy_evaluator = SymPyPropertyEvaluator(components, process_state, execution_state, timed_state)
 
     # Raises: EvaluationError()
-    def eval(self, prop, now):
+    def eval(self, now, prop):
         match prop.format():
             case "smt2":
-                return self._smt2_evaluator.eval(prop, now)
+                return self._smt2_evaluator.eval(now, prop)
             case "py":
-                return self._py_evaluator.eval(prop, now)
+                return self._py_evaluator.eval(now, prop)
             case "sympy":
-                return self._sympy_evaluator.eval(prop, now)
+                return self._sympy_evaluator.eval(now, prop)
             case _:
                 logging.error(f"Property format [ {prop.format()} ] unknown.")
                 raise EvaluationError()

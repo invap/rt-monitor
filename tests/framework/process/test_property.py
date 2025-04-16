@@ -6,7 +6,7 @@ import unittest
 
 import toml
 
-from rt_monitor.framework.process.property import Property
+from rt_monitor.framework.process.process_node.property import Property
 
 
 class Test_Property (unittest.TestCase):

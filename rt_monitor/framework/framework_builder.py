@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import importlib.util
 import logging
 import os
@@ -8,8 +9,8 @@ import os
 import toml
 
 from rt_monitor.errors.framework_errors import (
-    ComponentsSpecificationError,
-    FrameworkSpecificationError
+    FrameworkSpecificationError,
+    ComponentsSpecificationError
 )
 from rt_monitor.errors.process_errors import ProcessSpecificationError
 from rt_monitor.framework.components.component import VisualComponent
@@ -90,9 +91,6 @@ class FrameworkBuilder:
             logging.error(f"Process specification not found.")
             raise ProcessSpecificationError()
         process_dict = FrameworkBuilder.framework_dict["process"]
-        if "format" not in process_dict:
-            logging.error(f"Process format not found.")
-            raise ProcessSpecificationError()
         return ProcessBuilder.build_process(process_dict, FrameworkBuilder.files_path)
 
     # Raises: ComponentError()

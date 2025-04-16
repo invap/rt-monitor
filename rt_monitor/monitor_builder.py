@@ -7,13 +7,13 @@ import toml
 
 from framework.components.component import SelfLoggingComponent
 from framework.framework_builder import FrameworkBuilder
-from errors.framework_errors import FrameworkSpecificationError
 from monitor import Monitor
-from errors.monitor_errors import (
+from rt_monitor.errors.monitor_errors import (
     FrameworkError,
     EventLogListError,
     MonitorConstructionError
 )
+from rt_monitor.errors.framework_errors import FrameworkSpecificationError
 
 
 class MonitorBuilder:
@@ -28,8 +28,8 @@ class MonitorBuilder:
     @staticmethod
     def build_monitor(visual=True):
         logging.info(f"Creating monitor with files: [ {MonitorBuilder.framework_file} ] and [ {MonitorBuilder.report_list_file} ].")
-        framework_builder = FrameworkBuilder(MonitorBuilder.framework_file)
         try:
+            framework_builder = FrameworkBuilder(MonitorBuilder.framework_file)
             framework = framework_builder.build_framework(visual)
         except FrameworkSpecificationError:
             logging.error(f"Error creating framework.")

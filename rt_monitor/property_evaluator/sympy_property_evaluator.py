@@ -21,7 +21,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
         super().__init__(components, process_state, execution_state, timed_state)
 
     # Raises: EvaluationError()
-    def eval(self, prop, now):
+    def eval(self, now, prop):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
         try:
             spec = self._build_spec(prop, now)
@@ -57,6 +57,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
             assumptions = self._build_assumptions(prop, now)
             spec = (f"from sympy import Symbol\n" +
                     f"{"".join([decl + "\n" for decl in declarations])}\n" +
+                    f"{prop.declarations()}\n\n"
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"result = {prop.formula()}\n")
             return spec
