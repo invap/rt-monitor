@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-import toml
+import tomllib
 
 from framework.components.component import SelfLoggingComponent
 from framework.framework_builder import FrameworkBuilder
@@ -68,16 +68,22 @@ class MonitorBuilder:
         reports_map = {}
         logging.info(f"Loading event report list from file: {MonitorBuilder.report_list_file}...")
         try:
-            toml_reports_map = toml.load(MonitorBuilder.report_list_file)
+            f = open(MonitorBuilder.report_list_file, "rb")
         except FileNotFoundError:
             logging.error(f"Event report list file [ {MonitorBuilder.report_list_file} ] not found.")
-            raise EventLogListError()
-        except toml.TomlDecodeError as e:
-            logging.error(f"TOML decoding of file [ {MonitorBuilder.report_list_file} ] failed in [ line {e.lineno}, column {e.colno} ].")
             raise EventLogListError()
         except PermissionError:
             logging.error(f"Permissions error opening file [ {MonitorBuilder.report_list_file} ].")
             raise EventLogListError()
+        except IsADirectoryError:
+            logging.error(f"[ {MonitorBuilder.report_list_file} ] is a directory and not a file.")
+            raise EventLogListError()
+        try:
+            toml_reports_map = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            logging.error(f"TOML decoding of file [ {MonitorBuilder.report_list_file} ] failed.")
+            raise EventLogListError()
+        # Process toml dictionary
         if len(toml_reports_map.keys()) > 1 or "event_reports" not in toml_reports_map:
             logging.error(f"Event report list file format error.")
             raise EventLogListError()

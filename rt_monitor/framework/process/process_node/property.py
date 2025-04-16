@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-import toml
+import tomllib
 
 from rt_monitor.errors.process_errors import (
     PropertySpecificationError,
@@ -55,17 +55,20 @@ class Property:
     # Raises: PropertySpecificationError()
     def _property_from_file(property_name, file_name):
         try:
-            property_dict = toml.load(file_name)
+            f = open(file_name, "rb")
         except FileNotFoundError:
             logging.error(f"Property file [ {file_name} ] not found.")
             raise PropertySpecificationError()
-        except toml.TomlDecodeError as e:
-            logging.error(
-                f"TOML decoding of file [ {file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
-            raise PropertySpecificationError()
         except PermissionError:
-            logging.error(
-                f"Permissions error opening file [ {file_name} ].")
+            logging.error(f"Permissions error opening file [ {file_name} ].")
+            raise PropertySpecificationError()
+        except IsADirectoryError:
+            logging.error(f"[ {file_name} ] is a directory and not a file.")
+            raise PropertySpecificationError()
+        try:
+            property_dict = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            logging.error(f"TOML decoding of file [ {file_name} ] failed.")
             raise PropertySpecificationError()
         # This operation might raise a PropertySpecificationError exception.
         return Property._property_from_toml_dict(property_name, property_dict)

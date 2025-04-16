@@ -5,8 +5,7 @@
 import importlib.util
 import logging
 import os
-
-import toml
+import tomllib
 
 from rt_monitor.errors.framework_errors import (
     FrameworkSpecificationError,
@@ -40,17 +39,20 @@ class FrameworkBuilder:
             FrameworkBuilder.spec_file_name = framework_file
         # Parse TOML file and build dictionary
         try:
-            FrameworkBuilder.framework_dict = toml.load(framework_file)
+            f = open(framework_file, "rb")
         except FileNotFoundError:
-            logging.error(f"Framework file [ {FrameworkBuilder.spec_file_name} ] not found.")
-            raise FrameworkSpecificationError()
-        except toml.TomlDecodeError as e:
-            logging.error(
-                f"TOML decoding of file [ {FrameworkBuilder.spec_file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
+            logging.error(f"Analysis framework specification file [ {framework_file} ] not found.")
             raise FrameworkSpecificationError()
         except PermissionError:
-            logging.error(
-                f"Permissions error opening file [ {FrameworkBuilder.spec_file_name} ].")
+            logging.error(f"Permissions error opening file [ {framework_file} ].")
+            raise FrameworkSpecificationError()
+        except IsADirectoryError:
+            logging.error(f"[ {framework_file} ] is a directory and not a file.")
+            raise FrameworkSpecificationError()
+        try:
+            FrameworkBuilder.framework_dict = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            logging.error(f"TOML decoding of file [ {framework_file} ] failed.")
             raise FrameworkSpecificationError()
         # Determining working directory
         if "working_directory" in FrameworkBuilder.framework_dict:
