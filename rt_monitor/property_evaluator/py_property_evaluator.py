@@ -34,10 +34,10 @@ class PyPropertyEvaluator(PropertyEvaluator):
         result = locs['result']
         match result:
             case True:
-                # If the formula is true, then the property of interest passed.
+                # If the formula is true, then the prop of interest passed.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
             case False:
-                # If the formula is false, then the property of interest failed.
+                # If the formula is false, then the prop of interest failed.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
         if result == False:
             # Output counterexample as python program
@@ -70,43 +70,29 @@ class PyPropertyEvaluator(PropertyEvaluator):
     # Raises: NoValueAssignedToVariableError()
     @staticmethod
     def _build_assumption(variable, variable_value):
+        assumption = ""
         if isinstance(variable_value, np.ndarray):
             # The variable is of type np.ndarray, mainly used for implementing the internal structure
             # of digital twins
-            if any([isinstance(x, NoValue) for x in variable_value]):
-                logging.error(f"The variable [ {variable} ] has a member that has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-            else:
-                # The instance has assigned values to all its components
-                assumption = ""
-                var_value_shape = variable_value.shape
-                current = [0] * (len(var_value_shape) + 1)
-                while PyPropertyEvaluator._more(current):
-                    value = PyPropertyEvaluator._get_value(variable_value, current)
-                    selector = PyPropertyEvaluator._build_selector(variable, current)
-                    assumption += f"{selector} = {value}\n"
-                    PyPropertyEvaluator._plus_one(var_value_shape, current)
-                return assumption
+            # We assume that the instance has assigned values to all its components
+            var_value_shape = variable_value.shape
+            current = [0] * (len(var_value_shape) + 1)
+            while PyPropertyEvaluator._more(current):
+                value = PyPropertyEvaluator._get_value(variable_value, current)
+                selector = PyPropertyEvaluator._build_selector(variable, current)
+                assumption += f"{selector} = {value}\n"
+                PyPropertyEvaluator._plus_one(var_value_shape, current)
         elif isinstance(variable_value, dict):
             # The variable is of type dict, used for monitoring arrays whose dimension is unknown by the monitor
-            if any([isinstance(x, NoValue) for x in variable_value.values()]):
-                logging.error(f"The variable [ {variable} ] has a member that has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-            else:
-                # The instance has assigned values to all its components
-                assumption = ""
+            if not all([isinstance(x, NoValue) for x in variable_value.values()]):
                 for key in variable_value:
                     # key if of the form [i0][i1]...[in]
                     assumption += f"{variable}{key} = {variable_value[key]}\n"
-                return assumption
         else:
             # The variable is of one of the basic types supported expressed with a string
-            if isinstance(variable_value, NoValue):
-                logging.error(f"The variable [ {variable} ] has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-            else:
+            if not isinstance(variable_value, NoValue):
                 assumption = f"{variable} = {variable_value}\n"
-                return assumption
+        return assumption
 
     # Raises: ClockWasNotStartedError()
     @staticmethod
@@ -117,35 +103,6 @@ class PyPropertyEvaluator(PropertyEvaluator):
             raise ClockWasNotStartedError()
         # The clock has been started.
         return f"{variable} = {clock.get_time(now)}"
-
-    @staticmethod
-    def _plus_one_in_position(shape_, current, position):
-        if position == 0:
-            current[position] = 1
-        else:
-            carry = 1
-            while carry == 1 and position > 0:
-                new_value = (current[position] + 1) % shape_[position - 1]
-                carry = (current[position] + 1) // shape_[position - 1]
-                current[position] = new_value
-                if current[position] == 0:
-                    PyPropertyEvaluator._plus_one_in_position(shape_, current, position - 1)
-                    carry = 0
-
-    @staticmethod
-    def _plus_one(shape_, current):
-        PyPropertyEvaluator._plus_one_in_position(shape_, current, len(current) - 1)
-
-    @staticmethod
-    def _more(current):
-        return current[0] == 0
-
-    @staticmethod
-    def _get_value(array_value, current):
-        value = array_value
-        for position in range(1, len(current)):
-            value = value[current[position]]
-        return value
 
     @staticmethod
     def _build_selector(var_name, current):

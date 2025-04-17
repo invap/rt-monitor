@@ -64,9 +64,10 @@ class Monitor(threading.Thread):
             match self._framework.process().variables()[variable][0]:
                 case "State":
                     if "Array" in self._framework.process().variables()[variable][1]:
+                        # Array data is stored as a dictionary whose key are the position of in the array.
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], {})
                     else:
-                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue)
+                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue())
                 case "Component":
                     # There is nothing to do here; the existence of the variables mentioned in the process in any of
                     # the declared components is checked at the momento of creation of the framework.
@@ -264,6 +265,7 @@ class Monitor(threading.Thread):
 
     # Raises: UndeclaredVariableError()
     def process_variable_value_assigned(self, variable_value_assigned_event):
+        # Determine whether the variable being assigned is a component of an array.
         split_variable_name = re.split(r'(?=\[)', variable_value_assigned_event.variable_name(), maxsplit=1)
         variable_name = split_variable_name[0]
         if len(split_variable_name) == 1:

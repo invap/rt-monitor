@@ -82,53 +82,43 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     # Raises: NoValueAssignedToVariableError()
     @staticmethod
     def _build_assumption(variable, variable_value):
+        assumption = ""
         if isinstance(variable_value, np.ndarray):
             # The variable is of type np.ndarray, mainly used for implementing the internal structure
             # of digital twins
-            if any([isinstance(x, NoValue) for x in variable_value]):
-                logging.error(f"The variable [ {variable} ] has a member that has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-            else:
-                # The instance has assigned values to all its components
-                assumption = "(assert (and \n"
-                var_value_shape = variable_value.shape
-                current = [0] * (len(var_value_shape) + 1)
-                while SMT2PropertyEvaluator._more(current):
-                    value = SMT2PropertyEvaluator._get_value(variable_value, current)
-                    selector = SMT2PropertyEvaluator._build_selector(variable, current)
-                    assumption += f"(= {selector} {value})\n"
-                    SMT2PropertyEvaluator._plus_one(var_value_shape, current)
-                assumption += "))"
-                return assumption
+            # We assume that the instance has assigned values to all its components
+            assumption = "(assert (and \n"
+            var_value_shape = variable_value.shape
+            current = [0] * (len(var_value_shape) + 1)
+            while SMT2PropertyEvaluator._more(current):
+                value = SMT2PropertyEvaluator._get_value(variable_value, current)
+                selector = SMT2PropertyEvaluator._build_selector(variable, current)
+                assumption += f"(= {selector} {value})\n"
+                SMT2PropertyEvaluator._plus_one(var_value_shape, current)
+            assumption += "))"
         elif isinstance(variable_value, dict):
             # The variable is of type dict, used for monitoring arrays whose dimension is unknown by the monitor
-            if any([isinstance(x, NoValue) for x in variable_value.values()]):
-                logging.error(f"The variable [ {variable} ] has a member that has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-            else:
-                # The instance has assigned values to all its components
+            if not all([isinstance(x, NoValue) for x in variable_value.values()]):
+                # The instance has assigned values to some its components
                 assumption = "(assert \n"
                 assumption += "(and \n"
                 for key in variable_value:
-                    # key if of the form [i0][i1]...[in]
-                    split_key = key.removeprefix("[").removesuffix("]").split("][")
-                    assumption += "(= "
-                    for _i in range(0, len(split_key)):
-                        assumption += f"(select "
-                    assumption += f"{variable} "
-                    for i in split_key:
-                        assumption += f"{i}) "
-                    assumption += f"{variable_value[key]})\n"
+                    if not isinstance(variable_value[key], NoValue):
+                        # key if of the form [i0][i1]...[in]
+                        split_key = key.removeprefix("[").removesuffix("]").split("][")
+                        assumption += "(= "
+                        for _i in range(0, len(split_key)):
+                            assumption += f"(select "
+                        assumption += f"{variable} "
+                        for i in split_key:
+                            assumption += f"{i}) "
+                        assumption += f"{variable_value[key]})\n"
                 assumption += ")\n)\n"
-                return assumption
         else:
             # The variable is of one of the basic types supported expressed with a string
-            if isinstance(variable_value, NoValue):
-                logging.error(f"The variable [ {variable} ] has not been assigned a value.")
-                raise NoValueAssignedToVariableError()
-            else:
+            if not isinstance(variable_value, NoValue):
                 assumption = f"(assert (= {variable} {variable_value}))\n"
-                return assumption
+        return assumption
 
     # Raises: ClockWasNotStartedError()
     @staticmethod
@@ -140,35 +130,6 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         # The clock has been started.
         assumption = f"(assert (= {variable} {clock.get_time(now)}))\n"
         return assumption
-
-    @staticmethod
-    def _plus_one_in_position(shape_, current, position):
-        if position == 0:
-            current[position] = 1
-        else:
-            carry = 1
-            while carry == 1 and position > 0:
-                new_value = (current[position] + 1) % shape_[position - 1]
-                carry = (current[position] + 1) // shape_[position - 1]
-                current[position] = new_value
-                if current[position] == 0:
-                    SMT2PropertyEvaluator._plus_one_in_position(shape_, current, position - 1)
-                    carry = 0
-
-    @staticmethod
-    def _plus_one(shape_, current):
-        SMT2PropertyEvaluator._plus_one_in_position(shape_, current, len(current) - 1)
-
-    @staticmethod
-    def _more(current):
-        return current[0] == 0
-
-    @staticmethod
-    def _get_value(array_value, current):
-        value = array_value
-        for position in range(1, len(current)):
-            value = value[current[position]]
-        return value
 
     @staticmethod
     def _build_selector(var_name, current):
