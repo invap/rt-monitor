@@ -5,7 +5,6 @@
 import inspect
 import threading
 from enum import Enum
-
 import numpy as np
 
 from rt_monitor.errors.component_errors import FunctionNotImplementedError

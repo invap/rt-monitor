@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import inspect
-
 import numpy as np
 
 from rt_monitor.errors.component_errors import FunctionNotImplementedError

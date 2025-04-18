@@ -4,11 +4,8 @@
 
 import inspect
 
-import numpy as np
-
 from rt_monitor.errors.component_errors import FunctionNotImplementedError
 from rt_monitor.framework.components.component import SelfLoggingComponent
-from rt_monitor.novalue import NoValue
 
 
 class adc(SelfLoggingComponent):
