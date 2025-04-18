@@ -12,7 +12,7 @@ from rt_monitor.errors.framework_errors import (
     ComponentsSpecificationError
 )
 from rt_monitor.errors.process_errors import ProcessSpecificationError
-from rt_monitor.framework.components.component import VisualComponent
+from rt_monitor.framework.components.component import VisualComponent, SelfLoggingComponent
 from rt_monitor.framework.framework import Framework
 from rt_monitor.framework.process.process_builder import ProcessBuilder
 

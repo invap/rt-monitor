@@ -5,9 +5,9 @@
 import logging
 import tomllib
 
-from framework.components.component import SelfLoggingComponent
-from framework.framework_builder import FrameworkBuilder
-from monitor import Monitor
+from rt_monitor.framework.components.component import SelfLoggingComponent
+from rt_monitor.framework.framework_builder import FrameworkBuilder
+from rt_monitor.monitor import Monitor
 from rt_monitor.errors.monitor_errors import (
     FrameworkError,
     EventLogListError,
@@ -42,9 +42,9 @@ class MonitorBuilder:
             framework.stop_components()
             raise EventLogListError()
         # Check that names of components and names of event reports coincide.
-        for report_key in reports_map.keys():
-            if (report_key != "main" and
-                    not any(report_key == component_key for component_key in framework.components().keys())):
+        report_keys = [rep for rep in reports_map.keys() if rep != "main"]
+        for report_key in report_keys:
+            if not any(report_key == component_key for component_key in framework.components().keys()):
                 logging.info(f"Missing component [ {report_key} ] in [ {MonitorBuilder.framework_file} ].")
                 # Stop components after correctly building the framework but failing to build the Monitor.
                 framework.stop_components()
@@ -53,6 +53,12 @@ class MonitorBuilder:
             if (isinstance(framework.components()[component_key], SelfLoggingComponent) and
                     not any(component_key == report_key for report_key in reports_map.keys())):
                 logging.info(f"Missing event report for component [ {component_key} ] in [ {MonitorBuilder.report_list_file} ].")
+                # Stop components after correctly building the framework but failing to build the Monitor.
+                framework.stop_components()
+                raise MonitorConstructionError()
+            if (not isinstance(framework.components()[component_key], SelfLoggingComponent) and
+                    any(component_key == report_key for report_key in reports_map.keys())):
+                logging.info(f"Component [ {component_key} ] is not self-logging but there is an event report in [ {MonitorBuilder.report_list_file} ] is associated to it.")
                 # Stop components after correctly building the framework but failing to build the Monitor.
                 framework.stop_components()
                 raise MonitorConstructionError()
@@ -84,7 +90,7 @@ class MonitorBuilder:
             logging.error(f"TOML decoding of file [ {MonitorBuilder.report_list_file} ] failed.")
             raise EventLogListError()
         # Process toml dictionary
-        if len(toml_reports_map.keys()) > 1 or "event_reports" not in toml_reports_map:
+        if "event_reports" not in toml_reports_map:
             logging.error(f"Event report list file format error.")
             raise EventLogListError()
         for event_report in toml_reports_map["event_reports"]:

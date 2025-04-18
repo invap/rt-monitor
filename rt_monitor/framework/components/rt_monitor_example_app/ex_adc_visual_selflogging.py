@@ -13,7 +13,8 @@ from rt_monitor.novalue import NoValue
 
 class adc(VisualComponent, SelfLoggingComponent):
     def __init__(self, visual_component_class, visual):
-        super().__init__(visual_component_class, visual)
+        VisualComponent.__init__(self, visual_component_class, visual)
+        SelfLoggingComponent.__init__(self)
         AcumCalib = 0
         Calib = 0
         ContCalib = 0

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-
 from pyformlang.finite_automaton import (
     State,
     Symbol,

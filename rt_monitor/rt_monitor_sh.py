@@ -9,15 +9,19 @@ from enum import Enum, auto
 
 from pynput import keyboard
 
-from errors.monitor_errors import FrameworkError, MonitorConstructionError, EventLogListError
-from logging_configuration import (
+from rt_monitor.errors.monitor_errors import (
+    FrameworkError,
+    MonitorConstructionError,
+    EventLogListError
+)
+from rt_monitor.logging_configuration import (
     LoggingLevel,
     LoggingDestination,
     _set_up_logging,
     _configure_logging_destination,
     _configure_logging_level
 )
-from monitor_builder import MonitorBuilder
+from rt_monitor.monitor_builder import MonitorBuilder
 
 
 class AnalysisStatus(Enum):

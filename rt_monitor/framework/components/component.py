@@ -59,7 +59,8 @@ class VisualComponent(Component, ABC):
     #         self._visual_component.timer.Stop()
     #         self._visual_component.Hide()
 
-class SelfLoggingComponent(Component):
+
+class SelfLoggingComponent(Component, ABC):
     def __init__(self):
         super().__init__()
 

@@ -17,10 +17,11 @@ from rt_monitor.reporting.event.task_finished_event import TaskFinishedEvent
 from rt_monitor.reporting.event.checkpoint_reached_event import CheckpointReachedEvent
 
 
-#Raises: InvalidEvent()
+# Raises: InvalidEvent()
 class EventDecoder:
     @staticmethod
     def decode(encoded_event):
+        # encoded_event is a list of strings [timestamp, event type, event, params depending on the specific event type and event]
         event_type = EventDecoder._decode_event_type(encoded_event)
         match event_type:
             case "timed_event":
@@ -143,28 +144,28 @@ class EventDecoder:
     @staticmethod
     def _decode_event_type(encoded_event):
         try:
-            return encoded_event.split(",")[1]
+            return encoded_event[1]
         except IndexError:
             raise InvalidEvent(encoded_event)
 
     @staticmethod
     def _decode_timed_event_type(encoded_event):
         try:
-            return encoded_event.split(",")[2]
+            return encoded_event[2]
         except IndexError:
             raise InvalidEvent(encoded_event)
 
     @staticmethod
     def _decode_state_event_type(encoded_event):
         try:
-            return encoded_event.split(",")[2]
+            return encoded_event[2]
         except IndexError:
             raise InvalidEvent(encoded_event)
 
     @staticmethod
     def _decode_process_event_type(encoded_event):
         try:
-            return encoded_event.split(",")[2]
+            return encoded_event[2]
         except IndexError:
             raise InvalidEvent(encoded_event)
 
@@ -185,14 +186,6 @@ class EventDecoder:
             raise InvalidEvent(encoded_event)
 
     @staticmethod
-    def _decode_variable_type(encoded_event):
-        encoded_parameters = EventDecoder._encoded_event_parameters(encoded_event)
-        try:
-            return encoded_parameters[2].split(",")
-        except IndexError:
-            raise InvalidEvent(encoded_event)
-
-    @staticmethod
     def _decode_variable_value(encoded_event):
         encoded_parameters = EventDecoder._encoded_event_parameters(encoded_event)
         try:
@@ -203,7 +196,7 @@ class EventDecoder:
     @staticmethod
     def _decode_component_name(encoded_event):
         try:
-            return encoded_event.split(",")[2]
+            return encoded_event[2]
         except IndexError:
             raise InvalidEvent(encoded_event)
 
@@ -236,7 +229,7 @@ class EventDecoder:
     @staticmethod
     def _decode_event_data(encoded_event):
         try:
-            event_data_as_array = encoded_event.split(",")[3:]
+            event_data_as_array = encoded_event[3:]
         except IndexError:
             raise InvalidEvent(encoded_event)
 
@@ -249,8 +242,8 @@ class EventDecoder:
     @staticmethod
     def _encoded_event_parameters(encoded_event):
         try:
-            encoded_time = encoded_event.split(",")[0]
-            encoded_parameters_without_time = encoded_event.split(",")[3:]
+            encoded_time = encoded_event[0]
+            encoded_parameters_without_time = encoded_event[3:]
         except IndexError:
             raise InvalidEvent(encoded_event)
 

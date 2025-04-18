@@ -13,7 +13,6 @@ from rt_monitor.errors.process_errors import (
     ProcessSpecificationError,
     VariableSpecificationError
 )
-
 from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
 from rt_monitor.framework.process.process_node.task import Task
 from rt_monitor.framework.process.process_node.property import Property

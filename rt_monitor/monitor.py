@@ -2,6 +2,7 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
+import csv
 import logging
 import re
 import threading
@@ -26,11 +27,11 @@ from rt_monitor.errors.monitor_errors import (
     ComponentDoesNotExistError,
     ComponentError
 )
-from logging_configuration import LoggingLevel
-from framework.clock import Clock
-from reporting.event_decoder import EventDecoder
-from novalue import NoValue
-from property_evaluator.evaluator import Evaluator
+from rt_monitor.logging_configuration import LoggingLevel
+from rt_monitor.framework.clock import Clock
+from rt_monitor.reporting.event_decoder import EventDecoder
+from rt_monitor.novalue import NoValue
+from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
@@ -102,12 +103,26 @@ class Monitor(threading.Thread):
 
     # Raises: AbortRun()
     def run(self):
+        MAIN_REPORT = "main"
+        ERROR_EXCEPTIONS = (
+            BuildSpecificationError,
+            UndeclaredVariableError,
+            ClockError,
+            UndeclaredClockError
+        )
+        CRITICAL_EXCEPTIONS = (
+            TaskDoesNotExistError,
+            CheckpointDoesNotExistError,
+            ComponentDoesNotExistError,
+            ComponentError
+        )
         is_a_valid_report = True
         abort = False
-        for line in self._reports_map["main"]:
+        csv_reader = csv.reader(self._reports_map[MAIN_REPORT])
+        for line in csv_reader:
             # Decode next event.
             try:
-                decoded_event = EventDecoder.decode(line.strip())
+                decoded_event = EventDecoder.decode(line)
             except InvalidEvent as e:
                 logging.critical(f"Invalid event [ {e.event().serialized()} ].")
                 abort = True
@@ -116,43 +131,22 @@ class Monitor(threading.Thread):
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 mark = decoded_event.time()
                 # Process the events of all self-logging components until time mark of the next event.
-                for component in self._reports_map:
-                    if not component == "main":
-                        logging.info(f"Processing log for self-logging component: {component}")
-                        self._framework.components()[component].process_log(self._reports_map[component], mark)
+                components = [c for c in self._reports_map if c != "main"]
+                for component in components:
+                    # Too many messages on the log
+                    # logging.info(f"Processing log for self-logging component: {component}")
+                    self._framework.components()[component].process_log(self._reports_map[component], mark)
                 # Process main event.
                 try:
                     is_a_valid_report = decoded_event.process_with(self)
-                # Evaluation related exceptions.
-                except BuildSpecificationError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                except ERROR_EXCEPTIONS as e:
+                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
                     abort = True
-                # Execution state related exceptions.
-                except UndeclaredVariableError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                    break
+                except CRITICAL_EXCEPTIONS as e:
+                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
                     abort = True
-                # Clock related exceptions.
-                except ClockError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                except UndeclaredClockError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                # Task related exceptions.
-                except TaskDoesNotExistError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                # Checkpoint related exceptions.
-                except CheckpointDoesNotExistError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                # Component related exceptions.
-                except ComponentDoesNotExistError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                except ComponentError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
+                    break
                 else:
                     # Thread control.
                     if not self._pause_event.is_set():

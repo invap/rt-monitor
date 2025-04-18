@@ -9,6 +9,7 @@ from rt_monitor.errors.clock_errors import (
     ClockWasNotPausedError
 )
 
+
 class Clock:
     def __init__(self, name):
         super().__init__()
