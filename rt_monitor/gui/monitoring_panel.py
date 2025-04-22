@@ -8,7 +8,11 @@ from enum import Enum, auto
 
 import wx
 
-from rt_monitor.errors.monitor_errors import FrameworkError, EventLogListError, MonitorConstructionError
+from rt_monitor.errors.monitor_errors import (
+    FrameworkError,
+    EventLogListError,
+    MonitorConstructionError
+)
 from rt_monitor.logging_configuration import (
     _set_up_logging,
     _configure_logging_destination,

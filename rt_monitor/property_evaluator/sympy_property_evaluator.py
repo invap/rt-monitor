@@ -21,7 +21,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
         super().__init__(components, process_state, execution_state, timed_state)
 
     # Raises: EvaluationError()
-    def eval(self, prop, now):
+    def eval(self, now, prop):
         logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
         try:
             spec = self._build_spec(prop, now)
@@ -34,10 +34,10 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
         result = locs['result']
         match result:
             case True:
-                # If the formula is true, then the property of interest passed.
+                # If the formula is true, then the prop of interest passed.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
             case False:
-                # If the formula is false, then the property of interest failed.
+                # If the formula is false, then the prop of interest failed.
                 logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
         if result == False:
             # Output counterexample as python program
@@ -57,6 +57,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
             assumptions = self._build_assumptions(prop, now)
             spec = (f"from sympy import Symbol\n" +
                     f"{"".join([decl + "\n" for decl in declarations])}\n" +
+                    f"{prop.declarations()}\n\n"
                     f"{"".join([ass + "\n" for ass in assumptions])}\n" +
                     f"result = {prop.formula()}\n")
             return spec
@@ -70,6 +71,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
 
     # Raises: UnsupportedSymPyVariableType()
     @staticmethod
+    # TODO: implement the use of arrays for sympy programs
     def _build_declaration(variable, variable_type):
         match variable_type:
             case "Bool":
@@ -84,13 +86,14 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
 
     # Raises: NoValueAssignedToVariableError()
     @staticmethod
+    # TODO: implement the use of arrays for sympy programs
     def _build_assumption(variable, variable_value):
+        assumption = ""
         # Check whether the variable has a value assigned.
-        if isinstance(variable_value, NoValue):
-            logging.error(f"The variable [ {variable} ] has not been assigned a value.")
-            raise NoValueAssignedToVariableError()
-        # The variable has a value assigned.
-        return f"{variable} = {variable_value}"
+        if not isinstance(variable_value, NoValue):
+            # The variable has a value assigned.
+            assumption = f"{variable} = {variable_value}"
+        return assumption
 
     # Raises: ClockWasNotStartedError()
     @staticmethod

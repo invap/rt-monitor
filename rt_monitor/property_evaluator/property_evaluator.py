@@ -57,9 +57,9 @@ class PropertyEvaluator:
     # Raises: UnboundVariablesError()
     # Propagates: ClockWasNotStartedError() from _build_time_assumption
     #             NoValueAssignedToVariableError() from _build_assumption
-    def _build_assumptions(self, property, now):
+    def _build_assumptions(self, prop, now):
         assumptions = []
-        variables = list((property.variables()).keys())
+        variables = list((prop.variables()).keys())
         # building assumptions for variables in the components state
         for component in self._components:
             dictionary = self._components[component].state()
@@ -96,3 +96,33 @@ class PropertyEvaluator:
     @staticmethod
     def _build_time_assumption(variable, clock, now):
         raise NotImplementedError
+
+    @staticmethod
+    def _plus_one_in_position(shape_, current, position):
+        if position == 0:
+            current[position] = 1
+        else:
+            carry = 1
+            while carry == 1 and position > 0:
+                new_value = (current[position] + 1) % shape_[position - 1]
+                carry = (current[position] + 1) // shape_[position - 1]
+                current[position] = new_value
+                if current[position] == 0:
+                    PropertyEvaluator._plus_one_in_position(shape_, current, position - 1)
+                    carry = 0
+
+    @staticmethod
+    def _plus_one(shape_, current):
+        PropertyEvaluator._plus_one_in_position(shape_, current, len(current) - 1)
+
+    @staticmethod
+    def _more(current):
+        return current[0] == 0
+
+    @staticmethod
+    def _get_value(array_value, current):
+        value = array_value
+        for position in range(1, len(current)):
+            value = value[current[position]]
+        return value
+

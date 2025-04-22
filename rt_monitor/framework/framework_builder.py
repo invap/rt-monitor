@@ -1,18 +1,18 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import importlib.util
 import logging
 import os
-
-import toml
+import tomllib
 
 from rt_monitor.errors.framework_errors import (
-    ComponentsSpecificationError,
-    FrameworkSpecificationError
+    FrameworkSpecificationError,
+    ComponentsSpecificationError
 )
 from rt_monitor.errors.process_errors import ProcessSpecificationError
-from rt_monitor.framework.components.component import VisualComponent
+from rt_monitor.framework.components.component import VisualComponent, SelfLoggingComponent
 from rt_monitor.framework.framework import Framework
 from rt_monitor.framework.process.process_builder import ProcessBuilder
 
@@ -39,17 +39,20 @@ class FrameworkBuilder:
             FrameworkBuilder.spec_file_name = framework_file
         # Parse TOML file and build dictionary
         try:
-            FrameworkBuilder.framework_dict = toml.load(framework_file)
+            f = open(framework_file, "rb")
         except FileNotFoundError:
-            logging.error(f"Framework file [ {FrameworkBuilder.spec_file_name} ] not found.")
-            raise FrameworkSpecificationError()
-        except toml.TomlDecodeError as e:
-            logging.error(
-                f"TOML decoding of file [ {FrameworkBuilder.spec_file_name} ] failed in [ line {e.lineno}, column {e.colno} ].")
+            logging.error(f"Analysis framework specification file [ {framework_file} ] not found.")
             raise FrameworkSpecificationError()
         except PermissionError:
-            logging.error(
-                f"Permissions error opening file [ {FrameworkBuilder.spec_file_name} ].")
+            logging.error(f"Permissions error opening file [ {framework_file} ].")
+            raise FrameworkSpecificationError()
+        except IsADirectoryError:
+            logging.error(f"[ {framework_file} ] is a directory and not a file.")
+            raise FrameworkSpecificationError()
+        try:
+            FrameworkBuilder.framework_dict = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            logging.error(f"TOML decoding of file [ {framework_file} ] failed.")
             raise FrameworkSpecificationError()
         # Determining working directory
         if "working_directory" in FrameworkBuilder.framework_dict:
@@ -90,9 +93,6 @@ class FrameworkBuilder:
             logging.error(f"Process specification not found.")
             raise ProcessSpecificationError()
         process_dict = FrameworkBuilder.framework_dict["process"]
-        if "format" not in process_dict:
-            logging.error(f"Process format not found.")
-            raise ProcessSpecificationError()
         return ProcessBuilder.build_process(process_dict, FrameworkBuilder.files_path)
 
     # Raises: ComponentError()
@@ -122,24 +122,42 @@ class FrameworkBuilder:
                     raise ComponentsSpecificationError()
                 component_path = absolute_component_path + "/" + component_file
                 component_name = component_file.split(".")[0]
-                spec = importlib.util.spec_from_file_location(component_name, component_path)
+                # Load module specification from component name and path.
+                try:
+                    spec = importlib.util.spec_from_file_location(component_name, component_path)
+                except (TypeError, ValueError) as e:
+                    logging.critical(f"Loading component [ {component_name} ] form [ {component_path} ] error: {str(e)}.")
+                    raise ComponentsSpecificationError()
                 if spec is None:
                     logging.error(
-                        f"Could not create module specification [ {component_name} ] from file [ {component_path} ].")
+                        f"Could not create module specification for [ {component_name} ] from file [ {component_path} ].")
                     raise ComponentsSpecificationError()
+                # Load module from specification if the specification was correctly loaded
                 try:
                     component_module = importlib.util.module_from_spec(spec)
+                except AttributeError:
+                    logging.error(f"Loader attribute for component [ {device_name} ] not found.")
+                    raise ComponentsSpecificationError()
+                except TypeError:
+                    logging.error(f"Invalid module for component [ {device_name} ].")
+                    raise ComponentsSpecificationError()
+                # Load the module for component
+                try:
+                    spec.loader.exec_module(component_module)
+                except (SyntaxError, AttributeError, NameError, TypeError, ValueError):
+                    logging.error(f"The module for component [ {device_name} ] contains invalid python syntax.")
+                    raise ComponentsSpecificationError()
                 except ModuleNotFoundError:
                     logging.error(f"Module for component [ {device_name} ] not found.")
                     raise ComponentsSpecificationError()
                 except ImportError:
                     logging.error(f"Error importing module for component [ {device_name} ].")
                     raise ComponentsSpecificationError()
-                # Load the module for component
-                try:
-                    spec.loader.exec_module(component_module)
                 except FileNotFoundError:
-                    logging.error(f"Module for component [ {device_name} ] not found.")
+                    logging.error(f"File not found for component [ {device_name} ].")
+                    raise ComponentsSpecificationError()
+                except PermissionError:
+                    logging.error(f"Permission error opening file for component [ {device_name} ].")
                     raise ComponentsSpecificationError()
                 try:
                     class_name = component["component_name"]
@@ -170,22 +188,44 @@ class FrameworkBuilder:
                     visual_component_path = absolute_visual_component_path + "/" + component[
                         "visual_component_file"]
                     visual_component_name = component["visual_component_file"].split(".")[0]
-                    spec = importlib.util.spec_from_file_location(visual_component_name, visual_component_path)
+                    # Load module specification from visual component name and path.
+                    try:
+                        spec = importlib.util.spec_from_file_location(visual_component_name, visual_component_path)
+                    except (TypeError, ValueError) as e:
+                        logging.critical(
+                            f"Loading component [ {visual_component_name} ] form [ {visual_component_path} ] error: {str(e)}.")
+                        raise ComponentsSpecificationError()
                     if spec is None:
                         logging.error(
-                            f"Could not create module specification [ {visual_component_name} ] from file [ {visual_component_path} ].")
+                            f"Could not create module specification for component [ {visual_component_name} ] from file [ {visual_component_path} ].")
                         raise ComponentsSpecificationError()
+                    # Load module from specification if the specification was correctly loaded
                     try:
                         visual_component_module = importlib.util.module_from_spec(spec)
+                    except AttributeError:
+                        logging.error(f"Loader attribute for visual component [ {visual_component_name} ] not found.")
+                        raise ComponentsSpecificationError()
+                    except TypeError:
+                        logging.error(f"Invalid module for visual component [ {visual_component_name} ].")
+                        raise ComponentsSpecificationError()
+                    # Execution of the module for component
+                    try:
+                        spec.loader.exec_module(visual_component_module)
+                    except (SyntaxError, AttributeError, NameError, TypeError, ValueError):
+                        logging.error(f"The module for component [ {visual_component_name} ] contains invalid python syntax.")
+                        raise ComponentsSpecificationError()
                     except ModuleNotFoundError:
-                        logging.error(f"Module for visual component for component [ {device_name} ] not found.")
+                        logging.error(f"Module for component [ {visual_component_name} ] not found.")
                         raise ComponentsSpecificationError()
                     except ImportError:
-                        logging.error(
-                            f"Error importing module for visual component for component [ {device_name} ].")
+                        logging.error(f"Error importing module for component [ {visual_component_name} ].")
                         raise ComponentsSpecificationError()
-                    # Load the module for component
-                    spec.loader.exec_module(visual_component_module)
+                    except FileNotFoundError:
+                        logging.error(f"File not found for component [ {visual_component_name} ].")
+                        raise ComponentsSpecificationError()
+                    except PermissionError:
+                        logging.error(f"Permission error opening file for component [ {visual_component_name} ].")
+                        raise ComponentsSpecificationError()
                     visual_component_class_name = component["visual_component_name"]
                     # Obtain the class from the module
                     try:

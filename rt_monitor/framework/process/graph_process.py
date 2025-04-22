@@ -1,8 +1,8 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
-import logging
 
+import logging
 from pyformlang.finite_automaton import (
     State,
     Symbol,
@@ -10,18 +10,15 @@ from pyformlang.finite_automaton import (
 )
 from rt_monitor.errors.process_errors import (
     ProcessSpecificationError,
-    TaskSpecificationError,
-    GlobalCheckpointSpecificationError,
-    VariablesSpecificationError
+    VariableSpecificationError
 )
+
 from rt_monitor.framework.process.process import Process
-from rt_monitor.framework.process.process_node.checkpoint import Checkpoint
-from rt_monitor.framework.process.process_node.task import Task
 
 
 class GraphProcess(Process):
-    def __init__(self, dfa, tasks, checkpoints, variables):
-        super().__init__(dfa, tasks, checkpoints, variables)
+    def __init__(self, dfa, tasks, checkpoints, properties, variables):
+        super().__init__(dfa, tasks, checkpoints, properties, variables)
 
     @staticmethod
     def process_from_toml_dict(process_dict, files_path):
@@ -30,7 +27,7 @@ class GraphProcess(Process):
             raise ProcessSpecificationError()
         nfa = EpsilonNFA()
         # Build dictionaries containing tasks and checkpoints
-        tasks, checkpoints = Process.dictionaries_from_toml_dict(process_dict, files_path)
+        tasks, checkpoints, properties = Process.dictionaries_from_toml_dict(process_dict, files_path)
         # Build the NFA
         nodes = process_dict["structure"]["nodes"]
         # Add the start state
@@ -99,9 +96,9 @@ class GraphProcess(Process):
         # Determinize the automaton
         dfa = nfa.to_deterministic()
         try:
-            variables = Process._get_variables_from_dicts(tasks, checkpoints)
-        except VariablesSpecificationError:
+            variables = Process._get_variables_from_properties(properties)
+        except VariableSpecificationError:
             logging.error(f"Variables specification error.")
             raise ProcessSpecificationError()
         else:
-            return GraphProcess(dfa, tasks, checkpoints, variables)
+            return GraphProcess(dfa, tasks, checkpoints, properties, variables)

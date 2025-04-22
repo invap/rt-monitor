@@ -2,13 +2,14 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
+import csv
 import logging
 import re
 import threading
 
 from pyformlang.finite_automaton import Symbol
 
-from errors.clock_errors import (
+from rt_monitor.errors.clock_errors import (
     ClockError,
     UndeclaredClockError,
     ClockWasAlreadyStartedError,
@@ -16,21 +17,21 @@ from errors.clock_errors import (
     ClockWasAlreadyPausedError,
     ClockWasNotPausedError
 )
-from errors.component_errors import FunctionNotImplementedError
-from errors.evaluator_errors import BuildSpecificationError
-from errors.event_decoder_errors import InvalidEvent
-from errors.monitor_errors import (
+from rt_monitor.errors.component_errors import FunctionNotImplementedError
+from rt_monitor.errors.evaluator_errors import BuildSpecificationError
+from rt_monitor.errors.event_decoder_errors import InvalidEvent
+from rt_monitor.errors.monitor_errors import (
     UndeclaredVariableError,
     TaskDoesNotExistError,
     CheckpointDoesNotExistError,
     ComponentDoesNotExistError,
     ComponentError
 )
-from logging_configuration import LoggingLevel
-from framework.clock import Clock
-from reporting.event_decoder import EventDecoder
-from novalue import NoValue
-from property_evaluator.evaluator import Evaluator
+from rt_monitor.logging_configuration import LoggingLevel
+from rt_monitor.framework.clock import Clock
+from rt_monitor.reporting.event_decoder import EventDecoder
+from rt_monitor.novalue import NoValue
+from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
@@ -64,9 +65,10 @@ class Monitor(threading.Thread):
             match self._framework.process().variables()[variable][0]:
                 case "State":
                     if "Array" in self._framework.process().variables()[variable][1]:
+                        # Array data is stored as a dictionary whose key are the position of in the array.
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], {})
                     else:
-                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue)
+                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue())
                 case "Component":
                     # There is nothing to do here; the existence of the variables mentioned in the process in any of
                     # the declared components is checked at the momento of creation of the framework.
@@ -101,12 +103,26 @@ class Monitor(threading.Thread):
 
     # Raises: AbortRun()
     def run(self):
+        MAIN_REPORT = "main"
+        ERROR_EXCEPTIONS = (
+            BuildSpecificationError,
+            UndeclaredVariableError,
+            ClockError,
+            UndeclaredClockError
+        )
+        CRITICAL_EXCEPTIONS = (
+            TaskDoesNotExistError,
+            CheckpointDoesNotExistError,
+            ComponentDoesNotExistError,
+            ComponentError
+        )
         is_a_valid_report = True
         abort = False
-        for line in self._reports_map["main"]:
+        csv_reader = csv.reader(self._reports_map[MAIN_REPORT])
+        for line in csv_reader:
             # Decode next event.
             try:
-                decoded_event = EventDecoder.decode(line.strip())
+                decoded_event = EventDecoder.decode(line)
             except InvalidEvent as e:
                 logging.critical(f"Invalid event [ {e.event().serialized()} ].")
                 abort = True
@@ -115,49 +131,20 @@ class Monitor(threading.Thread):
                 logging.info(f"Processing: {decoded_event.serialized()}")
                 mark = decoded_event.time()
                 # Process the events of all self-logging components until time mark of the next event.
-                for component in self._reports_map:
-                    if not component == "main":
-                        logging.info(f"Processing log for self-logging component: {component}")
-                        self._framework.components()[component].process_log(self._reports_map[component], mark)
+                components = [c for c in self._reports_map if c != "main"]
+                for component in components:
+                    # Too many messages on the log
+                    # logging.info(f"Processing log for self-logging component: {component}")
+                    self._framework.components()[component].process_log(self._reports_map[component], mark)
                 # Process main event.
                 try:
                     is_a_valid_report = decoded_event.process_with(self)
-                # Evaluation related exceptions.
-                except BuildSpecificationError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                except ERROR_EXCEPTIONS as e:
+                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
                     abort = True
                     break
-                # Execution state related exceptions.
-                except UndeclaredVariableError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                    break
-                # Clock related exceptions.
-                except ClockError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                    break
-                except UndeclaredClockError:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                    break
-                # Task related exceptions.
-                except TaskDoesNotExistError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                    break
-                # Checkpoint related exceptions.
-                except CheckpointDoesNotExistError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                    break
-                # Component related exceptions.
-                except ComponentDoesNotExistError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
-                    abort = True
-                    break
-                except ComponentError:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error.")
+                except CRITICAL_EXCEPTIONS as e:
+                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
                     abort = True
                     break
                 else:
@@ -195,7 +182,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
-        if not self._framework.process().task_exists(task_name):
+        if task_name not in self._framework.process().tasks():
             logging.error(f"Task [ {task_name} ] does not exist.")
             raise TaskDoesNotExistError()
         # A task named task_name can start only if the DFA of the process of the analysis framework
@@ -209,7 +196,7 @@ class Monitor(threading.Thread):
         if destinations == []:
             return False
         else:
-            task_specification = self._framework.process().task_specification_named(task_name)
+            task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
                 task_started_event.time(),
                 task_specification.preconditions(),
@@ -222,7 +209,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
-        if not self._framework.process().task_exists(task_name):
+        if task_name not in self._framework.process().tasks():
             logging.error(f"Task [ {task_name} ] does not exist.")
             raise TaskDoesNotExistError()
         # A task named task_name can finish only if the DFA of the process of the analysis framework
@@ -236,7 +223,7 @@ class Monitor(threading.Thread):
         if destinations == []:
             return False
         else:
-            task_specification = self._framework.process().task_specification_named(task_name)
+            task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
                 task_specification.postconditions(),
@@ -248,7 +235,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-        if not self._framework.process().global_checkpoint_exists(checkpoint_name) and not self._framework.process().local_checkpoint_exists(checkpoint_name):
+        if checkpoint_name not in self._framework.process().checkpoints():
             logging.error(f"Checkpoint [ {checkpoint_name} ] does not exist.")
             raise CheckpointDoesNotExistError()
         # A checkpoint named checkpoint_name can be reached only if the DFA of the process of the analysis
@@ -258,23 +245,21 @@ class Monitor(threading.Thread):
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"checkpoint_reached_{checkpoint_name}"))
         # As the automaton is deterministic the lenght of destination should be either 0 or 1.
-        assert(len(destinations) <= 1)
+        # assert(len(destinations) <= 1)
         if destinations == []:
             return False
         else:
-            if self._framework.process().global_checkpoint_exists(checkpoint_name):
-                checkpoint_specification = self._framework.process().global_checkpoint_named(checkpoint_name)
-            else:
-                checkpoint_specification = self._framework.process().local_checkpoint_named(checkpoint_name)
+            checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
             checkpoint_conditions_are_met = self._are_all_properties_true(
                 checkpoint_reached_event.time(),
                 checkpoint_specification.properties(),
             )
             self._current_state = destinations[0]
-            return checkpoint_conditions_are_met
+        return checkpoint_conditions_are_met
 
     # Raises: UndeclaredVariableError()
     def process_variable_value_assigned(self, variable_value_assigned_event):
+        # Determine whether the variable being assigned is a component of an array.
         split_variable_name = re.split(r'(?=\[)', variable_value_assigned_event.variable_name(), maxsplit=1)
         variable_name = split_variable_name[0]
         if len(split_variable_name) == 1:
@@ -374,13 +359,13 @@ class Monitor(threading.Thread):
         for logic_property in logic_properties:
             if not property_is_true:
                 break
-            property_is_true = self._is_property_true(event_time, logic_property)
+            property_is_true = self._is_property_true(event_time, self._framework.process().properties()[logic_property])
         return property_is_true
 
     # Propagates: BuildSpecificationError()
     def _is_property_true(self, event_time, logic_property):
         try:
-            evaluation_result = self._evaluator.eval(logic_property, event_time)
+            evaluation_result = self._evaluator.eval(event_time, logic_property)
         except BuildSpecificationError:
             logging.error(f"Error evaluating formula [ {logic_property.name()} ]")
             raise BuildSpecificationError()

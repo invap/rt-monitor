@@ -3,20 +3,26 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
-import copy
-
-from pyformlang.finite_automaton import State, Symbol, DeterministicFiniteAutomaton
+from pyformlang.finite_automaton import (
+    State,
+    Symbol,
+    DeterministicFiniteAutomaton
+)
 from pyformlang.regular_expression import Regex
 
-from rt_monitor.errors.process_errors import ProcessSpecificationError, VariablesSpecificationError
+from rt_monitor.errors.process_errors import (
+    ProcessSpecificationError,
+    VariableSpecificationError
+)
 from rt_monitor.framework.process.process import Process
 
 
 class RegExProcess(Process):
-    def __init__(self, dfa, tasks, checkpoints, variables):
-        super().__init__(dfa, tasks, checkpoints, variables)
+    def __init__(self, dfa, tasks, checkpoints, properties, variables):
+        super().__init__(dfa, tasks, checkpoints, properties, variables)
 
     @staticmethod
+    # Raises: ProcessSpecificationError()
     def process_from_toml_dict(process_dict, files_path):
         if "structure" not in process_dict:
             logging.error(f"Regular expression not found.")
@@ -25,7 +31,8 @@ class RegExProcess(Process):
         dfa_start = Regex(process_dict["structure"].replace(";", ".")).to_epsilon_nfa().to_deterministic()
         dfa = DeterministicFiniteAutomaton()
         # Build dictionaries containing tasks and checkpoints
-        tasks, checkpoints = Process.dictionaries_from_toml_dict(process_dict, files_path)
+        # Propagates exception ProcessSpecificationError
+        tasks, checkpoints, properties = Process.dictionaries_from_toml_dict(process_dict, files_path)
         # Add the start state
         start_node_name = dfa_start.start_state.value
         dfa.add_start_state(State(f"{start_node_name}"))
@@ -74,10 +81,10 @@ class RegExProcess(Process):
         for state_name in final_states_names:
             dfa.add_final_state(State(state_name))
         try:
-            variables = Process._get_variables_from_dicts(tasks, checkpoints)
-        except VariablesSpecificationError:
+            variables = Process._get_variables_from_properties(properties)
+        except VariableSpecificationError:
             logging.error(f"Variables specification error.")
             raise ProcessSpecificationError()
         else:
-            return RegExProcess(dfa, tasks, checkpoints, variables)
+            return RegExProcess(dfa, tasks, checkpoints, properties, variables)
 
