@@ -9,6 +9,7 @@ repository = "https://github.com/invap/rt-monitor"
 requires-python = ">=3.12"
 dependencies = [
 "black (>=24.10.0,<24.11.0)",
+"pyformlang~=1.0.11",
 "pyobjc-core (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
 "pyobjc-framework-applicationservices (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
 "pyobjc-framework-cocoa (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
