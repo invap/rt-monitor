@@ -589,6 +589,8 @@ The commercial license can be obtained by contacting us at info@fundacionsadosky
 Contributions to the free version can be submitted through GitHub.
 You shall sign a DCO (Developer Certificate of Origin) for each submission from all the members of your organization. The OCD will be an option during submission at GitHub.
 
+*Contact email:* cglopezpombo@unrn.edu.ar (Carlos Gustavo Lopez Pombo)
+
 ### How to purchase the proprietary version:
 
 The proprietary version can be purchased by contacting us at info@fundacionsadosky.org.ar

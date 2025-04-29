@@ -126,12 +126,13 @@ def main():
             else:
                 split_argument = sys.argv[argument].split("=")
                 argument_map["reports"] = split_argument[1]
-        elif sys.argv[argument] == "--log-file":
+        elif sys.argv[argument].startswith("--log-file="):
             if "log-file" in argument_map:
                 print("Multiple --log-file argument.", file=sys.stderr)
                 exit(-13)
             else:
-                argument_map["log-file"] = ""
+                split_argument = sys.argv[argument].split("=")
+                argument_map["log-file"] = split_argument[1]
         elif sys.argv[argument].startswith("--log-level="):
             if "log-level" in argument_map:
                 print("Multiple --log-level argument.", file=sys.stderr)
@@ -171,7 +172,7 @@ def main():
         logging_level = LoggingLevel.ANALYSIS
     # Configure logger.
     _set_up_logging()
-    _configure_logging_destination(logging_destination)
+    _configure_logging_destination(logging_destination, argument_map["log-file"])
     _configure_logging_level(logging_level)
     # Create the Monitor
     monitor_builder = MonitorBuilder(argument_map["framework"], argument_map["reports"])

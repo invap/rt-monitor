@@ -34,16 +34,17 @@ def _set_up_logging():
     )
 
 
-def _configure_logging_destination(logging_destination):
+def _configure_logging_destination(logging_destination, log_file=''):
     logging.getLogger().handlers.clear()
     formatter = logging.Formatter(
         _logging_format(), datefmt=_date_logging_format()
     )
     match logging_destination:
         case LoggingDestination.FILE:
-            handler = logging.FileHandler(
-                "log.txt", encoding="utf-8"
-            )
+            if log_file == '':
+                handler = logging.FileHandler("log.txt", encoding="utf-8")
+            else:
+                handler = logging.FileHandler(log_file, encoding="utf-8")
         case _:
             handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
