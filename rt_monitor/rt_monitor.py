@@ -1,11 +1,14 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
-
+import argparse
 import logging
+import os
 import sys
 import threading
 from enum import Enum, auto
+from pathlib import Path
+import wx
 
 from pynput import keyboard
 
@@ -51,6 +54,8 @@ def _run_verification(process_thread):
     # Waiting for the verification process to finish, either naturally or manually.
     process_thread.join()
     listener.stop()
+    # Signal the main loop to exit
+    wx.CallAfter(wx.GetApp().ExitMainLoop)
 
 
 def on_press(key):
@@ -109,54 +114,62 @@ def main():
     global stop_event
     global has_stopped_event
     global analysis_process_status
-    # Build argument map.
-    argument_map = {}
-    for argument in range(1, len(sys.argv)):
-        if sys.argv[argument].startswith("--framework="):
-            if "framework" in argument_map:
-                print("Multiple --framework argument.", file=sys.stderr)
-                exit(-11)
-            else:
-                split_argument = sys.argv[argument].split("=")
-                argument_map["framework"] = split_argument[1]
-        elif sys.argv[argument].startswith("--reports="):
-            if "reports" in argument_map:
-                print("Multiple --reports argument.", file=sys.stderr)
-                exit(-12)
-            else:
-                split_argument = sys.argv[argument].split("=")
-                argument_map["reports"] = split_argument[1]
-        elif sys.argv[argument].startswith("--log-file="):
-            if "log-file" in argument_map:
-                print("Multiple --log-file argument.", file=sys.stderr)
-                exit(-13)
-            else:
-                split_argument = sys.argv[argument].split("=")
-                argument_map["log-file"] = split_argument[1]
-        elif sys.argv[argument].startswith("--log-level="):
-            if "log-level" in argument_map:
-                print("Multiple --log-level argument.", file=sys.stderr)
-                exit(-14)
-            else:
-                split_argument = sys.argv[argument].split("=")
-                argument_map["log-level"] = split_argument[1]
-        else:
-            print("Erroneous argument.", file=sys.stderr)
-            exit(-1)
-    if "framework" not in argument_map:
-        print("Missing --framework argument.", file=sys.stderr)
+    # Argument processing
+    parser = argparse.ArgumentParser(
+        prog="The Runtime Monitor",
+        description="Performs runtime assertion checking over an event report with respecto to a structured sequential process.",
+        epilog="Example: python rt_monitor_sh.py ssp_spec.toml logs_map.toml --log-file output_log.txt --log-level all"
+    )
+    parser.add_argument(
+        "framework",
+        type=str,
+        help="Path to the framework specification file in toml format."
+    )
+    parser.add_argument(
+        "report_map",
+        type=str,
+        help="Path to the file containing the map between components and their event report, in toml format."
+    )
+    parser.add_argument(
+        "-lf", "--log_file",
+        type=str,
+        required=False,
+        help="Path to log file (optional argument)"
+    )
+    parser.add_argument(
+        "-ov", "--override_visual",
+        action="store_true",
+        help="Override the visual attribute of components (optional argument)"
+    )
+    parser.add_argument(
+        "-ll", "--log_level",
+        type=str,
+        choices=["all", "analysis", "warnings", "errors"],
+        default="analysis",
+        required=False,
+        help="Log verbose level (optional argument)"
+    )
+    # Parse arguments
+    args = parser.parse_args()
+    valid, message = validate_path(args.framework)
+    if not valid:
+        print(f"Framework specification file error. {message}", file=sys.stderr)
+        exit(-1)
+    valid, message = validate_path(args.report_map)
+    if not valid:
+        print(f"Event reports map file error. {message}", file=sys.stderr)
         exit(-2)
-    if "reports" not in argument_map:
-        print("Missing --reports argument.", file=sys.stderr)
-        exit(-3)
-    # Choose logging destination.
-    if "log-file" in argument_map:
-        logging_destination = LoggingDestination.FILE
-    else:
-        logging_destination = LoggingDestination.CONSOLE
-    # Choose logging level.
-    if "log-level" in argument_map:
-        match argument_map["log-level"]:
+    logging_destination = LoggingDestination.CONSOLE
+    if args.log_file is not None:
+        valid, message = validate_path(args.log_file)
+        if not valid:
+            print(f"Log file error. {message}", file=sys.stderr)
+            exit(-3)
+        else:
+            logging_destination = LoggingDestination.FILE
+    logging_level = LoggingLevel.ANALYSIS
+    if args.log_level is not None:
+        match args.log_level:
             case "all":
                 logging_level = LoggingLevel.INFO
             case "analysis":
@@ -165,19 +178,14 @@ def main():
                 logging_level = LoggingLevel.WARNING
             case "errors":
                 logging_level = LoggingLevel.ERROR
-            case _:
-                print("Erroneous logging level.", file=sys.stderr)
-                exit(-141)
-    else:
-        logging_level = LoggingLevel.ANALYSIS
     # Configure logger.
     _set_up_logging()
-    _configure_logging_destination(logging_destination, argument_map["log-file"])
+    _configure_logging_destination(logging_destination, args.log_file)
     _configure_logging_level(logging_level)
     # Create the Monitor
-    monitor_builder = MonitorBuilder(argument_map["framework"], argument_map["reports"])
+    monitor_builder = MonitorBuilder(args.framework, args.report_map)
     try:
-        monitor = monitor_builder.build_monitor(True)
+        monitor = monitor_builder.build_monitor(args.override_visual)
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     except EventLogListError:
@@ -198,5 +206,26 @@ def main():
         application_thread.start()
 
 
+def validate_path(path_str):
+    path = Path(path_str)
+    # Check syntax
+    try:
+        path.resolve()  # Normalize and validate
+    except (OSError, RuntimeError):
+        return False, "Invalid path syntax or characters."
+    # Check existence
+    if not path.exists():
+        return False, "Path does not exist."
+    # Check if it's a file
+    if not path.is_file():
+        return False, "Path is not a file."
+    # Check read permission
+    if not os.access(path, os.R_OK):
+        return False, "No read permission."
+    return True, "Path is valid."
+
+
 if __name__ == "__main__":
+    app = wx.App()
     main()
+    app.MainLoop()
