@@ -118,7 +118,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking over an event report with respecto to a structured sequential process.",
-        epilog="Example: python rt_monitor_sh.py ssp_spec.toml logs_map.toml --log-file output_log.txt --log-level all"
+        epilog="Example: python -m rt_monitor.rt_monitor ssp_spec.toml logs_map.toml --log-file output_log.txt --log-level all"
     )
     parser.add_argument(
         "framework",
