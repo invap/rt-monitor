@@ -33,7 +33,7 @@ rt-monitor/
 │   ├── monitor.py                # Implementation of the analysis framework
 │   ├── monitor_builder.py
 │   ├── novalue.py
-│   └── rt-monitor-sh.py          # Entry point of the command line interface of the RR
+│   └── rt_monitor_sh.py          # Entry point of the command line interface of the RR
 ├── README_images                 # Images for the read me file
 │   ├── ...                       # ...
 │   └── ...                       # ...
