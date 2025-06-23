@@ -12,7 +12,6 @@ from rt_monitor.errors.framework_errors import (
     ComponentsSpecificationError
 )
 from rt_monitor.errors.process_errors import ProcessSpecificationError
-from rt_monitor.framework.components.component import VisualComponent, SelfLoggingComponent
 from rt_monitor.framework.framework import Framework
 from rt_monitor.framework.process.process_builder import ProcessBuilder
 
@@ -61,7 +60,7 @@ class FrameworkBuilder:
             FrameworkBuilder.files_path = FrameworkBuilder.spec_file_path
 
     @staticmethod
-    def build_framework(override_visual):
+    def build_framework():
         # Build analysis framework
         logging.info(f"Creating framework with file: {FrameworkBuilder.spec_file_name}.")
         # Building the process
@@ -72,7 +71,7 @@ class FrameworkBuilder:
             raise FrameworkSpecificationError()
         # Building components structure
         try:
-            components = FrameworkBuilder._parse_components(override_visual)
+            components = FrameworkBuilder._parse_components()
         except ComponentsSpecificationError:
             logging.error(f"Components definition error.")
             raise FrameworkSpecificationError()
@@ -97,7 +96,7 @@ class FrameworkBuilder:
 
     # Raises: ComponentError()
     @staticmethod
-    def _parse_components(override_visual):
+    def _parse_components():
         if "components" not in FrameworkBuilder.framework_dict:
             component_map = {}
         else:
@@ -172,78 +171,5 @@ class FrameworkBuilder:
                         f"Component class [ {class_name} ] not found in module [ {component_name} ].")
                     raise ComponentsSpecificationError()
                 # Component class was correctly loaded
-                # Check whether visual capability has been overridden, whether it should be used according
-                # to the global visual attribute and whether the components own visual attribute is set or not.
-                # Note: if there is no global visual attribute, visual capability is blocked.
-                if issubclass(component_class, VisualComponent):
-                    if ("visual_component_file" not in component or
-                            "visual_component_name" not in component):
-                        logging.error(f"Visual component for component [ {component_name} ] missing.")
-                        raise ComponentsSpecificationError()
-                    # Information is present so, determine full class path for visual component
-                    if "visual_component_path" in component:
-                        absolute_visual_component_path = os.path.abspath(component["visual_component_path"])
-                    else:
-                        absolute_visual_component_path = absolute_general_components_path
-                    visual_component_path = absolute_visual_component_path + "/" + component[
-                        "visual_component_file"]
-                    visual_component_name = component["visual_component_file"].split(".")[0]
-                    # Load module specification from visual component name and path.
-                    try:
-                        spec = importlib.util.spec_from_file_location(visual_component_name, visual_component_path)
-                    except (TypeError, ValueError) as e:
-                        logging.critical(
-                            f"Loading component [ {visual_component_name} ] form [ {visual_component_path} ] error: {str(e)}.")
-                        raise ComponentsSpecificationError()
-                    if spec is None:
-                        logging.error(
-                            f"Could not create module specification for component [ {visual_component_name} ] from file [ {visual_component_path} ].")
-                        raise ComponentsSpecificationError()
-                    # Load module from specification if the specification was correctly loaded
-                    try:
-                        visual_component_module = importlib.util.module_from_spec(spec)
-                    except AttributeError:
-                        logging.error(f"Loader attribute for visual component [ {visual_component_name} ] not found.")
-                        raise ComponentsSpecificationError()
-                    except TypeError:
-                        logging.error(f"Invalid module for visual component [ {visual_component_name} ].")
-                        raise ComponentsSpecificationError()
-                    # Execution of the module for component
-                    try:
-                        spec.loader.exec_module(visual_component_module)
-                    except (SyntaxError, AttributeError, NameError, TypeError, ValueError):
-                        logging.error(f"The module for component [ {visual_component_name} ] contains invalid python syntax.")
-                        raise ComponentsSpecificationError()
-                    except ModuleNotFoundError:
-                        logging.error(f"Module for component [ {visual_component_name} ] not found.")
-                        raise ComponentsSpecificationError()
-                    except ImportError:
-                        logging.error(f"Error importing module for component [ {visual_component_name} ].")
-                        raise ComponentsSpecificationError()
-                    except FileNotFoundError:
-                        logging.error(f"File not found for component [ {visual_component_name} ].")
-                        raise ComponentsSpecificationError()
-                    except PermissionError:
-                        logging.error(f"Permission error opening file for component [ {visual_component_name} ].")
-                        raise ComponentsSpecificationError()
-                    visual_component_class_name = component["visual_component_name"]
-                    # Obtain the class from the module
-                    try:
-                        visual_component_class = getattr(visual_component_module, visual_component_class_name)
-                    except AttributeError:
-                        logging.error(
-                            f"Visual component class [ {visual_component_class_name} ] not found in module [ {visual_component_name} ].")
-                        raise ComponentsSpecificationError()
-                    if ((not override_visual) and
-                            ("visual" in FrameworkBuilder.framework_dict["components"] and
-                             FrameworkBuilder.framework_dict["components"]["visual"] is True) and
-                            ("visual" not in component or component["visual"] is True)):
-                        # The component has visual features and all conditions tu use it are set.
-                        component_map[device_name] = component_class(visual_component_class, True)
-                    else:
-                        # The component has visual features but either it is overridden globally (the tool is running
-                        # in command line mode) or the components local condition is set to false.
-                        component_map[device_name] = component_class(visual_component_class, False)
-                else:
-                    component_map[device_name] = component_class()
+                component_map[device_name] = component_class()
         return component_map

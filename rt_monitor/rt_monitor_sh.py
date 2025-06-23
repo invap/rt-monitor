@@ -137,11 +137,6 @@ def main():
         help="Path to log file (optional argument)"
     )
     parser.add_argument(
-        "-ov", "--override_visual",
-        action="store_true",
-        help="Override the visual attribute of components (optional argument)"
-    )
-    parser.add_argument(
         "-ll", "--log_level",
         type=str,
         choices=["all", "analysis", "warnings", "errors"],
@@ -185,7 +180,7 @@ def main():
     # Create the Monitor
     monitor_builder = MonitorBuilder(args.framework, args.report_map)
     try:
-        monitor = monitor_builder.build_monitor(args.override_visual)
+        monitor = monitor_builder.build_monitor()
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     except EventLogListError:

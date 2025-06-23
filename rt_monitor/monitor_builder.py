@@ -26,11 +26,11 @@ class MonitorBuilder:
 
     # Raises: FrameworkError(), EventLogListError(), MonitorConstructionError()
     @staticmethod
-    def build_monitor(visual=True):
+    def build_monitor():
         logging.info(f"Creating monitor with files: [ {MonitorBuilder.framework_file} ] and [ {MonitorBuilder.report_list_file} ].")
         try:
             framework_builder = FrameworkBuilder(MonitorBuilder.framework_file)
-            framework = framework_builder.build_framework(visual)
+            framework = framework_builder.build_framework()
         except FrameworkSpecificationError:
             logging.error(f"Error creating framework.")
             raise FrameworkError()
@@ -39,7 +39,6 @@ class MonitorBuilder:
             reports_map = MonitorBuilder._build_reports_map()
         except EventLogListError:
             # Stop components after correctly building the framework but failing to build the Event Log map.
-            framework.stop_components()
             raise EventLogListError()
         # Check that names of components and names of event reports coincide.
         report_keys = [rep for rep in reports_map.keys() if rep != "main"]

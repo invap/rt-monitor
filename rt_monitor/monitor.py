@@ -98,9 +98,6 @@ class Monitor(threading.Thread):
         self._stop_event = stop_event
         self._has_stopped_event = has_stoped_event
 
-    def stop_components(self):
-        self._framework.stop_components()
-
     # Raises: AbortRun()
     def run(self):
         MAIN_REPORT = "main"
@@ -167,7 +164,6 @@ class Monitor(threading.Thread):
                             f"[ {decoded_event.serialized()} ]"
                         )
                         break
-        self._framework.stop_components()
         # Log the result of when the verification finishes.
         if abort:
             logging.critical(f"Runtime verification process ABORTED.")
@@ -194,6 +190,7 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic the lenght of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
+            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot start.")
             return False
         else:
             task_specification = self._framework.process().tasks()[task_name]
@@ -221,6 +218,7 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic the lenght of destination should be either 0 or 1.
         assert(len(destinations) <= 1)
         if destinations == []:
+            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot finish.")
             return False
         else:
             task_specification = self._framework.process().tasks()[task_name]
@@ -247,6 +245,7 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic the lenght of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
+            logging.log(LoggingLevel.ANALYSIS, f"Checkpoint [ {checkpoint_name} ] is unreachable.")
             return False
         else:
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
