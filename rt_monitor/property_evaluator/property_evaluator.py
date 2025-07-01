@@ -13,9 +13,8 @@ class PropertyEvaluator:
         PASSED = "PASSED"
         FAILED = "FAILED"
 
-    def __init__(self, components, process_state, execution_state, timed_state):
+    def __init__(self, components, execution_state, timed_state):
         self._components = components
-        self._process_state = process_state
         self._execution_state = execution_state
         self._timed_state = timed_state
 

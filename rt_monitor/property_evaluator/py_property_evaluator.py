@@ -17,8 +17,8 @@ from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
 class PyPropertyEvaluator(PropertyEvaluator):
-    def __init__(self, components, process_state, execution_state, timed_state):
-        super().__init__(components, process_state, execution_state, timed_state)
+    def __init__(self, components, execution_state, timed_state):
+        super().__init__(components, execution_state, timed_state)
 
     # Raises: EvaluationError()
     def eval(self, now, prop):
