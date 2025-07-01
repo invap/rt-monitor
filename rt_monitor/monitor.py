@@ -41,7 +41,6 @@ class Monitor(threading.Thread):
         super().__init__()
         # Analysis framework
         self._framework = framework
-        self._current_state = self._framework.process().dfa().start_state
         # Event reports map
         self._reports_map = reports_map
         # Events for controlling the execution of the monitor (TBS by set_events)
@@ -55,7 +54,7 @@ class Monitor(threading.Thread):
         reports_map["main"].seek(0)
         self._amount_of_processed_events = 0
         # State
-        self._process_state = set()
+        self._current_state = None
         self._execution_state = {}
         self._timed_state = {}
         # Build the state dictionary discarding the variable class
@@ -84,7 +83,6 @@ class Monitor(threading.Thread):
         # Build formula evaluator
         self._evaluator = Evaluator(
             self._framework.components(),
-            self._process_state,
             self._execution_state,
             self._timed_state
         )
@@ -113,6 +111,9 @@ class Monitor(threading.Thread):
             ComponentDoesNotExistError,
             ComponentError
         )
+        # Initialize process state for the analysis
+        self._current_state = self._framework.process().dfa().start_state
+        # Start analysis
         is_a_valid_report = True
         abort = False
         csv_reader = csv.reader(self._reports_map[MAIN_REPORT])
