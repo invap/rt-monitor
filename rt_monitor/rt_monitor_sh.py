@@ -181,11 +181,7 @@ def main():
     monitor_builder = MonitorBuilder(args.framework, args.report_map)
     try:
         monitor = monitor_builder.build_monitor()
-    except FrameworkError:
-        logging.critical(f"Runtime monitoring process ABORTED.")
-    except EventLogListError:
-        logging.critical(f"Runtime monitoring process ABORTED.")
-    except MonitorConstructionError:
+    except (FrameworkError, EventLogListError, MonitorConstructionError):
         logging.critical(f"Runtime monitoring process ABORTED.")
     else:
         # Events setup for managing the running mode.
