@@ -17,7 +17,7 @@ class Component(ABC):
 
     @abstractmethod
     def state(self):
-        raise NotImplementedError
+        pass
 
     def get_status(self):
         raise NotImplementedError
@@ -54,6 +54,16 @@ class Component(ABC):
                     raise
         return function(*new_args)
 
+    @abstractmethod
+    def start(self):
+        """Start component operations (GUI or non-GUI)."""
+        pass
+
+    @abstractmethod
+    def stop(self):
+        """Stop component operations and cleanup resources."""
+        pass
+
 
 class SelfLoggingComponent(Component, ABC):
     def __init__(self):
@@ -61,4 +71,4 @@ class SelfLoggingComponent(Component, ABC):
 
     @abstractmethod
     def process_log(self, log_file, mark):
-        raise NotImplementedError
+        pass
