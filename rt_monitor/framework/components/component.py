@@ -54,16 +54,6 @@ class Component(ABC):
                     raise
         return function(*new_args)
 
-    @abstractmethod
-    def start(self):
-        """Start component operations (GUI or non-GUI)."""
-        pass
-
-    @abstractmethod
-    def stop(self):
-        """Stop component operations and cleanup resources."""
-        pass
-
 
 class SelfLoggingComponent(Component, ABC):
     def __init__(self):
