@@ -45,8 +45,6 @@ class MonitorBuilder:
         for report_key in report_keys:
             if not any(report_key == component_key for component_key in framework.components().keys()):
                 logging.info(f"Missing component [ {report_key} ] in [ {MonitorBuilder.framework_file} ].")
-                # Stop components after correctly building the framework but failing to build the Monitor.
-                framework.stop_components()
                 raise MonitorConstructionError()
         for component_key in framework.components().keys():
             if (isinstance(framework.components()[component_key], SelfLoggingComponent) and
