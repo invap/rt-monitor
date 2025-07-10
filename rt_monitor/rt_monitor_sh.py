@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
 import argparse
 import logging
 import os
@@ -14,8 +15,7 @@ from pynput import keyboard
 
 from rt_monitor.errors.monitor_errors import (
     FrameworkError,
-    MonitorConstructionError,
-    EventLogListError
+    EventReportError
 )
 from rt_monitor.logging_configuration import (
     LoggingLevel,
@@ -109,79 +109,97 @@ def on_press(key):
 
 
 def main():
+    # Definition of global variables
     global pause_event
     global has_paused_event
     global stop_event
     global has_stopped_event
     global analysis_process_status
+
     # Argument processing
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking over an event report with respecto to a structured sequential process.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml logs_map.toml --log-file output_log.txt --log-level all"
+        epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml main_log.csv --log-file output_log.txt --log-level all"
     )
-    parser.add_argument(
-        "framework",
-        type=str,
-        help="Path to the framework specification file in toml format."
-    )
-    parser.add_argument(
-        "report_map",
-        type=str,
-        help="Path to the file containing the map between components and their event report, in toml format."
-    )
-    parser.add_argument(
-        "-lf", "--log_file",
-        type=str,
-        required=False,
-        help="Path to log file (optional argument)"
-    )
-    parser.add_argument(
-        "-ll", "--log_level",
-        type=str,
-        choices=["all", "analysis", "warnings", "errors"],
-        default="analysis",
-        required=False,
-        help="Log verbose level (optional argument)"
-    )
+    parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
+    parser.add_argument("event_report", type=str, help="Path to the event report in cvs.")
+    parser.add_argument("--log_file", type=str, required=False, help="Path to log file (optional argument)")
+    parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="info", required=False, help="Log verbose level (optional argument)")
+
+    # Declaration of useful functions
+    def validate_input_path(path):
+        try:
+            path.resolve()  # Normalize and validate
+        except (OSError, RuntimeError):
+            return False, "Invalid path syntax or characters."
+        # Check existence
+        if not path.exists():
+            return False, "Path does not exist."
+        # Check if it's a file
+        if not path.is_file():
+            return False, "Path is not a file."
+        # Check read permission
+        if not os.access(path, os.R_OK):
+            return False, "No read permission."
+        return True, "Path is valid."
+
+    # Start the execution of The Runtime Monitor
     # Parse arguments
     args = parser.parse_args()
-    valid, message = validate_path(args.framework)
-    if not valid:
-        print(f"Framework specification file error. {message}", file=sys.stderr)
-        exit(-1)
-    valid, message = validate_path(args.report_map)
-    if not valid:
-        print(f"Event reports map file error. {message}", file=sys.stderr)
-        exit(-2)
-    logging_destination = LoggingDestination.CONSOLE
-    if args.log_file is not None:
-        valid, message = validate_path(args.log_file)
+    # Set up the logging infrastructure
+    # Configure logging level.
+    if args.log_level is None:
+        logging_level = LoggingLevel.ANALYSIS
+    else:
+        match args.log_level:
+            case "debug":
+                logging_level = LoggingLevel.DEBUG
+            case "event":
+                logging_level = LoggingLevel.EVENT
+            case "analysis":
+                logging_level = LoggingLevel.ANALYSIS
+            case "info":
+                logging_level = LoggingLevel.INFO
+            case "warnings":
+                logging_level = LoggingLevel.WARNING
+            case "errors":
+                logging_level = LoggingLevel.ERROR
+            case "critical":
+                logging_level = LoggingLevel.CRITICAL
+            case _:
+                print(f"Logging level error: {args.log_level} is not a logging level.", file=sys.stderr)
+                exit(-3)
+    # Configure logging destination.
+    if args.log_file is None:
+        logging_destination = LoggingDestination.CONSOLE
+    else:
+        valid, message = validate_input_path(args.log_file)
         if not valid:
             print(f"Log file error. {message}", file=sys.stderr)
             exit(-3)
         else:
             logging_destination = LoggingDestination.FILE
-    logging_level = LoggingLevel.ANALYSIS
-    if args.log_level is not None:
-        match args.log_level:
-            case "all":
-                logging_level = LoggingLevel.INFO
-            case "analysis":
-                logging_level = LoggingLevel.ANALYSIS
-            case "warnings":
-                logging_level = LoggingLevel.WARNING
-            case "errors":
-                logging_level = LoggingLevel.ERROR
-    # Configure logger.
     _set_up_logging()
     _configure_logging_destination(logging_destination, args.log_file)
     _configure_logging_level(logging_level)
+    # Validate and normalise the framework path
+    framework_path = Path(args.framework)
+    valid, message = validate_input_path(framework_path)
+    if not valid:
+        print(f"Framework file error. {message}", file=sys.stderr)
+        exit(-1)
+    # Validate and normalise the event report path
+    event_report_path = Path(args.event_report)
+    valid, message = validate_input_path(event_report_path)
+    if not valid:
+        print(f"Event report file error. {message}", file=sys.stderr)
+        exit(-2)
     # Create the Monitor
-    monitor_builder = MonitorBuilder(args.framework, args.report_map)
+    monitor_builder = MonitorBuilder(args.framework, args.event_report)
     try:
         monitor = monitor_builder.build_monitor()
-    except (FrameworkError, EventLogListError, MonitorConstructionError):
+    except (FrameworkError, EventReportError):
         logging.critical(f"Runtime monitoring process ABORTED.")
     else:
         # Events setup for managing the running mode.
@@ -195,25 +213,6 @@ def main():
             target=_run_verification, args=[monitor]
         )
         application_thread.start()
-
-
-def validate_path(path_str):
-    path = Path(path_str)
-    # Check syntax
-    try:
-        path.resolve()  # Normalize and validate
-    except (OSError, RuntimeError):
-        return False, "Invalid path syntax or characters."
-    # Check existence
-    if not path.exists():
-        return False, "Path does not exist."
-    # Check if it's a file
-    if not path.is_file():
-        return False, "Path is not a file."
-    # Check read permission
-    if not os.access(path, os.R_OK):
-        return False, "No read permission."
-    return True, "Path is valid."
 
 
 if __name__ == "__main__":

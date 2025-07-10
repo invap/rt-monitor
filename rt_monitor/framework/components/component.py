@@ -53,12 +53,3 @@ class Component(ABC):
                     logging.error(f"Error converting arg '{name}' to {exp_type.__name__}: {e}")
                     raise
         return function(*new_args)
-
-
-class SelfLoggingComponent(Component, ABC):
-    def __init__(self):
-        super().__init__()
-
-    @abstractmethod
-    def process_log(self, log_file, mark):
-        pass

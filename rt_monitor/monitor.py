@@ -36,22 +36,21 @@ from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
 class Monitor(threading.Thread):
-
-    def __init__(self, framework, reports_map):
+    def __init__(self, framework, event_report):
         super().__init__()
         # Analysis framework
         self._framework = framework
         # Event reports map
-        self._reports_map = reports_map
+        self._event_report = event_report
         # Events for controlling the execution of the monitor (TBS by set_events)
         self._pause_event = None
         self._has_paused_event = None
         self._stop_event = None
         self._has_stopped_event = None
         # Variables for stats
-        self._amount_of_events_to_verify = len(reports_map["main"].readlines())
+        self._amount_of_events_to_verify = len(event_report.readlines())
         # Returns the pointer to the beginning because readlines() moves the pointer to the end.
-        reports_map["main"].seek(0)
+        event_report.seek(0)
         self._amount_of_processed_events = 0
         # State
         self._current_state = None
@@ -70,7 +69,7 @@ class Monitor(threading.Thread):
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue())
                 case "Component":
                     # There is nothing to do here; the existence of the variables mentioned in the process in any of
-                    # the declared components is checked at the momento of creation of the framework.
+                    # the declared components is checked at the moment of the creation of the framework.
                     pass
                 case "Clock":
                     self._timed_state[variable] = (
@@ -98,7 +97,6 @@ class Monitor(threading.Thread):
 
     # Raises: AbortRun()
     def run(self):
-        MAIN_REPORT = "main"
         ERROR_EXCEPTIONS = (
             BuildSpecificationError,
             UndeclaredVariableError,
@@ -116,7 +114,7 @@ class Monitor(threading.Thread):
         # Start analysis
         is_a_valid_report = True
         abort = False
-        csv_reader = csv.reader(self._reports_map[MAIN_REPORT])
+        csv_reader = csv.reader(self._event_report)
         for line in csv_reader:
             # Decode next event.
             try:
@@ -126,15 +124,8 @@ class Monitor(threading.Thread):
                 abort = True
                 break
             else:
-                logging.info(f"Processing: {decoded_event.serialized()}")
-                mark = decoded_event.time()
-                # Process the events of all self-logging components until time mark of the next event.
-                components = [c for c in self._reports_map if c != "main"]
-                for component in components:
-                    # Too many messages on the log
-                    # logging.info(f"Processing log for self-logging component: {component}")
-                    self._framework.components()[component].process_log(self._reports_map[component], mark)
-                # Process main event.
+                logging.log(LoggingLevel.EVENT, f"Processing: {decoded_event.serialized()}")
+                # Process event.
                 try:
                     is_a_valid_report = decoded_event.process_with(self)
                 except ERROR_EXCEPTIONS as e:
@@ -158,7 +149,7 @@ class Monitor(threading.Thread):
                         break
                     # There was no exception in processing the event.
                     self._amount_of_processed_events = self._amount_of_processed_events + 1
-                    # Action if the event cause the verification to fail.
+                    # Action if the event caused the verification to fail.
                     if not is_a_valid_report:
                         logging.info(
                             f"The following event caused the verification to fail: "
@@ -188,7 +179,7 @@ class Monitor(threading.Thread):
         # the list of destinations from the current state through transitions labelled with that symbol
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"task_started_{task_name}"))
-        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
             logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot start.")
@@ -216,7 +207,7 @@ class Monitor(threading.Thread):
         # the list of destinations from the current state through transitions labelled with that symbol
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"task_finished_{task_name}"))
-        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # As the automaton is deterministic, the length of destination should be either 0 or 1.
         assert(len(destinations) <= 1)
         if destinations == []:
             logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot finish.")
@@ -243,7 +234,7 @@ class Monitor(threading.Thread):
         # whether the list of destinations from the current state through transitions labelled with that symbol
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"checkpoint_reached_{checkpoint_name}"))
-        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
             logging.log(LoggingLevel.ANALYSIS, f"Checkpoint [ {checkpoint_name} ] is unreachable.")

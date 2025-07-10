@@ -8,22 +8,22 @@ from enum import IntEnum, StrEnum
 
 
 class LoggingLevel(IntEnum):
+    DEBUG = logging.DEBUG
+    EVENT = logging.DEBUG + 3
+    ANALYSIS = logging.DEBUG + 6
     INFO = logging.INFO
-    ANALYSIS = logging.INFO + 5
     WARNING = logging.WARNING
     ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
 
 
 class LoggingDestination(StrEnum):
     CONSOLE = "Standard output"
     FILE = "File (log.txt)"
 
-    @classmethod
-    def all(cls):
-        return [cls.CONSOLE, cls.FILE]
-
 
 def _set_up_logging():
+    logging.addLevelName(LoggingLevel.EVENT, "EVENT")
     logging.addLevelName(LoggingLevel.ANALYSIS, "ANALYSIS")
     logging.basicConfig(
         stream=sys.stdout,
