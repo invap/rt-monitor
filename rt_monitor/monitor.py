@@ -2,11 +2,15 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import csv
 import logging
 import re
+import signal
 import threading
-
+import time
+from pika.exceptions import (
+    ChannelClosed,
+    ConnectionClosed
+)
 from pyformlang.finite_automaton import Symbol
 
 from rt_monitor.errors.clock_errors import (
@@ -27,6 +31,10 @@ from rt_monitor.errors.monitor_errors import (
     ComponentDoesNotExistError,
     ComponentError
 )
+from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
+from rt_monitor.rabbitmq_utility import (
+    setup_rabbitmq
+)
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.framework.clock import Clock
 from rt_monitor.reporting.event_decoder import EventDecoder
@@ -34,24 +42,29 @@ from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
+# Errors:
+# -3: RabbitMQ server setup error
 
 class Monitor(threading.Thread):
-    def __init__(self, framework, event_report):
+    ERROR_EXCEPTIONS = (
+        BuildSpecificationError,
+        UndeclaredVariableError,
+        ClockError,
+        UndeclaredClockError
+    )
+    CRITICAL_EXCEPTIONS = (
+        TaskDoesNotExistError,
+        CheckpointDoesNotExistError,
+        ComponentDoesNotExistError,
+        ComponentError
+    )
+
+    def __init__(self, framework, signal_flags):
         super().__init__()
         # Analysis framework
         self._framework = framework
-        # Event reports map
-        self._event_report = event_report
-        # Events for controlling the execution of the monitor (TBS by set_events)
-        self._pause_event = None
-        self._has_paused_event = None
-        self._stop_event = None
-        self._has_stopped_event = None
-        # Variables for stats
-        self._amount_of_events_to_verify = len(event_report.readlines())
-        # Returns the pointer to the beginning because readlines() moves the pointer to the end.
-        event_report.seek(0)
-        self._amount_of_processed_events = 0
+        # Signaling flags
+        self._signal_flags = signal_flags
         # State
         self._current_state = None
         self._execution_state = {}
@@ -63,7 +76,7 @@ class Monitor(threading.Thread):
             match self._framework.process().variables()[variable][0]:
                 case "State":
                     if "Array" in self._framework.process().variables()[variable][1]:
-                        # Array data is stored as a dictionary whose key are the position of in the array.
+                        # Array data is stored as a dictionary whose keys are the position of in the array.
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], {})
                     else:
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue())
@@ -86,85 +99,117 @@ class Monitor(threading.Thread):
             self._timed_state
         )
 
-    def get_event_count(self):
-        return [self._amount_of_events_to_verify, self._amount_of_processed_events]
-
-    def set_events(self, pause_event, has_pause_event, stop_event, has_stoped_event):
-        self._pause_event = pause_event
-        self._has_paused_event = has_pause_event
-        self._stop_event = stop_event
-        self._has_stopped_event = has_stoped_event
-
-    # Raises: AbortRun()
+    # Raises:
     def run(self):
-        ERROR_EXCEPTIONS = (
-            BuildSpecificationError,
-            UndeclaredVariableError,
-            ClockError,
-            UndeclaredClockError
-        )
-        CRITICAL_EXCEPTIONS = (
-            TaskDoesNotExistError,
-            CheckpointDoesNotExistError,
-            ComponentDoesNotExistError,
-            ComponentError
-        )
+        last_message_time = time.time()
+        # Control variables
+        poison_received = False
+        stop = False
+        abort = False
+        # Setup RabbitMQ server
+        logging.info(f"Establishing connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        connection, channel, queue = setup_rabbitmq()
+        logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
+        # Start getting events from the RabbitMQ server with timeout handling for message reception
+        logging.info(f"Start getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        is_a_valid_report = True
         # Initialize process state for the analysis
         self._current_state = self._framework.process().dfa().start_state
-        # Start analysis
-        is_a_valid_report = True
-        abort = False
-        csv_reader = csv.reader(self._event_report)
-        for line in csv_reader:
-            # Decode next event.
+        while not poison_received and not self._signal_flags['stop']:
+            # Handle SIGINT
+            if self._signal_flags['stop']:
+                logging.info("SIGINT received. Stopping the event acquisition process.")
+                poison_received = True
+            # Handle SIGTSTP
+            if self._signal_flags['pause']:
+                logging.info("SIGTSTP received. Pausing the event acquisition process.")
+                while self._signal_flags['pause'] and not self._signal_flags['stop']:
+                    signal.pause()  # Efficiently wait for signals
+                if self._signal_flags['stop']:
+                    logging.info("SIGINT received. Stopping the event acquisition process.")
+                    poison_received = True
+                logging.info("SIGTSTP received. Resuming the event acquisition process.")
+
+            # Get event from RabbitMQ
+            method, properties, body = channel.basic_get(queue=queue, auto_ack=False)
+            if method:  # Message exists
+                # Process message
+                if properties.headers and properties.headers.get('termination'):
+                    # Poison pill received
+                    logging.log(LoggingLevel.EVENT, f"Poison pill received.")
+                    stop = True
+                    abort = False
+                    poison_received = True
+                else:
+                    last_message_time = time.time()
+                    # Decode next event.
+                    event = body.decode().rstrip('\n\r')
+                    try:
+                        decoded_event = EventDecoder.decode(event.split(","))
+                    except InvalidEvent as f:
+                        logging.critical(f"Invalid event [ {f.event().serialized()} ].")
+                        stop = True
+                        abort = True
+                        poison_received = True
+                    else:
+                        logging.log(LoggingLevel.EVENT, f"Processing: {decoded_event.serialized()}")
+                        # Process event.
+                        try:
+                            is_a_valid_report = decoded_event.process_with(self)
+                        except Monitor.ERROR_EXCEPTIONS as f:
+                            logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
+                            stop = True
+                            abort = True
+                            poison_received = True
+                        except Monitor.CRITICAL_EXCEPTIONS as f:
+                            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
+                            stop = True
+                            abort = True
+                            poison_received = True
+                        else:
+                            # Action if the event caused the verification to fail.
+                            if not is_a_valid_report:
+                                logging.info(
+                                    f"The following event caused the verification to fail: "
+                                    f"[ {decoded_event.serialized()} ]"
+                                )
+                                stop = True
+                                poison_received = True
+                # Ack the message
+                channel.basic_ack(method.delivery_tag)
+
+            if stop:
+                if abort:
+                    logging.critical("Runtime verification process ABORTED.")
+                else:
+                    if is_a_valid_report:
+                        logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
+                    else:
+                        logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
+                poison_received = True
+            # Timeout handling for message reception
+            if 0 < rabbitmq_server_config.timeout < (time.time() - last_message_time):
+                logging.info(f"No event received for {rabbitmq_server_config.timeout} seconds. Timeout reached.")
+                poison_received = True
+        # Close connection to the RabbitMQ server
+        if channel and channel.is_open:
             try:
-                decoded_event = EventDecoder.decode(line)
-            except InvalidEvent as e:
-                logging.critical(f"Invalid event [ {e.event().serialized()} ].")
-                abort = True
-                break
-            else:
-                logging.log(LoggingLevel.EVENT, f"Processing: {decoded_event.serialized()}")
-                # Process event.
-                try:
-                    is_a_valid_report = decoded_event.process_with(self)
-                except ERROR_EXCEPTIONS as e:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
-                    abort = True
-                    break
-                except CRITICAL_EXCEPTIONS as e:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
-                    abort = True
-                    break
-                else:
-                    # Thread control.
-                    if not self._pause_event.is_set():
-                        # Notifies that the analysis has gracefully paused.
-                        self._has_paused_event.clear()
-                        self._pause_event.wait()
-                        self._has_paused_event.set()
-                    if not self._stop_event.is_set():
-                        # Notifies that the analysis has gracefully stopped.
-                        self._has_stopped_event.clear()
-                        break
-                    # There was no exception in processing the event.
-                    self._amount_of_processed_events = self._amount_of_processed_events + 1
-                    # Action if the event caused the verification to fail.
-                    if not is_a_valid_report:
-                        logging.info(
-                            f"The following event caused the verification to fail: "
-                            f"[ {decoded_event.serialized()} ]"
-                        )
-                        break
-        # Log the result of when the verification finishes.
-        if abort:
-            logging.critical(f"Runtime verification process ABORTED.")
-        else:
-            if self._stop_event.is_set():
-                if not is_a_valid_report:
-                    logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
-                else:
-                    logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
+                channel.stop_consuming()
+            except (ConnectionClosed, ChannelClosed) as e:
+                # This is expected if the connection was already lost
+                logging.debug(f"Channel already closed during stop_consuming: {e}")
+            except Exception as e:
+                logging.error(f"Error stopping consumer: {e}")
+        # Always attempt to close the connection if it exists
+        if connection and connection.is_open:
+            try:
+                connection.close()
+                logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} closed.")
+            except Exception as e:
+                logging.error(f"Error closing connection: {e}")
+        elif connection:
+            logging.debug("Connection was already closed")
+        logging.info(f"Stop getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
@@ -192,7 +237,6 @@ class Monitor(threading.Thread):
             )
             self._current_state = destinations[0]
             return preconditions_are_met
-        #
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied

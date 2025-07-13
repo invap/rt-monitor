@@ -22,7 +22,7 @@ class LoggingDestination(StrEnum):
     FILE = "File (log.txt)"
 
 
-def _set_up_logging():
+def set_up_logging():
     logging.addLevelName(LoggingLevel.EVENT, "EVENT")
     logging.addLevelName(LoggingLevel.ANALYSIS, "ANALYSIS")
     logging.basicConfig(
@@ -34,7 +34,7 @@ def _set_up_logging():
     )
 
 
-def _configure_logging_destination(logging_destination, log_file=''):
+def configure_logging_destination(logging_destination, log_file=''):
     logging.getLogger().handlers.clear()
     formatter = logging.Formatter(
         _logging_format(), datefmt=_date_logging_format()
@@ -51,12 +51,12 @@ def _configure_logging_destination(logging_destination, log_file=''):
     logging.getLogger().addHandler(handler)
 
 
-def _configure_logging_level(logging_level):
+def configure_logging_level(logging_level):
     logging.getLogger().setLevel(logging_level)
 
 
 def _default_logging_level():
-    return LoggingLevel.INFO
+    return LoggingLevel.ANALYSIS
 
 
 def _date_logging_format():
