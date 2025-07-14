@@ -6,6 +6,7 @@ import argparse
 import logging
 import signal
 import sys
+import threading
 from pathlib import Path
 import wx
 
@@ -24,6 +25,15 @@ from rt_monitor.logging_configuration import (
 from rt_monitor.monitor_builder import MonitorBuilder
 from rt_monitor.utility import validate_input_path
 from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
+
+
+def _run_verification(process_thread):
+    # Starts the monitor thread
+    process_thread.start()
+    # Waiting for the verification process to finish, either naturally or manually.
+    process_thread.join()
+    # Signal the main loop to exit
+    wx.CallAfter(wx.GetApp().ExitMainLoop)
 
 # Errors:
 # -1: Logging infrastructure error
@@ -122,12 +132,11 @@ def main():
     except FrameworkError:
         logging.critical(f"Runtime monitoring process ABORTED.")
     else:
-        # Starts the monitor thread
-        monitor.start()
-        # Waiting for the verification process to finish, either naturally or manually.
-        monitor.join()
-        # Signal the main loop to exit
-        wx.CallAfter(wx.GetApp().ExitMainLoop)
+        # Creates a thread for controlling the analysis process
+        application_thread = threading.Thread(
+            target=_run_verification, args=[monitor]
+        )
+        application_thread.start()
 
 
 if __name__ == "__main__":

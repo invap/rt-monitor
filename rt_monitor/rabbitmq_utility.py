@@ -60,7 +60,8 @@ def rabbitmq_connect_to_server():
         rabbitmq_channel.exchange_declare(
             exchange=rabbitmq_server_config.exchange,
             exchange_type='fanout',
-            durable=True
+            auto_delete=True,
+            durable=False
         )
     except ChannelClosed as e:
         logging.error(f"Channel closed: {e}.")

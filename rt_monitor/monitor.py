@@ -43,19 +43,6 @@ from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 # -3: RabbitMQ server setup error
 
 class Monitor(threading.Thread):
-    ERROR_EXCEPTIONS = (
-        BuildSpecificationError,
-        UndeclaredVariableError,
-        ClockError,
-        UndeclaredClockError
-    )
-    CRITICAL_EXCEPTIONS = (
-        TaskDoesNotExistError,
-        CheckpointDoesNotExistError,
-        ComponentDoesNotExistError,
-        ComponentError
-    )
-
     def __init__(self, framework, signal_flags):
         super().__init__()
         # Analysis framework
@@ -98,6 +85,19 @@ class Monitor(threading.Thread):
 
     # Raises:
     def run(self):
+        ERROR_EXCEPTIONS = (
+            BuildSpecificationError,
+            UndeclaredVariableError,
+            ClockError,
+            UndeclaredClockError
+        )
+        CRITICAL_EXCEPTIONS = (
+            TaskDoesNotExistError,
+            CheckpointDoesNotExistError,
+            ComponentDoesNotExistError,
+            ComponentError
+        )
+
         last_message_time = time.time()
         # Control variables
         poison_received = False
@@ -152,12 +152,12 @@ class Monitor(threading.Thread):
                         # Process event.
                         try:
                             is_a_valid_report = decoded_event.process_with(self)
-                        except Monitor.ERROR_EXCEPTIONS as f:
+                        except ERROR_EXCEPTIONS as f:
                             logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
                             stop = True
                             abort = True
                             poison_received = True
-                        except Monitor.CRITICAL_EXCEPTIONS as f:
+                        except CRITICAL_EXCEPTIONS as f:
                             logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
                             stop = True
                             abort = True
