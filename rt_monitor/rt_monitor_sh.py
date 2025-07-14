@@ -61,12 +61,12 @@ def main():
         epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml --log_file=output_log.txt --log_level=event"
     )
     parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
-    parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host')
-    parser.add_argument('--port', type=int, default=5673, help='RabbitMQ server port')
-    parser.add_argument('--user', default='guest', help='RabbitMQ server user')
-    parser.add_argument('--password', default='guest', help='RabbitMQ server password')
-    parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server')
-    parser.add_argument("--log_level", type=str, choices=["debug", "analysis", "event", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument)")
+    parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host.')
+    parser.add_argument('--port', type=int, default=5673, help='RabbitMQ server port.')
+    parser.add_argument('--user', default='guest', help='RabbitMQ server user.')
+    parser.add_argument('--password', default='guest', help='RabbitMQ server password.')
+    parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server.')
+    parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument).")
     parser.add_argument('--log_file', help='Path to log file (optional argument).')
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (no timeout = 0) (60 = default).")
     # Start the execution of The Runtime Monitor
