@@ -11,8 +11,7 @@ from pika.exceptions import (
     ProbableAccessDeniedError,
     IncompatibleProtocolError,
     ChannelClosed,
-    ConnectionClosed,
-    DuplicateConsumerTag
+    ConnectionClosed
 )
 
 from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
@@ -76,10 +75,14 @@ def rabbitmq_connect_to_server():
         logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
         return connection, rabbitmq_channel
 
-def rabbitmq_declare_queue(rabbitmq_channel):
+def rabbitmq_declare_queue(channel):
     # Declare queue
     try:
-        result = rabbitmq_channel.queue_declare(queue='', durable=True)
+        result = channel.queue_declare(
+            queue='',  # Let RabbitMQ generate unique name
+            exclusive=True,
+            durable=False
+        )
         queue_name = result.method.queue
     except ChannelClosed as e:
         logging.error(f"Channel closed: {e}.")
@@ -92,10 +95,10 @@ def rabbitmq_declare_queue(rabbitmq_channel):
         raise RabbitMQError()
     # Bind queue
     try:
-        rabbitmq_channel.queue_bind(
+        channel.queue_bind(
             exchange=rabbitmq_server_config.exchange,
             queue=queue_name,
-            routing_key='event'
+            routing_key='events'
         )
     except ChannelClosed as e:
         logging.error(f"Binding violates server rules: {e}.")
@@ -114,18 +117,17 @@ def rabbitmq_declare_queue(rabbitmq_channel):
         return queue_name
 
 def setup_rabbitmq():
-    # Full RabbitMQ setup: connection, queue, binding, consumer
-    # Create connection and channel
+    # Full RabbitMQ setup: connection, queue, binding
     try:
-        connection, rabbitmq_channel = rabbitmq_connect_to_server()
+        connection, channel = rabbitmq_connect_to_server()
     except RabbitMQError:
         logging.error(f"RabbitMQ connection or channel setup failed.")
         return None, None, None
     # Declare and bind queue
     try:
-        queue_name = rabbitmq_declare_queue(rabbitmq_channel)
+        queue_name = rabbitmq_declare_queue(channel)
     except RabbitMQError:
         logging.error(f"Queue declaration at RabbitMQ failed.")
         return None, None, None
-    return connection, rabbitmq_channel, queue_name
+    return connection, channel, queue_name
 

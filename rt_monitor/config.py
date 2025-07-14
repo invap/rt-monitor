@@ -2,13 +2,9 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-class RabbitMQ_server_config:
+class Config:
     def __init__(self):
-        self.host = None
-        self.port = None
-        self.user = None
-        self.password = None
-        self.exchange = None
+        self.timeout = None
 
 # Singleton instance to share globally
-rabbitmq_server_config = RabbitMQ_server_config()
+config = Config()

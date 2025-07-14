@@ -7,12 +7,9 @@ import re
 import signal
 import threading
 import time
-from pika.exceptions import (
-    ChannelClosed,
-    ConnectionClosed
-)
 from pyformlang.finite_automaton import Symbol
 
+from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
     ClockError,
     UndeclaredClockError,
@@ -108,7 +105,7 @@ class Monitor(threading.Thread):
         abort = False
         # Setup RabbitMQ server
         logging.info(f"Establishing connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
-        connection, channel, queue = setup_rabbitmq()
+        connection, channel, queue_name = setup_rabbitmq()
         logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
         # Start getting events from the RabbitMQ server with timeout handling for message reception
         logging.info(f"Start getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
@@ -129,9 +126,8 @@ class Monitor(threading.Thread):
                     logging.info("SIGINT received. Stopping the event acquisition process.")
                     poison_received = True
                 logging.info("SIGTSTP received. Resuming the event acquisition process.")
-
             # Get event from RabbitMQ
-            method, properties, body = channel.basic_get(queue=queue, auto_ack=False)
+            method, properties, body = channel.basic_get(queue=queue_name, auto_ack=False)
             if method:  # Message exists
                 # Process message
                 if properties.headers and properties.headers.get('termination'):
@@ -142,7 +138,7 @@ class Monitor(threading.Thread):
                     poison_received = True
                 else:
                     last_message_time = time.time()
-                    # Decode next event.
+                    # Decode the next event.
                     event = body.decode().rstrip('\n\r')
                     try:
                         decoded_event = EventDecoder.decode(event.split(","))
@@ -175,9 +171,8 @@ class Monitor(threading.Thread):
                                 )
                                 stop = True
                                 poison_received = True
-                # Ack the message
+                # ACK the message
                 channel.basic_ack(method.delivery_tag)
-
             if stop:
                 if abort:
                     logging.critical("Runtime verification process ABORTED.")
@@ -188,27 +183,16 @@ class Monitor(threading.Thread):
                         logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
                 poison_received = True
             # Timeout handling for message reception
-            if 0 < rabbitmq_server_config.timeout < (time.time() - last_message_time):
-                logging.info(f"No event received for {rabbitmq_server_config.timeout} seconds. Timeout reached.")
+            if 0 < config.timeout < (time.time() - last_message_time):
+                logging.info(f"No event received for {config.timeout} seconds. Timeout reached.")
                 poison_received = True
-        # Close connection to the RabbitMQ server
-        if channel and channel.is_open:
-            try:
-                channel.stop_consuming()
-            except (ConnectionClosed, ChannelClosed) as e:
-                # This is expected if the connection was already lost
-                logging.debug(f"Channel already closed during stop_consuming: {e}")
-            except Exception as e:
-                logging.error(f"Error stopping consumer: {e}")
-        # Always attempt to close the connection if it exists
+        # Close connection if it exists
         if connection and connection.is_open:
             try:
                 connection.close()
                 logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} closed.")
             except Exception as e:
-                logging.error(f"Error closing connection: {e}")
-        elif connection:
-            logging.debug("Connection was already closed")
+                logging.error(f"Error closing connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}: {e}.")
         logging.info(f"Stop getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
 
     # Raises: TaskDoesNotExistError()
