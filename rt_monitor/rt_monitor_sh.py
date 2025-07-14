@@ -57,12 +57,12 @@ def main():
     # Argument processing
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
-        description="Performs runtime assertion checking over an event report with respecto to a structured sequential process.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml --log_file=output_log.txt --log_level=event"
+        description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
+        epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml --host=https://myrabbitmq.org.ar --port=5672 --user=my_user --password=my_password --log_file=output_log.txt --log_level=event --timeout=120"
     )
     parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
     parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host.')
-    parser.add_argument('--port', type=int, default=5673, help='RabbitMQ server port.')
+    parser.add_argument('--port', type=int, default=5672, help='RabbitMQ server port.')
     parser.add_argument('--user', default='guest', help='RabbitMQ server user.')
     parser.add_argument('--password', default='guest', help='RabbitMQ server password.')
     parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server.')
