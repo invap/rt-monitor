@@ -30,7 +30,7 @@ from rt_monitor.errors.monitor_errors import (
 )
 from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
 from rt_monitor.rabbitmq_utility import (
-    setup_rabbitmq
+    setup_rabbitmq, RabbitMQError
 )
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.framework.clock import Clock
@@ -40,7 +40,7 @@ from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 # Errors:
-# -3: RabbitMQ server setup error
+# -2: RabbitMQ server setup error
 
 class Monitor(threading.Thread):
     def __init__(self, framework, signal_flags):
@@ -85,13 +85,11 @@ class Monitor(threading.Thread):
 
     # Raises:
     def run(self):
-        ERROR_EXCEPTIONS = (
+        EXCEPTIONS = (
             BuildSpecificationError,
             UndeclaredVariableError,
             ClockError,
-            UndeclaredClockError
-        )
-        CRITICAL_EXCEPTIONS = (
+            UndeclaredClockError,
             TaskDoesNotExistError,
             CheckpointDoesNotExistError,
             ComponentDoesNotExistError,
@@ -104,7 +102,11 @@ class Monitor(threading.Thread):
         stop = False
         abort = False
         # Setup RabbitMQ server
-        connection, channel, queue_name = setup_rabbitmq()
+        try:
+            connection, channel, queue_name = setup_rabbitmq()
+        except RabbitMQError:
+            logging.critical(f"Error setting up connection to RabbitMQ server.")
+            exit(-2)
         # Start getting events from the RabbitMQ server with timeout handling for message reception
         logging.info(f"Start getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         is_a_valid_report = True
@@ -154,13 +156,8 @@ class Monitor(threading.Thread):
                         # Process event.
                         try:
                             is_a_valid_report = decoded_event.process_with(self)
-                        except ERROR_EXCEPTIONS as f:
+                        except EXCEPTIONS as f:
                             logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
-                            stop = True
-                            abort = True
-                            poison_received = True
-                        except CRITICAL_EXCEPTIONS as f:
-                            logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
                             stop = True
                             abort = True
                             poison_received = True

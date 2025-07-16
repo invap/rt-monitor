@@ -123,13 +123,13 @@ def setup_rabbitmq():
     try:
         connection, channel = rabbitmq_connect_to_server()
     except RabbitMQError:
-        logging.error(f"RabbitMQ connection or channel setup failed.")
-        return None, None, None
+        logging.critical(f"RabbitMQ connection or channel setup failed.")
+        raise RabbitMQError()
     # Declare and bind queue
     try:
         queue_name = rabbitmq_declare_queue(channel)
     except RabbitMQError:
-        logging.error(f"Queue declaration at RabbitMQ failed.")
-        return None, None, None
+        logging.critical(f"Queue declaration at RabbitMQ failed.")
+        raise RabbitMQError()
     return connection, channel, queue_name
 

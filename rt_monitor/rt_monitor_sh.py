@@ -31,8 +31,7 @@ def _run_verification(process_thread):
     wx.CallAfter(wx.GetApp().ExitMainLoop)
 
 # Errors:
-# -1: Logging infrastructure error
-# -2: Input files error
+# -1: Framework error
 
 def main():
     # Signal handling flags
@@ -109,7 +108,7 @@ def main():
     # Validate and normalize the framework path
     valid = is_valid_file_with_extension(args.framework, "toml")
     if not valid:
-        logging.error(f"Framework file error.")
+        logging.critical(f"Framework file error.")
         exit(-1)
     logging.info(f"Framework file: {args.framework}")
     # Determine timeout
