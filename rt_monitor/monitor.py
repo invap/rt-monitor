@@ -104,9 +104,7 @@ class Monitor(threading.Thread):
         stop = False
         abort = False
         # Setup RabbitMQ server
-        logging.info(f"Establishing connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         connection, channel, queue_name = setup_rabbitmq()
-        logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
         # Start getting events from the RabbitMQ server with timeout handling for message reception
         logging.info(f"Start getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         is_a_valid_report = True
@@ -126,6 +124,10 @@ class Monitor(threading.Thread):
                     logging.info("SIGINT received. Stopping the event acquisition process.")
                     poison_received = True
                 logging.info("SIGTSTP received. Resuming the event acquisition process.")
+            # Timeout handling for message reception
+            if 0 < config.timeout < (time.time() - last_message_time):
+                logging.info(f"No event received for {config.timeout} seconds. Timeout reached.")
+                poison_received = True
             # Get event from RabbitMQ
             method, properties, body = channel.basic_get(queue=queue_name, auto_ack=False)
             if method:  # Message exists
@@ -182,10 +184,8 @@ class Monitor(threading.Thread):
                     else:
                         logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
                 poison_received = True
-            # Timeout handling for message reception
-            if 0 < config.timeout < (time.time() - last_message_time):
-                logging.info(f"No event received for {config.timeout} seconds. Timeout reached.")
-                poison_received = True
+        # Stop getting events from the RabbitMQ server with timeout handling for message reception
+        logging.info(f"Stop getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Close connection if it exists
         if connection and connection.is_open:
             try:
@@ -193,7 +193,6 @@ class Monitor(threading.Thread):
                 logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} closed.")
             except Exception as e:
                 logging.error(f"Error closing connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}: {e}.")
-        logging.info(f"Stop getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
@@ -214,6 +213,7 @@ class Monitor(threading.Thread):
             logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot start.")
             return False
         else:
+            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] started.")
             task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
                 task_started_event.time(),
@@ -241,6 +241,7 @@ class Monitor(threading.Thread):
             logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot finish.")
             return False
         else:
+            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] finished.")
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
@@ -268,6 +269,7 @@ class Monitor(threading.Thread):
             logging.log(LoggingLevel.ANALYSIS, f"Checkpoint [ {checkpoint_name} ] is unreachable.")
             return False
         else:
+            logging.log(LoggingLevel.ANALYSIS, f"Checkpoint [ {checkpoint_name} ] reached.")
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
             checkpoint_conditions_are_met = self._are_all_properties_true(
                 checkpoint_reached_event.time(),
@@ -295,6 +297,7 @@ class Monitor(threading.Thread):
             array_values[variable_loc] = variable_value
         else:
             self._execution_state[variable_name] = (self._execution_state[variable_name][0], variable_value)
+        logging.log(LoggingLevel.ANALYSIS, f"Variable [ {variable_name} ] was assigned a value.")
         return True
 
     # Raises: ComponentDoesNotExistError(), ComponentError()
@@ -308,10 +311,9 @@ class Monitor(threading.Thread):
         try:
             component.process_high_level_call(component_data)
         except FunctionNotImplementedError as e:
-            logging.error(
-                f"Function [ {e.function_name()} ] is not implemented for component [ {component_name} ]."
-            )
+            logging.error(f"Function [ {e.function_name()} ] is not implemented for component [ {component_name} ].")
             raise ComponentError()
+        logging.log(LoggingLevel.ANALYSIS, f"Function dispatched for component [ {component_name} ].")
         return True
 
     # Raises: ClockError()
@@ -325,6 +327,7 @@ class Monitor(threading.Thread):
         except ClockWasAlreadyStartedError:
             logging.error(f"Clock [ {clock_name} ] was already started.")
             raise ClockError()
+        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was started.")
         return True
 
     # Raises: ClockError()
@@ -341,6 +344,7 @@ class Monitor(threading.Thread):
         except ClockWasAlreadyPausedError:
             logging.error(f"Clock [ {clock_name} ] was already paused.")
             raise ClockError()
+        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was paused.")
         return True
 
     # Raises: ClockError()
@@ -357,6 +361,7 @@ class Monitor(threading.Thread):
         except ClockWasNotPausedError:
             logging.error(f"Clock [ {clock_name} ] was not paused.")
             raise ClockError()
+        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was resumed.")
         return True
 
     # Raises: ClockError()
@@ -370,6 +375,7 @@ class Monitor(threading.Thread):
         except ClockWasNotStartedError:
             logging.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
+        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was reset.")
         return True
 
     # Propagates: BuildSpecificationError() from _is_property_satisfied

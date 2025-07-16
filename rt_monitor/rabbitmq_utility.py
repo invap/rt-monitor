@@ -52,6 +52,7 @@ def rabbitmq_connect_to_server():
     except TypeError as e:
         logging.error(f"Invalid argument types: {e}.")
         raise RabbitMQError()
+    logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
     # Setting up the RabbitMQ channel and exchange
     try:
         # Declare RabbitMQ connection channel
@@ -72,9 +73,9 @@ def rabbitmq_connect_to_server():
     except TypeError as e:
         logging.error(f"Invalid argument types: {e}.")
         raise RabbitMQError()
-    else:
-        logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
-        return connection, rabbitmq_channel
+    logging.info(f"Channel and exchange {rabbitmq_server_config.exchange} created at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+    return connection, rabbitmq_channel
+
 
 def rabbitmq_declare_queue(channel):
     # Declare queue
@@ -114,7 +115,7 @@ def rabbitmq_declare_queue(channel):
         logging.error(f"Invalid argument types: {e}.")
         raise RabbitMQError()
     else:
-        logging.info(f"Queue created and bound to {rabbitmq_server_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
+        logging.info(f"Queue {queue_name} created and bound to {rabbitmq_server_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
         return queue_name
 
 def setup_rabbitmq():

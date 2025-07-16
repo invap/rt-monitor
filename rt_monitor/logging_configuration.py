@@ -1,7 +1,3 @@
-# Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
-# Copyright (c) 2024 INVAP, open@invap.com.ar
-# SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
-
 import logging
 import sys
 from enum import IntEnum, StrEnum
@@ -9,8 +5,8 @@ from enum import IntEnum, StrEnum
 
 class LoggingLevel(IntEnum):
     DEBUG = logging.DEBUG
-    EVENT = logging.DEBUG + 3
-    ANALYSIS = logging.DEBUG + 6
+    EVENT = logging.DEBUG+3
+    ANALYSIS = logging.DEBUG+6
     INFO = logging.INFO
     WARNING = logging.WARNING
     ERROR = logging.ERROR
@@ -42,9 +38,9 @@ def configure_logging_destination(logging_destination, log_file=''):
     match logging_destination:
         case LoggingDestination.FILE:
             if log_file == '':
-                handler = logging.FileHandler("log.txt", encoding="utf-8")
+                handler = logging.FileHandler("log.txt", mode='w', encoding="utf-8")
             else:
-                handler = logging.FileHandler(log_file, encoding="utf-8")
+                handler = logging.FileHandler(log_file, mode='w', encoding="utf-8")
         case _:
             handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)

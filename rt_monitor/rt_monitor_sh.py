@@ -5,16 +5,11 @@
 import argparse
 import logging
 import signal
-import sys
 import threading
-from pathlib import Path
 import wx
 
 from rt_monitor.config import config
-from rt_monitor.errors.monitor_errors import (
-    FrameworkError,
-    EventReportError
-)
+from rt_monitor.errors.monitor_errors import FrameworkError
 from rt_monitor.logging_configuration import (
     LoggingLevel,
     LoggingDestination,
@@ -23,8 +18,8 @@ from rt_monitor.logging_configuration import (
     configure_logging_level
 )
 from rt_monitor.monitor_builder import MonitorBuilder
-from rt_monitor.utility import validate_input_path
 from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
+from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_with_extension
 
 
 def _run_verification(process_thread):
@@ -68,52 +63,55 @@ def main():
     parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server.')
     parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument).")
     parser.add_argument('--log_file', help='Path to log file (optional argument).')
-    parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (no timeout = 0) (60 = default).")
+    parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (0 = no timeout) (default = 60 seconds).")
     # Start the execution of The Runtime Monitor
     # Parse arguments
     args = parser.parse_args()
     # Set up the logging infrastructure
     # Configure logging level.
-    if args.log_level is None:
-        logging_level = LoggingLevel.INFO
-    else:
-        match args.log_level:
-            case "debug":
-                logging_level = LoggingLevel.DEBUG
-            case "event":
-                logging_level = LoggingLevel.EVENT
-            case "analysis":
-                logging_level = LoggingLevel.ANALYSIS
-            case "info":
-                logging_level = LoggingLevel.INFO
-            case "warnings":
-                logging_level = LoggingLevel.WARNING
-            case "errors":
-                logging_level = LoggingLevel.ERROR
-            case "critical":
-                logging_level = LoggingLevel.CRITICAL
-            case _:
-                print(f"Logging level error: {args.log_level} is not a logging level.", file=sys.stderr)
-                exit(-1)
+    match args.log_level:
+        case "debug":
+            logging_level = LoggingLevel.DEBUG
+        case "event":
+            logging_level = LoggingLevel.EVENT
+        case "analysis":
+            logging_level = LoggingLevel.ANALYSIS
+        case "info":
+            logging_level = LoggingLevel.INFO
+        case "warnings":
+            logging_level = LoggingLevel.WARNING
+        case "errors":
+            logging_level = LoggingLevel.ERROR
+        case "critical":
+            logging_level = LoggingLevel.CRITICAL
+        case _:
+            logging_level = LoggingLevel.ANALYSIS
     # Configure logging destination.
     if args.log_file is None:
         logging_destination = LoggingDestination.CONSOLE
     else:
-        valid, message = validate_input_path(args.log_file)
-        if not valid:
-            print(f"Log file error. {message}", file=sys.stderr)
-            exit(-1)
+        valid_log_file = is_valid_file_with_extension_nex(args.log_file, "log")
+        if not valid_log_file:
+            logging_destination = LoggingDestination.CONSOLE
         else:
             logging_destination = LoggingDestination.FILE
     set_up_logging()
     configure_logging_destination(logging_destination, args.log_file)
     configure_logging_level(logging_level)
+    logging.info(f"Log verbosity level: {logging_level}.")
+    if args.log_file is None:
+        logging.info("Log destination: CONSOLE.")
+    else:
+        if not valid_log_file:
+            logging.info("Log file error. Log destination: CONSOLE.")
+        else:
+            logging.info(f"Log destination: FILE ({args.log_file}).")
     # Validate and normalize the framework path
-    framework_path = Path(args.framework)
-    valid, message = validate_input_path(framework_path)
+    valid = is_valid_file_with_extension(args.framework, "toml")
     if not valid:
-        print(f"Framework file error. {message}", file=sys.stderr)
-        exit(-2)
+        logging.error(f"Framework file error.")
+        exit(-1)
+    logging.info(f"Framework file: {args.framework}")
     # Determine timeout
     timeout = args.timeout if args.timeout >= 0 else 0
     logging.info(f"Timeout for message reception: {timeout} seconds.")
