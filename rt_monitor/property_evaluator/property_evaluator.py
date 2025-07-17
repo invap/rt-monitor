@@ -12,6 +12,7 @@ class PropertyEvaluator:
     class PropertyEvaluationResult (Enum):
         PASSED = "PASSED"
         FAILED = "FAILED"
+        MIGHT_FAIL = "MIGHT_FAIL"
 
     def __init__(self, components, execution_state, timed_state):
         self._components = components

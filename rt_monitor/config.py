@@ -5,6 +5,7 @@
 class Config:
     def __init__(self):
         self.timeout = None
+        self.stop = None
 
 # Singleton instance to share globally
 config = Config()

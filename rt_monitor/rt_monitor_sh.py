@@ -8,6 +8,7 @@ import signal
 import threading
 import wx
 
+from rt_monitor.analysis_statistics import AnalysisStatistics
 from rt_monitor.config import config
 from rt_monitor.errors.monitor_errors import FrameworkError
 from rt_monitor.logging_configuration import (
@@ -23,10 +24,14 @@ from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_w
 
 
 def _run_verification(process_thread):
+    # Initialize analysis statistics
+    AnalysisStatistics.init()
     # Starts the monitor thread
     process_thread.start()
     # Waiting for the verification process to finish, either naturally or manually.
     process_thread.join()
+    # Print analysis statistics
+    # AnalysisStatistics.print()
     # Signal the main loop to exit
     wx.CallAfter(wx.GetApp().ExitMainLoop)
 
@@ -55,14 +60,15 @@ def main():
         epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml --host=https://myrabbitmq.org.ar --port=5672 --user=my_user --password=my_password --log_file=output_log.txt --log_level=event --timeout=120"
     )
     parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
-    parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host.')
-    parser.add_argument('--port', type=int, default=5672, help='RabbitMQ server port.')
-    parser.add_argument('--user', default='guest', help='RabbitMQ server user.')
-    parser.add_argument('--password', default='guest', help='RabbitMQ server password.')
-    parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server.')
+    parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host (optional argument).')
+    parser.add_argument('--port', type=int, default=5672, help='RabbitMQ server port (optional argument).')
+    parser.add_argument('--user', default='guest', help='RabbitMQ server user (optional argument).')
+    parser.add_argument('--password', default='guest', help='RabbitMQ server password (optional argument).')
+    parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server (optional argument).')
     parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument).")
     parser.add_argument('--log_file', help='Path to log file (optional argument).')
-    parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (0 = no timeout) (default = 60 seconds).")
+    parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (0 = no timeout) (default = 60 seconds) (optional argument).")
+    parser.add_argument("--stop", type=str, choices=["on_might_fail", "on_fail", "dont"], default="on_might_fail", help="Stop policy (optional argument).")
     # Start the execution of The Runtime Monitor
     # Parse arguments
     args = parser.parse_args()
@@ -122,6 +128,7 @@ def main():
     rabbitmq_server_config.exchange = args.exchange
     # Other configuration
     config.timeout = timeout
+    config.stop = args.stop
     # Create the Monitor
     monitor_builder = MonitorBuilder(args.framework, signal_flags)
     try:

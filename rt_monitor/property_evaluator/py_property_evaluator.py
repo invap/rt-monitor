@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+import time
+
+from colorama import Fore, Style
 import numpy as np
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
@@ -12,6 +15,7 @@ from rt_monitor.errors.evaluator_errors import (
     UnboundVariablesError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
+from rt_monitor.monitor import AnalysisStatistics
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
@@ -22,25 +26,31 @@ class PyPropertyEvaluator(PropertyEvaluator):
 
     # Raises: EvaluationError()
     def eval(self, now, prop):
-        logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
+        logging.log(LoggingLevel.ANALYSIS, f"Analyzing property {prop.name()} at timestamp {now}...")
+        initial_build_time = time.time()
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
             logging.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
+        end_build_time = time.time()
         locs = {}
         # The formula is checked to be either true or false
+        initial_analysis_time = time.time()
         exec(spec, globals(), locs)
         result = locs['result']
+        end_analysis_time = time.time()
         match result:
             case True:
                 # If the formula is true, then the prop of interest passed.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
+                logging.log(LoggingLevel.ANALYSIS, f"... property analysis [ {Fore.GREEN}PASSED{Style.RESET_ALL} ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.passed()
             case False:
                 # If the formula is false, then the prop of interest failed.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
+                logging.log(LoggingLevel.ANALYSIS, f"... property analysis [ {Fore.RED}FAILED{Style.RESET_ALL} ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.failed()
         if result == False:
-            # Output counterexample as python program
+            # Output counterexample as a python program
             spec_filename = prop.name() + "@" + str(now) + ".py"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)

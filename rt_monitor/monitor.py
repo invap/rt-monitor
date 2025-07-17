@@ -8,7 +8,9 @@ import signal
 import threading
 import time
 from pyformlang.finite_automaton import Symbol
+from colorama import Fore, Style
 
+from rt_monitor.analysis_statistics import AnalysisStatistics
 from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
     ClockError,
@@ -38,6 +40,7 @@ from rt_monitor.reporting.event_decoder import EventDecoder
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
+
 
 # Errors:
 # -2: RabbitMQ server setup error
@@ -136,7 +139,7 @@ class Monitor(threading.Thread):
                 # Process message
                 if properties.headers and properties.headers.get('termination'):
                     # Poison pill received
-                    logging.log(LoggingLevel.EVENT, f"Poison pill received.")
+                    logging.info(f"Poison pill received.")
                     stop = True
                     abort = False
                     poison_received = True
@@ -153,6 +156,7 @@ class Monitor(threading.Thread):
                         poison_received = True
                     else:
                         logging.log(LoggingLevel.EVENT, f"Processing: {decoded_event.serialized()}")
+                        AnalysisStatistics.event()
                         # Process event.
                         try:
                             is_a_valid_report = decoded_event.process_with(self)
@@ -176,11 +180,14 @@ class Monitor(threading.Thread):
                 if abort:
                     logging.critical("Runtime verification process ABORTED.")
                 else:
-                    if is_a_valid_report:
-                        logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
-                    else:
-                        logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
+                    logging.info(f"Runtime verification process COMPLETED.")
+                    # if AnalysisStatistics.failed_props + AnalysisStatistics.might_fail_props == 0:
+                    #     logging.log(LoggingLevel.ANALYSIS, f"Runtime verification process COMPLETED [ {Fore.GREEN}SUCCESSFULLY{Style.RESET_ALL} ].")
+                    # else:
+                    #     logging.log(LoggingLevel.ANALYSIS, f"Runtime verification process COMPLETED [ {Fore.RED}UNSUCCESSFULLY{Style.RESET_ALL} ].")
                 poison_received = True
+        # Log analysis statistics
+        AnalysisStatistics.log()
         # Stop getting events from the RabbitMQ server with timeout handling for message reception
         logging.info(f"Stop getting events from RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Close connection if it exists
@@ -195,8 +202,9 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
+        task_time = task_started_event.time()
         if task_name not in self._framework.process().tasks():
-            logging.error(f"Task [ {task_name} ] does not exist.")
+            logging.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
         # A task named task_name can start only if the DFA of the process of the analysis framework
         # (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
@@ -207,13 +215,13 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
-            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot start.")
+            logging.log(LoggingLevel.ANALYSIS, f"Task {task_name} cannot start at timestamp {task_time} [ {Fore.RED}FAIL{Style.RESET_ALL} ].")
             return False
         else:
-            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] started.")
+            logging.log(LoggingLevel.ANALYSIS, f"Task {task_name} started at timestamp {task_time} [ {Fore.GREEN}PASSED{Style.RESET_ALL} ].")
             task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
-                task_started_event.time(),
+                task_time,
                 task_specification.preconditions(),
             )
             self._current_state = destinations[0]
@@ -223,8 +231,9 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
+        task_time = task_finished_event.time()
         if task_name not in self._framework.process().tasks():
-            logging.error(f"Task [ {task_name} ] does not exist.")
+            logging.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
         # A task named task_name can finish only if the DFA of the process of the analysis framework
         # (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
@@ -235,10 +244,10 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         assert(len(destinations) <= 1)
         if destinations == []:
-            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] cannot finish.")
+            logging.log(LoggingLevel.ANALYSIS, f"Task {task_name} cannot finish at timestamp {task_time} [ {Fore.RED}FAIL{Style.RESET_ALL} ].")
             return False
         else:
-            logging.log(LoggingLevel.ANALYSIS, f"Task [ {task_name} ] finished.")
+            logging.log(LoggingLevel.ANALYSIS, f"Task {task_name} finished at timestamp {task_time} [ {Fore.GREEN}PASSED{Style.RESET_ALL} ].")
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
@@ -251,6 +260,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
+        checkpoint_time = checkpoint_reached_event.time()
         if checkpoint_name not in self._framework.process().checkpoints():
             logging.error(f"Checkpoint [ {checkpoint_name} ] does not exist.")
             raise CheckpointDoesNotExistError()
@@ -263,10 +273,10 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
-            logging.log(LoggingLevel.ANALYSIS, f"Checkpoint [ {checkpoint_name} ] is unreachable.")
+            logging.log(LoggingLevel.ANALYSIS, f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ {Fore.RED}FAIL{Style.RESET_ALL} ].")
             return False
         else:
-            logging.log(LoggingLevel.ANALYSIS, f"Checkpoint [ {checkpoint_name} ] reached.")
+            logging.log(LoggingLevel.ANALYSIS, f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ {Fore.GREEN}PASSED{Style.RESET_ALL} ].")
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
             checkpoint_conditions_are_met = self._are_all_properties_true(
                 checkpoint_reached_event.time(),
@@ -294,7 +304,6 @@ class Monitor(threading.Thread):
             array_values[variable_loc] = variable_value
         else:
             self._execution_state[variable_name] = (self._execution_state[variable_name][0], variable_value)
-        logging.log(LoggingLevel.ANALYSIS, f"Variable [ {variable_name} ] was assigned a value.")
         return True
 
     # Raises: ComponentDoesNotExistError(), ComponentError()
@@ -310,7 +319,6 @@ class Monitor(threading.Thread):
         except FunctionNotImplementedError as e:
             logging.error(f"Function [ {e.function_name()} ] is not implemented for component [ {component_name} ].")
             raise ComponentError()
-        logging.log(LoggingLevel.ANALYSIS, f"Function dispatched for component [ {component_name} ].")
         return True
 
     # Raises: ClockError()
@@ -324,7 +332,6 @@ class Monitor(threading.Thread):
         except ClockWasAlreadyStartedError:
             logging.error(f"Clock [ {clock_name} ] was already started.")
             raise ClockError()
-        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was started.")
         return True
 
     # Raises: ClockError()
@@ -341,7 +348,6 @@ class Monitor(threading.Thread):
         except ClockWasAlreadyPausedError:
             logging.error(f"Clock [ {clock_name} ] was already paused.")
             raise ClockError()
-        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was paused.")
         return True
 
     # Raises: ClockError()
@@ -358,7 +364,6 @@ class Monitor(threading.Thread):
         except ClockWasNotPausedError:
             logging.error(f"Clock [ {clock_name} ] was not paused.")
             raise ClockError()
-        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was resumed.")
         return True
 
     # Raises: ClockError()
@@ -372,7 +377,6 @@ class Monitor(threading.Thread):
         except ClockWasNotStartedError:
             logging.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
-        logging.log(LoggingLevel.ANALYSIS, f"Clock [ {clock_name} ] was reset.")
         return True
 
     # Propagates: BuildSpecificationError() from _is_property_satisfied
@@ -391,5 +395,13 @@ class Monitor(threading.Thread):
         except BuildSpecificationError:
             logging.error(f"Error evaluating formula [ {logic_property.name()} ]")
             raise BuildSpecificationError()
-        return evaluation_result == PropertyEvaluator.PropertyEvaluationResult.PASSED
+        match config.stop:
+            case "on_might_fail":
+                return not (evaluation_result == PropertyEvaluator.PropertyEvaluationResult.FAILED or evaluation_result == PropertyEvaluator.PropertyEvaluationResult.MIGHT_FAIL)
+            case "on_fail":
+                return not evaluation_result == PropertyEvaluator.PropertyEvaluationResult.FAILED
+            case "dont":
+                return True
+            case _:  # This case cannot happen
+                pass
 
