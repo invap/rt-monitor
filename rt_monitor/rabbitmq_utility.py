@@ -14,7 +14,26 @@ from pika.exceptions import (
     ConnectionClosed
 )
 
-from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
+
+class RabbitMQ_server_config:
+    def __init__(self):
+        self.host = None
+        self.port = None
+        self.user = None
+        self.password = None
+        self.exchange = None
+
+# Singleton instance to share globally
+rabbitmq_event_server_config = RabbitMQ_server_config()
+rabbitmq_log_server_config = RabbitMQ_server_config()
+
+
+class RabbitMQ_server_connection:
+    def __init__(self, connection, channel, exchange, queue_name=None):
+        self.connection = connection
+        self.channel = channel
+        self.exchange = exchange
+        self.queue_name = queue_name
 
 
 class RabbitMQError(Exception):
@@ -22,7 +41,7 @@ class RabbitMQError(Exception):
         super().__init__("RabbitMQ server error.")
 
 
-def rabbitmq_connect_to_server():
+def rabbitmq_connect_to_server(rabbitmq_server_config):
     # Connection parameters with CLI arguments
     credentials = pika.PlainCredentials(rabbitmq_server_config.user, rabbitmq_server_config.password)
     parameters = pika.ConnectionParameters(
@@ -31,8 +50,7 @@ def rabbitmq_connect_to_server():
         credentials=credentials,
         connection_attempts=5,
         retry_delay=3,
-        heartbeat=0,
-        client_properties={'connection_name': 'rt_file_tools.file_feeder'}
+        heartbeat=0
     )
     # Setting up the RabbitMQ connection
     try:
@@ -77,7 +95,7 @@ def rabbitmq_connect_to_server():
     return connection, rabbitmq_channel
 
 
-def rabbitmq_declare_queue(channel):
+def rabbitmq_declare_queue(rabbitmq_server_config, channel, routing_key):
     # Declare queue
     try:
         result = channel.queue_declare(
@@ -100,7 +118,7 @@ def rabbitmq_declare_queue(channel):
         channel.queue_bind(
             exchange=rabbitmq_server_config.exchange,
             queue=queue_name,
-            routing_key='events'
+            routing_key=routing_key
         )
     except ChannelClosed as e:
         logging.error(f"Binding violates server rules: {e}.")
@@ -118,16 +136,16 @@ def rabbitmq_declare_queue(channel):
         logging.info(f"Queue {queue_name} created and bound to {rabbitmq_server_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
         return queue_name
 
-def setup_rabbitmq():
+def setup_rabbitmq(rabbitmq_server_config, routing_key):
     # Full RabbitMQ setup: connection, queue, binding
     try:
-        connection, channel = rabbitmq_connect_to_server()
+        connection, channel = rabbitmq_connect_to_server(rabbitmq_server_config)
     except RabbitMQError:
         logging.critical(f"RabbitMQ connection or channel setup failed.")
         raise RabbitMQError()
     # Declare and bind queue
     try:
-        queue_name = rabbitmq_declare_queue(channel)
+        queue_name = rabbitmq_declare_queue(rabbitmq_server_config, channel, routing_key)
     except RabbitMQError:
         logging.critical(f"Queue declaration at RabbitMQ failed.")
         raise RabbitMQError()

@@ -19,7 +19,7 @@ from rt_monitor.logging_configuration import (
     configure_logging_level
 )
 from rt_monitor.monitor_builder import MonitorBuilder
-from rt_monitor.rabbitmq_server_config import rabbitmq_server_config
+from rt_monitor.rabbitmq_utility import rabbitmq_event_server_config, rabbitmq_log_server_config
 from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_with_extension
 
 
@@ -60,11 +60,16 @@ def main():
         epilog="Example: python -m rt_monitor.rt_monitor_sh ssp_spec.toml --host=https://myrabbitmq.org.ar --port=5672 --user=my_user --password=my_password --log_file=output_log.txt --log_level=event --timeout=120"
     )
     parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
-    parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host (optional argument).')
-    parser.add_argument('--port', type=int, default=5672, help='RabbitMQ server port (optional argument).')
-    parser.add_argument('--user', default='guest', help='RabbitMQ server user (optional argument).')
-    parser.add_argument('--password', default='guest', help='RabbitMQ server password (optional argument).')
-    parser.add_argument('--exchange', type=str, default='my_exchange', help='Name of the exchange at the RabbitMQ server (optional argument).')
+    parser.add_argument('--event_host', type=str, default='localhost', help='RabbitMQ event server host (optional argument).')
+    parser.add_argument('--event_port', type=int, default=5672, help='RabbitMQ event server port (optional argument).')
+    parser.add_argument('--event_user', default='guest', help='RabbitMQ event server user (optional argument).')
+    parser.add_argument('--event_password', default='guest', help='RabbitMQ event server password (optional argument).')
+    parser.add_argument('--event_exchange', type=str, default='my_event_exchange', help='Name of the exchange at the RabbitMQ event server (optional argument).')
+    parser.add_argument('--log_host', type=str, default='localhost', help='RabbitMQ logging server host (optional argument).')
+    parser.add_argument('--log_port', type=int, default=5672, help='RabbitMQ logging server port (optional argument).')
+    parser.add_argument('--log_user', default='guest', help='RabbitMQ logging server user (optional argument).')
+    parser.add_argument('--log_password', default='guest', help='RabbitMQ logging server password (optional argument).')
+    parser.add_argument('--log_exchange', type=str, default='my_log_exchange', help='Name of the exchange at the RabbitMQ logging server (optional argument).')
     parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument).")
     parser.add_argument('--log_file', help='Path to log file (optional argument).')
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (0 = no timeout) (default = 60 seconds) (optional argument).")
@@ -121,11 +126,17 @@ def main():
     timeout = args.timeout if args.timeout >= 0 else 0
     logging.info(f"Timeout for message reception: {timeout} seconds.")
     # RabbitMQ server configuration
-    rabbitmq_server_config.host = args.host
-    rabbitmq_server_config.port = args.port
-    rabbitmq_server_config.user = args.user
-    rabbitmq_server_config.password = args.password
-    rabbitmq_server_config.exchange = args.exchange
+    rabbitmq_event_server_config.host = args.event_host
+    rabbitmq_event_server_config.port = args.event_port
+    rabbitmq_event_server_config.user = args.event_user
+    rabbitmq_event_server_config.password = args.event_password
+    rabbitmq_event_server_config.exchange = args.event_exchange
+    # RabbitMQ logging server configuration
+    rabbitmq_log_server_config.host = args.log_host
+    rabbitmq_log_server_config.port = args.log_port
+    rabbitmq_log_server_config.user = args.log_user
+    rabbitmq_log_server_config.password = args.log_password
+    rabbitmq_log_server_config.exchange = args.log_exchange
     # Other configuration
     config.timeout = timeout
     config.stop = args.stop

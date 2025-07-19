@@ -64,16 +64,3 @@ class AnalysisStatistics:
               f"{n3p:.3f}".rjust(11) +
               " |")
         print("+-----------------+------------+------------+")
-
-    @staticmethod
-    def log():
-        total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
-        logging.log(LoggingLevel.ANALYSIS, f"Processed events: {AnalysisStatistics.events}")
-        logging.log(LoggingLevel.ANALYSIS,
-                    f"Analyzed properties: {AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props}")
-        logging.log(LoggingLevel.ANALYSIS,
-                    f"{Fore.GREEN}PASSED{Style.RESET_ALL} properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%)")
-        logging.log(LoggingLevel.ANALYSIS,
-                    f"{Fore.YELLOW}MIGHT FAIL{Style.RESET_ALL} properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%)")
-        logging.log(LoggingLevel.ANALYSIS,
-                    f"{Fore.RED}FAILED{Style.RESET_ALL} properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%)")
