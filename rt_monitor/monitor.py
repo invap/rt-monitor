@@ -143,7 +143,7 @@ class Monitor(threading.Thread):
             if self._signal_flags['pause']:
                 logging.info("SIGTSTP received. Pausing the event acquisition process.")
                 while self._signal_flags['pause'] and not self._signal_flags['stop']:
-                    signal.pause()  # Efficiently wait for signals
+                    time.sleep(1)  # Efficiently wait for signals
                 if self._signal_flags['stop']:
                     logging.info("SIGINT received. Stopping the event acquisition process.")
                     poison_received = True
