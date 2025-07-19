@@ -19,7 +19,7 @@ from rt_monitor.logging_configuration import (
     configure_logging_level
 )
 from rt_monitor.monitor_builder import MonitorBuilder
-from rt_monitor.rabbitmq_utility import rabbitmq_event_server_config, rabbitmq_log_server_config
+from rt_monitor.rabbitmq_server_configs import rabbitmq_event_server_config, rabbitmq_log_server_config
 from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_with_extension
 
 

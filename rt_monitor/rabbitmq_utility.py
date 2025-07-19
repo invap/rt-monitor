@@ -23,17 +23,13 @@ class RabbitMQ_server_config:
         self.password = None
         self.exchange = None
 
-# Singleton instance to share globally
-rabbitmq_event_server_config = RabbitMQ_server_config()
-rabbitmq_log_server_config = RabbitMQ_server_config()
-
 
 class RabbitMQ_server_connection:
-    def __init__(self, connection, channel, exchange, queue_name=None):
-        self.connection = connection
-        self.channel = channel
-        self.exchange = exchange
-        self.queue_name = queue_name
+    def __init__(self):
+        self.connection = None
+        self.channel = None
+        self.exchange = None
+        self.queue_name = None
 
 
 class RabbitMQError(Exception):
