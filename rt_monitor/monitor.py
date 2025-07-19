@@ -4,7 +4,6 @@
 
 import logging
 import re
-import signal
 import threading
 import time
 import pika
@@ -177,7 +176,7 @@ class Monitor(threading.Thread):
                         abort = True
                         poison_received = True
                     else:
-                        logging.log(LoggingLevel.EVENT, f"Processing: {decoded_event.serialized()}")
+                        logging.log(LoggingLevel.EVENT, f"Received event: {decoded_event.serialized()}")
                         AnalysisStatistics.event()
                         # Process event.
                         try:
