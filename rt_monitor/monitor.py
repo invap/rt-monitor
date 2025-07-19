@@ -209,6 +209,17 @@ class Monitor(threading.Thread):
                 poison_received = True
         # Log analysis statistics
         Monitor.log_analysis_statistics()
+        # Send poison pill to the logger
+        rabbitmq_log_server_connection.channel.basic_publish(
+            exchange=rabbitmq_log_server_connection.exchange,
+            routing_key='log_entries',
+            body='',
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                headers={'termination': True}
+            )
+        )
+        logging.info("Poison pill sent.")
         # Stop publishing log entries to the RabbitMQ server
         logging.info(f"Stop publishing log entries to the RabbitMQ server at {rabbitmq_log_server_config.host}:{rabbitmq_log_server_config.port}.")
         # Close connection to the RabbitMQ logging server if it exists
