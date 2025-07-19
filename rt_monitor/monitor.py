@@ -494,7 +494,6 @@ class Monitor(threading.Thread):
     def log_analysis_statistics():
         # logging.log(LoggingLevel.ANALYSIS, "--------------- Analysis Statistics ---------------")
         # Publish log entry at RabbitMQ server
-        total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
             routing_key='log_entries',
@@ -519,39 +518,40 @@ class Monitor(threading.Thread):
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
             routing_key='log_entries',
-            body=f"Analyzed properties: {AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props}",
+            body=f"Analyzed properties: {total_props}",
             properties=pika.BasicProperties(
                 delivery_mode=2  # Persistent message
             )
         )
-        # logging.log(LoggingLevel.ANALYSIS, f"{Fore.GREEN}PASSED{Style.RESET_ALL} properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).")
-        # Publish log entry at RabbitMQ server
-        rabbitmq_log_server_connection.channel.basic_publish(
-            exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entries',
-            body=f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
-            properties=pika.BasicProperties(
-                delivery_mode=2  # Persistent message
+        if total_props > 0:
+            # logging.log(LoggingLevel.ANALYSIS, f"{Fore.GREEN}PASSED{Style.RESET_ALL} properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).")
+            # Publish log entry at RabbitMQ server
+            rabbitmq_log_server_connection.channel.basic_publish(
+                exchange=rabbitmq_log_server_connection.exchange,
+                routing_key='log_entries',
+                body=f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
+                properties=pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
             )
-        )
-        # logging.log(LoggingLevel.ANALYSIS, f"{Fore.YELLOW}MIGHT FAIL{Style.RESET_ALL} properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).")
-        # Publish log entry at RabbitMQ server
-        rabbitmq_log_server_connection.channel.basic_publish(
-            exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entries',
-            body=f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
-            properties=pika.BasicProperties(
-                delivery_mode=2  # Persistent message
+            # logging.log(LoggingLevel.ANALYSIS, f"{Fore.YELLOW}MIGHT FAIL{Style.RESET_ALL} properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).")
+            # Publish log entry at RabbitMQ server
+            rabbitmq_log_server_connection.channel.basic_publish(
+                exchange=rabbitmq_log_server_connection.exchange,
+                routing_key='log_entries',
+                body=f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
+                properties=pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
             )
-        )
-        # logging.log(LoggingLevel.ANALYSIS, f"{Fore.RED}FAILED{Style.RESET_ALL} properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).")
-        # Publish log entry at RabbitMQ server
-        rabbitmq_log_server_connection.channel.basic_publish(
-            exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entries',
-            body=f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
-            properties=pika.BasicProperties(
-                delivery_mode=2  # Persistent message
+            # logging.log(LoggingLevel.ANALYSIS, f"{Fore.RED}FAILED{Style.RESET_ALL} properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).")
+            # Publish log entry at RabbitMQ server
+            rabbitmq_log_server_connection.channel.basic_publish(
+                exchange=rabbitmq_log_server_connection.exchange,
+                routing_key='log_entries',
+                body=f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
+                properties=pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
             )
-        )
 
