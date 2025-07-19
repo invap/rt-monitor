@@ -9,7 +9,7 @@ import threading
 import time
 import pika
 from pyformlang.finite_automaton import Symbol
-from colorama import Fore, Style
+# from colorama import Fore, Style
 
 from rt_monitor.analysis_statistics import AnalysisStatistics
 from rt_monitor.config import config
@@ -250,8 +250,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             rabbitmq_log_server_connection.channel.basic_publish(
                 exchange=rabbitmq_log_server_connection.exchange,
-                routing_key='log_entry',
-                body=f"Task {task_name} cannot start at timestamp {task_time} [ {Fore.RED}FAIL{Style.RESET_ALL} ].",
+                routing_key='log_entries',
+                body=f"Task {task_name} cannot start at timestamp {task_time} [ FAIL ].",
                 properties=pika.BasicProperties(
                     delivery_mode=2  # Persistent message
                 )
@@ -262,8 +262,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             rabbitmq_log_server_connection.channel.basic_publish(
                 exchange=rabbitmq_log_server_connection.exchange,
-                routing_key='log_entry',
-                body=f"Task {task_name} started at timestamp {task_time} [ {Fore.GREEN}PASSED{Style.RESET_ALL} ].",
+                routing_key='log_entries',
+                body=f"Task {task_name} started at timestamp {task_time} [ PASSED ].",
                 properties=pika.BasicProperties(
                     delivery_mode=2  # Persistent message
                 )
@@ -297,8 +297,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             rabbitmq_log_server_connection.channel.basic_publish(
                 exchange=rabbitmq_log_server_connection.exchange,
-                routing_key='log_entry',
-                body=f"Task {task_name} cannot finish at timestamp {task_time} [ {Fore.RED}FAIL{Style.RESET_ALL} ].",
+                routing_key='log_entries',
+                body=f"Task {task_name} cannot finish at timestamp {task_time} [ FAIL ].",
                 properties=pika.BasicProperties(
                     delivery_mode=2  # Persistent message
                 )
@@ -309,8 +309,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             rabbitmq_log_server_connection.channel.basic_publish(
                 exchange=rabbitmq_log_server_connection.exchange,
-                routing_key='log_entry',
-                body=f"Task {task_name} finished at timestamp {task_time} [ {Fore.GREEN}PASSED{Style.RESET_ALL} ].",
+                routing_key='log_entries',
+                body=f"Task {task_name} finished at timestamp {task_time} [ PASSED ].",
                 properties=pika.BasicProperties(
                     delivery_mode=2  # Persistent message
                 )
@@ -344,8 +344,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             rabbitmq_log_server_connection.channel.basic_publish(
                 exchange=rabbitmq_log_server_connection.exchange,
-                routing_key='log_entry',
-                body=f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ {Fore.RED}FAIL{Style.RESET_ALL} ].",
+                routing_key='log_entries',
+                body=f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ FAIL ].",
                 properties=pika.BasicProperties(
                     delivery_mode=2  # Persistent message
                 )
@@ -356,8 +356,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             rabbitmq_log_server_connection.channel.basic_publish(
                 exchange=rabbitmq_log_server_connection.exchange,
-                routing_key='log_entry',
-                body=f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ {Fore.GREEN}PASSED{Style.RESET_ALL} ].",
+                routing_key='log_entries',
+                body=f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ PASSED ].",
                 properties=pika.BasicProperties(
                     delivery_mode=2  # Persistent message
                 )
@@ -492,12 +492,23 @@ class Monitor(threading.Thread):
 
     @staticmethod
     def log_analysis_statistics():
+        # logging.log(LoggingLevel.ANALYSIS, "--------------- Analysis Statistics ---------------")
+        # Publish log entry at RabbitMQ server
+        total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
+        rabbitmq_log_server_connection.channel.basic_publish(
+            exchange=rabbitmq_log_server_connection.exchange,
+            routing_key='log_entries',
+            body="--------------- Analysis Statistics ---------------",
+            properties=pika.BasicProperties(
+                delivery_mode=2  # Persistent message
+            )
+        )
         # logging.log(LoggingLevel.ANALYSIS, f"Processed events: {AnalysisStatistics.events}")
         # Publish log entry at RabbitMQ server
         total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entry',
+            routing_key='log_entries',
             body=f"Processed events: {AnalysisStatistics.events}",
             properties=pika.BasicProperties(
                 delivery_mode=2  # Persistent message
@@ -507,7 +518,7 @@ class Monitor(threading.Thread):
         # Publish log entry at RabbitMQ server
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entry',
+            routing_key='log_entries',
             body=f"Analyzed properties: {AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props}",
             properties=pika.BasicProperties(
                 delivery_mode=2  # Persistent message
@@ -517,8 +528,8 @@ class Monitor(threading.Thread):
         # Publish log entry at RabbitMQ server
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entry',
-            body=f"{Fore.GREEN}PASSED{Style.RESET_ALL} properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
+            routing_key='log_entries',
+            body=f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
             properties=pika.BasicProperties(
                 delivery_mode=2  # Persistent message
             )
@@ -527,8 +538,8 @@ class Monitor(threading.Thread):
         # Publish log entry at RabbitMQ server
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entry',
-            body=f"{Fore.YELLOW}MIGHT FAIL{Style.RESET_ALL} properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
+            routing_key='log_entries',
+            body=f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
             properties=pika.BasicProperties(
                 delivery_mode=2  # Persistent message
             )
@@ -537,8 +548,8 @@ class Monitor(threading.Thread):
         # Publish log entry at RabbitMQ server
         rabbitmq_log_server_connection.channel.basic_publish(
             exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entry',
-            body=f"{Fore.RED}FAILED{Style.RESET_ALL} properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
+            routing_key='log_entries',
+            body=f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
             properties=pika.BasicProperties(
                 delivery_mode=2  # Persistent message
             )

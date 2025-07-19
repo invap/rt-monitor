@@ -70,7 +70,8 @@ def main():
     parser.add_argument('--log_user', default='guest', help='RabbitMQ logging server user (optional argument).')
     parser.add_argument('--log_password', default='guest', help='RabbitMQ logging server password (optional argument).')
     parser.add_argument('--log_exchange', type=str, default='my_log_exchange', help='Name of the exchange at the RabbitMQ logging server (optional argument).')
-    parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument).")
+    parser.add_argument("--log_level", type=str, choices=["debug", "event", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level (optional argument).")
+    # parser.add_argument("--log_level", type=str, choices=["debug", "event", "analysis", "info", "warnings", "errors", "critical"], default="analysis", help="Log verbose level (optional argument).")
     parser.add_argument('--log_file', help='Path to log file (optional argument).')
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds to wait for messages after last received message (0 = no timeout) (default = 60 seconds) (optional argument).")
     parser.add_argument("--stop", type=str, choices=["on_might_fail", "on_fail", "dont"], default="on_might_fail", help="Stop policy (optional argument).")
@@ -84,8 +85,8 @@ def main():
             logging_level = LoggingLevel.DEBUG
         case "event":
             logging_level = LoggingLevel.EVENT
-        case "analysis":
-            logging_level = LoggingLevel.ANALYSIS
+        # case "analysis":
+        #     logging_level = LoggingLevel.ANALYSIS
         case "info":
             logging_level = LoggingLevel.INFO
         case "warnings":
@@ -95,7 +96,7 @@ def main():
         case "critical":
             logging_level = LoggingLevel.CRITICAL
         case _:
-            logging_level = LoggingLevel.ANALYSIS
+            logging_level = LoggingLevel.INFO
     # Configure logging destination.
     if args.log_file is None:
         logging_destination = LoggingDestination.CONSOLE

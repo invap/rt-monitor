@@ -5,7 +5,7 @@
 import logging
 import time
 import pika
-from colorama import Fore, Style
+# from colorama import Fore, Style
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
@@ -48,7 +48,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                 rabbitmq_log_server_connection.channel.basic_publish(
                     exchange=rabbitmq_log_server_connection.exchange,
                     routing_key='log_entry',
-                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ {Fore.GREEN}PASSED{Style.RESET_ALL} ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                     properties=pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
@@ -61,7 +61,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                 rabbitmq_log_server_connection.channel.basic_publish(
                     exchange=rabbitmq_log_server_connection.exchange,
                     routing_key='log_entry',
-                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ {Fore.RED}FAILED{Style.RESET_ALL} ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                     properties=pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
