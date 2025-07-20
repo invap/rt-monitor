@@ -35,7 +35,11 @@ from rt_monitor.rabbitmq_server_connections import rabbitmq_event_server_connect
 from rt_monitor.rabbitmq_utility import (
     setup_rabbitmq,
     rabbitmq_connect_to_server,
-    RabbitMQError)
+    RabbitMQError,
+    get_message,
+    ack_message,
+    publish_message
+)
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.framework.clock import Clock
 from rt_monitor.reporting.event_decoder import EventDecoder
@@ -152,10 +156,11 @@ class Monitor(threading.Thread):
                 logging.info(f"No event received for {config.timeout} seconds. Timeout reached.")
                 poison_received = True
             # Get event from RabbitMQ
-            method, properties, body = rabbitmq_event_server_connection.channel.basic_get(
-                queue=rabbitmq_event_server_connection.queue_name,
-                auto_ack=False
-            )
+            try:
+                method, properties, body = get_message(rabbitmq_event_server_connection)
+            except RabbitMQError:
+                logging.critical(f"Error getting message from RabbitMQ server.")
+                exit(-2)
             if method:  # Message exists
                 # Process message
                 if properties.headers and properties.headers.get('termination'):
@@ -196,7 +201,11 @@ class Monitor(threading.Thread):
                                 stop = True
                                 poison_received = True
                 # ACK the message
-                rabbitmq_event_server_connection.channel.basic_ack(method.delivery_tag)
+                try:
+                    ack_message(rabbitmq_event_server_connection, method.delivery_tag)
+                except RabbitMQError:
+                    logging.critical(f"Error acknowledging a message to the RabbitMQ event server.")
+                    exit(-2)
             if stop:
                 if abort:
                     logging.info("Runtime verification process ABORTED.")
@@ -209,17 +218,18 @@ class Monitor(threading.Thread):
                 poison_received = True
         # Log analysis statistics
         Monitor.log_analysis_statistics()
-        # Send poison pill to the logger
-        rabbitmq_log_server_connection.channel.basic_publish(
-            exchange=rabbitmq_log_server_connection.exchange,
-            routing_key='log_entries',
-            body='',
-            properties=pika.BasicProperties(
+        # Send poison pill to the RabbitMQ logging server
+        try:
+            properties = pika.BasicProperties(
                 delivery_mode=2,
                 headers={'termination': True}
             )
-        )
-        logging.info("Poison pill sent.")
+            publish_message(rabbitmq_log_server_connection, 'log_entries', '', properties)
+        except RabbitMQError:
+            logging.info("Error sending poison pill to the RabbitMQ logging server.")
+            exit(-2)
+        else:
+            logging.info("Poison pill sent.")
         # Stop publishing log entries to the RabbitMQ server
         logging.info(f"Stop publishing log entries to the RabbitMQ server at {rabbitmq_log_server_config.host}:{rabbitmq_log_server_config.port}.")
         # Close connection to the RabbitMQ logging server if it exists
