@@ -2,8 +2,11 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from rt_monitor.rabbitmq_utility import RabbitMQ_server_config
+from rt_monitor.rabbitmq_utility import RabbitMQ_server_config, RabbitMQ_exchange_config
 
 # Instances shared globally
-rabbitmq_event_server_config = RabbitMQ_server_config()
-rabbitmq_log_server_config = RabbitMQ_server_config()
+rabbitmq_server_config = RabbitMQ_server_config()
+
+# Instances shared globally
+rabbitmq_event_exchange_config = RabbitMQ_exchange_config()
+rabbitmq_log_exchange_config = RabbitMQ_exchange_config()

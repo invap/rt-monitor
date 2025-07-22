@@ -5,7 +5,6 @@
 import logging
 import time
 import pika
-# from colorama import Fore, Style
 import numpy as np
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
@@ -14,6 +13,7 @@ from rt_monitor.errors.evaluator_errors import (
     NoValueAssignedToVariableError,
     UnboundVariablesError, EvaluationError
 )
+from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.monitor import AnalysisStatistics
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -26,7 +26,6 @@ class PyPropertyEvaluator(PropertyEvaluator):
 
     # Raises: EvaluationError()
     def eval(self, now, prop):
-        # logging.log(LoggingLevel.ANALYSIS, f"Analyzing property {prop.name()} at timestamp {now}...")
         initial_build_time = time.time()
         try:
             spec = self._build_spec(prop, now)
@@ -43,7 +42,6 @@ class PyPropertyEvaluator(PropertyEvaluator):
         match result:
             case True:
                 # If the formula is true, then the prop of interest passed.
-                # logging.log(LoggingLevel.ANALYSIS, f"... property analysis [ {Fore.GREEN}PASSED{Style.RESET_ALL} ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 # Publish log entry at RabbitMQ server
                 rabbitmq_log_server_connection.channel.basic_publish(
                     exchange=rabbitmq_log_server_connection.exchange,
@@ -53,10 +51,10 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.passed()
             case False:
                 # If the formula is false, then the prop of interest failed.
-                # logging.log(LoggingLevel.ANALYSIS, f"... property analysis [ FAILED{Style.RESET_ALL} ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 # Publish log entry at RabbitMQ server
                 rabbitmq_log_server_connection.channel.basic_publish(
                     exchange=rabbitmq_log_server_connection.exchange,
@@ -66,6 +64,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.failed()
         if result == False:
             # Output counterexample as a python program

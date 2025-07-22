@@ -9,8 +9,6 @@ from enum import IntEnum, StrEnum
 
 class LoggingLevel(IntEnum):
     DEBUG = logging.DEBUG
-    EVENT = logging.DEBUG+3
-    ANALYSIS = logging.DEBUG+6
     INFO = logging.INFO
     WARNING = logging.WARNING
     ERROR = logging.ERROR
@@ -23,8 +21,6 @@ class LoggingDestination(StrEnum):
 
 
 def set_up_logging():
-    logging.addLevelName(LoggingLevel.EVENT, "EVENT")
-    logging.addLevelName(LoggingLevel.ANALYSIS, "ANALYSIS")
     logging.basicConfig(
         stream=sys.stdout,
         level=_default_logging_level(),
@@ -56,7 +52,7 @@ def configure_logging_level(logging_level):
 
 
 def _default_logging_level():
-    return LoggingLevel.ANALYSIS
+    return LoggingLevel.INFO
 
 
 def _date_logging_format():
