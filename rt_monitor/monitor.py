@@ -108,12 +108,6 @@ class Monitor(threading.Thread):
             ComponentDoesNotExistError,
             ComponentError
         )
-
-        last_message_time = time.time()
-        # Control variables
-        poison_received = False
-        stop = False
-        abort = False
         # Set up the connection to the RabbitMQ connection to server
         try:
             connection = connect_to_server(rabbitmq_server_config)
@@ -145,14 +139,20 @@ class Monitor(threading.Thread):
         except RabbitMQError:
             logging.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
             exit(-2)
-        # Start sending log entries to the RabbitMQ server with timeout handling for message reception
-        logging.info(f"Start sending log entries to the exchange {rabbitmq_log_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Set up connection for events with the RabbitMQ server
         rabbitmq_log_server_connection.connection = connection
         rabbitmq_log_server_connection.channel = log_channel
         rabbitmq_log_server_connection.exchange = rabbitmq_log_exchange_config.exchange
+        # Start sending log entries to the RabbitMQ server with timeout handling for message reception
+        logging.info(f"Start sending log entries to the exchange {rabbitmq_log_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Initialize process state for the analysis
         self._current_state = self._framework.process().dfa().start_state
+        # initialize last_message_time for testing timeout
+        last_message_time = time.time()
+        # Control variables
+        poison_received = False
+        stop = False
+        abort = False
         while not poison_received and not stop and not abort:
             # Handle SIGINT
             if self._signal_flags['stop']:
@@ -174,7 +174,7 @@ class Monitor(threading.Thread):
                 abort = True
             # Process event only if temination has not been decided
             if not stop and not abort:
-                # Get message from RabbitMQ
+                # Get event from RabbitMQ
                 try:
                     method, properties, body = get_message(rabbitmq_event_server_connection)
                 except RabbitMQError:
