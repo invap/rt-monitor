@@ -153,11 +153,11 @@ class Monitor(threading.Thread):
         rabbitmq_log_server_connection.exchange = rabbitmq_log_exchange_config.exchange
         # Initialize process state for the analysis
         self._current_state = self._framework.process().dfa().start_state
-        while not poison_received and not self._signal_flags['stop']:
+        while not poison_received and not stop and not abort:
             # Handle SIGINT
             if self._signal_flags['stop']:
                 logging.info("SIGINT received. Stopping the event acquisition process.")
-                break
+                stop = True
             # Handle SIGTSTP
             if self._signal_flags['pause']:
                 logging.info("SIGTSTP received. Pausing the event acquisition process.")
@@ -165,66 +165,84 @@ class Monitor(threading.Thread):
                     time.sleep(1)  # Efficiently wait for signals
                 if self._signal_flags['stop']:
                     logging.info("SIGINT received. Stopping the event acquisition process.")
-                    break
-                logging.info("SIGTSTP received. Resuming the event acquisition process.")
+                    stop = True
+                if not self._signal_flags['pause']:
+                    logging.info("SIGTSTP received. Resuming the event acquisition process.")
             # Timeout handling for message reception
             if 0 < config.timeout < (time.time() - last_message_time):
                 logging.info(f"No event received for {config.timeout} seconds. Timeout reached.")
-                break
-            # Get event from RabbitMQ
-            try:
-                method, properties, body = get_message(rabbitmq_event_server_connection)
-            except RabbitMQError:
-                logging.critical(f"Error getting message from RabbitMQ server.")
-                exit(-2)
-            if method:  # Message exists
-                # Process message
-                if properties.headers and properties.headers.get('termination'):
-                    # Poison pill received
-                    logging.info(f"Poison pill received.")
-                    stop = True
-                    abort = False
-                    poison_received = True
-                else:
-                    last_message_time = time.time()
-                    # Decode the next event.
-                    event = body.decode().rstrip('\n\r')
-                    try:
-                        decoded_event = EventDecoder.decode(event.split(","))
-                    except InvalidEvent as f:
-                        logging.critical(f"Invalid event [ {f.event().serialized()} ].")
-                        exit(-3)
-                    else:
-                        logging.log(LoggingLevel.DEBUG, f"Received event: {decoded_event.serialized()}")
-                        AnalysisStatistics.event()
-                        # Process event.
-                        try:
-                            is_a_valid_report = decoded_event.process_with(self)
-                        except EXCEPTIONS as f:
-                            logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
-                            exit(-3)
-                        else:
-                            # Action if the event caused the verification to fail.
-                            if not is_a_valid_report:
-                                stop = True
-                                poison_received = True
-                # ACK the message
+                abort = True
+            # Process event only if temination has not been decided
+            if not stop and not abort:
+                # Get message from RabbitMQ
                 try:
-                    ack_message(rabbitmq_event_server_connection, method.delivery_tag)
+                    method, properties, body = get_message(rabbitmq_event_server_connection)
                 except RabbitMQError:
-                    logging.critical(f"Error acknowledging a message to the RabbitMQ event server.")
+                    logging.critical(f"Error getting message from RabbitMQ server.")
                     exit(-2)
-            if stop:
-                if abort:
-                    logging.info("Runtime verification process ABORTED.")
-                else:
-                    logging.info(f"Runtime verification process COMPLETED.")
-                poison_received = True
-        # Stop getting events from the RabbitMQ server
-        logging.info(f"Stop getting events from the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
-        # Log analysis statistics
-        Monitor.log_analysis_statistics()
-        # Send poison pill to the RabbitMQ logging server
+                if method:  # Message exists
+                    # ACK the message from RabbitMQ
+                    try:
+                        ack_message(rabbitmq_event_server_connection, method.delivery_tag)
+                    except RabbitMQError:
+                        logging.critical(f"Error acknowledging a message to the RabbitMQ event server.")
+                        exit(-2)
+                    # Process message
+                    if properties.headers and properties.headers.get('termination'):
+                        # Poison pill received
+                        logging.info(f"Poison pill received with the events routing_key from the RabbitMQ server.")
+                        # Stop getting events from the RabbitMQ server
+                        logging.info(f"Stop getting events from the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+                        poison_received = True
+                    else:
+                        last_message_time = time.time()
+                        # Decode the next event.
+                        event = body.decode().rstrip('\n\r')
+                        try:
+                            decoded_event = EventDecoder.decode(event.split(","))
+                        except InvalidEvent as f:
+                            logging.critical(f"Invalid event [ {f.event().serialized()} ].")
+                            abort = True
+                        else:
+                            logging.log(LoggingLevel.DEBUG, f"Received event: {decoded_event.serialized()}")
+                            AnalysisStatistics.event()
+                            # Process event.
+                            try:
+                                is_a_valid_report = decoded_event.process_with(self)
+                            except EXCEPTIONS as f:
+                                logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
+                                abort = True
+                            else:
+                                # Action if the event caused the verification to fail.
+                                if not is_a_valid_report:
+                                    poison_received = True
+        # Logging the reason for stoping the verification process to the RabbitMQ server
+        if poison_received:
+            reason = "COMPLETED"
+        elif stop:
+            reason = "STOPPED"
+        elif abort:
+            reason = "ABORTED"
+        else:
+            reason = "STOPPED by an unknown reason"
+        # Publish log entry at RabbitMQ server
+        try:
+            publish_message(
+                rabbitmq_log_server_connection,
+                'log_entries',
+                f"Runtime verification process {reason}.",
+                pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
+            )
+        except RabbitMQError:
+            logging.info("Error sending log entry to the RabbitMQ server.")
+            exit(-2)
+        logging.info(f"Runtime verification process {reason}.")
+        # Log analysis statistics only in normal termination (poison pill received or stop by user)
+        if poison_received or stop:
+            Monitor.log_analysis_statistics()
+        # Send poison pill with the log_entries routing_key to the RabbitMQ server
         try:
             publish_message(
                 rabbitmq_log_server_connection,
@@ -236,10 +254,10 @@ class Monitor(threading.Thread):
                 )
             )
         except RabbitMQError:
-            logging.info("Error sending poison pill to the RabbitMQ logging server.")
+            logging.info("Error sending with the log_entries routing_key to the RabbitMQ server.")
             exit(-2)
         else:
-            logging.info("Poison pill sent.")
+            logging.info("Poison pill sent with the log_entries routing_key to the RabbitMQ server.")
         # Stop publishing log entries to the RabbitMQ server
         logging.info(f"Stop publishing log entries to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Close connection to the RabbitMQ logging server if it exists
