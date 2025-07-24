@@ -2,10 +2,10 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 import sys
 from enum import IntEnum, StrEnum
-
+import logging
+logger = logging.getLogger(__name__)
 
 class LoggingLevel(IntEnum):
     DEBUG = logging.DEBUG

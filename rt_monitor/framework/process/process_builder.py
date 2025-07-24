@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+# Create a logger for the process builder component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.process_errors import ProcessSpecificationError
 from rt_monitor.framework.process.regex_process import RegExProcess
@@ -17,7 +19,7 @@ class ProcessBuilder:
     # Raises: ProcessSpecificationError()
     def build_process(process_dict, files_path):
         if "format" not in process_dict:
-            logging.error(f"Process format not found.")
+            logger.error(f"Process format not found.")
             raise ProcessSpecificationError()
         factory = {
             "graph": GraphProcess,

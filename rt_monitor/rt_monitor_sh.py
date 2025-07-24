@@ -19,7 +19,7 @@ from rt_monitor.logging_configuration import (
     configure_logging_level
 )
 from rt_monitor.monitor_builder import MonitorBuilder
-from rt_monitor.rabbitmq_server_configs import (
+from rt_monitor.rabbitmq_utility.rabbitmq_server_configs import (
     rabbitmq_server_config,
     rabbitmq_event_exchange_config,
     rabbitmq_log_exchange_config
@@ -104,23 +104,25 @@ def main():
     set_up_logging()
     configure_logging_destination(logging_destination, args.log_file)
     configure_logging_level(logging_level)
-    logging.info(f"Log verbosity level: {logging_level}.")
+    # Create a logger for this component
+    logger = logging.getLogger("rt_monitor.rt_monitor_sh")
+    logger.info(f"Log verbosity level: {logging_level}.")
     if args.log_file is None:
-        logging.info("Log destination: CONSOLE.")
+        logger.info("Log destination: CONSOLE.")
     else:
         if not valid_log_file:
-            logging.info("Log file error. Log destination: CONSOLE.")
+            logger.info("Log file error. Log destination: CONSOLE.")
         else:
-            logging.info(f"Log destination: FILE ({args.log_file}).")
+            logger.info(f"Log destination: FILE ({args.log_file}).")
     # Validate and normalize the framework path
     valid = is_valid_file_with_extension(args.framework, "toml")
     if not valid:
-        logging.critical(f"Framework file error.")
+        logger.critical(f"Framework file error.")
         exit(-1)
-    logging.info(f"Framework file: {args.framework}")
+    logger.info(f"Framework file: {args.framework}")
     # Determine timeout
     timeout = args.timeout if args.timeout >= 0 else 0
-    logging.info(f"Timeout for message reception: {timeout} seconds.")
+    logger.info(f"Timeout for message reception: {timeout} seconds.")
     # RabbitMQ server configuration
     rabbitmq_server_config.host = args.host
     rabbitmq_server_config.port = args.port
@@ -137,7 +139,7 @@ def main():
     try:
         monitor = monitor_builder.build_monitor()
     except FrameworkError:
-        logging.critical(f"Runtime monitoring process ABORTED.")
+        logger.critical(f"Runtime monitoring process ABORTED.")
     else:
         # Creates a thread for controlling the analysis process
         application_thread = threading.Thread(

@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import inspect
-import logging
 from abc import ABC, abstractmethod
+import logging
+# Create a logger for the component component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.component_errors import FunctionNotImplementedError
 
@@ -27,7 +29,7 @@ class Component(ABC):
         function_name = ls[0]
 
         if function_name not in self.exported_functions:
-            logging.error(f"Function [ {function_name} ] not implemented by component [ {self.__class__.__name__} ].")
+            logger.error(f"Function [ {function_name} ] not implemented by component [ {self.__class__.__name__} ].")
             raise FunctionNotImplementedError(function_name)
 
         function = self.exported_functions[function_name]
@@ -50,6 +52,6 @@ class Component(ABC):
                     value = exp_type(value)
                     new_args.append(value)
                 except (TypeError, ValueError) as e:
-                    logging.error(f"Error converting arg '{name}' to {exp_type.__name__}: {e}")
+                    logger.error(f"Error converting arg '{name}' to {exp_type.__name__}: {e}")
                     raise
         return function(*new_args)

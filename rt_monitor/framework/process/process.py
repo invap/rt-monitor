@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import itertools
-import logging
 from abc import ABC, abstractmethod
+import logging
+# Create a logger for the process component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.process_errors import (
     PropertySpecificationError,
@@ -45,25 +47,25 @@ class Process(ABC):
             properties = Process._decode_properties(process_dict["properties"],
                                                     files_path) if "properties" in process_dict else {}
         except PropertySpecificationError:
-            logging.error(f"Property specification error.")
+            logger.error(f"Property specification error.")
             raise ProcessSpecificationError()
         try:
             checkpoints = Process._decode_checkpoints(
                 process_dict["checkpoints"]) if "checkpoints" in process_dict else {}
         except CheckpointSpecificationError:
-            logging.error(f"Checkpoint specification error.")
+            logger.error(f"Checkpoint specification error.")
             raise ProcessSpecificationError()
         try:
             tasks = Process._decode_tasks(process_dict["tasks"]) if "tasks" in process_dict else {}
         except TaskSpecificationError:
-            logging.error(f"Task specification error.")
+            logger.error(f"Task specification error.")
             raise ProcessSpecificationError()
         # Check integrity of the process:
         # The properties appearing in the checkpoints must be declared as properties
         if any({property_name not in properties.keys() for property_name in
                 list(itertools.chain.from_iterable(checkpoints[checkpoint].properties() for
                                                    checkpoint in checkpoints))}):
-            logging.error(f"Undeclared property in checkpoint.")
+            logger.error(f"Undeclared property in checkpoint.")
             raise ProcessSpecificationError()
         # The properties appearing in the peconditions and postconditions of tasks must be declared as properties
         if (any({property_name not in properties.keys() for property_name in
@@ -72,13 +74,13 @@ class Process(ABC):
             any({property_name not in properties.keys() for property_name in
                  list(itertools.chain.from_iterable(tasks[task].postconditions() for
                                                     task in tasks))})):
-            logging.error(f"Undeclared property in task.")
+            logger.error(f"Undeclared property in task.")
             raise ProcessSpecificationError()
         # The checkpoints appearing in the tasks must be declared as checkpoints
         if any({checkpoint_name not in checkpoints.keys() for checkpoint_name in
                 list(itertools.chain.from_iterable(tasks[task].checkpoints() for
                                                    task in tasks))}):
-            logging.error(f"Undeclared checkpoint in task.")
+            logger.error(f"Undeclared checkpoint in task.")
             raise ProcessSpecificationError()
         return tasks, checkpoints, properties
 
@@ -88,12 +90,12 @@ class Process(ABC):
         properties = {}
         for prop_dict in properties_list:
             if "name" not in prop_dict:
-                logging.error(f"Property must have a name.")
+                logger.error(f"Property must have a name.")
                 raise PropertySpecificationError()
             try:
                 decoded_property = Property.property_from_toml_dict(prop_dict["name"], prop_dict, files_path)
             except PropertySpecificationError:
-                logging.error(f"Error decoding property from process [ {prop_dict["name"]} ].")
+                logger.error(f"Error decoding property from process [ {prop_dict["name"]} ].")
                 raise ProcessSpecificationError()
             properties[prop_dict["name"]] = decoded_property
         return properties
@@ -104,12 +106,12 @@ class Process(ABC):
         checkpoints = {}
         for checkpoint_dict in checkpoints_list:
             if "name" not in checkpoint_dict:
-                logging.error(f"Checkpoint must have a name.")
+                logger.error(f"Checkpoint must have a name.")
                 raise CheckpointSpecificationError()
             try:
                 decoded_checkpoint = Checkpoint.checkpoint_from_toml_dict(checkpoint_dict["name"], checkpoint_dict)
             except PropertySpecificationError:
-                logging.error(f"Error decoding property from process [ {checkpoint_dict["name"]} ].")
+                logger.error(f"Error decoding property from process [ {checkpoint_dict["name"]} ].")
                 raise ProcessSpecificationError()
             checkpoints[checkpoint_dict["name"]] = decoded_checkpoint
         return checkpoints
@@ -119,12 +121,12 @@ class Process(ABC):
         tasks = {}
         for task_dict in tasks_list:
             if "name" not in task_dict:
-                logging.error(f"Property must have a name.")
+                logger.error(f"Property must have a name.")
                 raise TaskSpecificationError()
             try:
                 decoded_task = Task.task_from_toml_dict(task_dict["name"], task_dict)
             except PropertySpecificationError:
-                logging.error(f"Error decoding task from process [ {task_dict["name"]} ].")
+                logger.error(f"Error decoding task from process [ {task_dict["name"]} ].")
                 raise ProcessSpecificationError()
             tasks[task_dict["name"]] = decoded_task
         return tasks
@@ -141,7 +143,7 @@ class Process(ABC):
                     # must be consistent
                     if (variables_in_prop[variable_name][0] != variables[variable_name][0] or
                             variables_in_prop[variable_name][1] != variables[variable_name][1]):
-                        logging.error(f"Inconsistent declaration for variable [ {variable_name} ] - "
+                        logger.error(f"Inconsistent declaration for variable [ {variable_name} ] - "
                                       f"[ {variables_in_prop[variable_name]} != {variables[variable_name]} ].")
                         raise VariableSpecificationError()
                 else:

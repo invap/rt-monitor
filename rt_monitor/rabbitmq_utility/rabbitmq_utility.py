@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+logger = logging.getLogger(__name__)
 
 import pika
 from pika.exceptions import (
@@ -58,22 +59,22 @@ def connect_to_server(rabbitmq_server_config):
     try:
         connection = pika.BlockingConnection(parameters)
     except IncompatibleProtocolError:
-        logging.error(f"Protocol version at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} error.")
+        logger.error(f"Protocol version at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} error.")
         raise RabbitMQError()
     except ProbableAuthenticationError:
-        logging.error(f"Authentication to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} failed with user {rabbitmq_server_config.user} and password {rabbitmq_server_config.password}.")
+        logger.error(f"Authentication to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} failed with user {rabbitmq_server_config.user} and password {rabbitmq_server_config.password}.")
         raise RabbitMQError()
     except ProbableAccessDeniedError:
-        logging.error(f"User {rabbitmq_server_config.user} lacks access permissions to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        logger.error(f"User {rabbitmq_server_config.user} lacks access permissions to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         raise RabbitMQError()
     except AMQPConnectionError:
-        logging.error(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} failed.")
+        logger.error(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} failed.")
         raise RabbitMQError()
     except TypeError:
-        logging.error(f"Invalid argument types.")
+        logger.error(f"Invalid argument types.")
         raise RabbitMQError()
     else:
-        logging.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
+        logger.info(f"Connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} established.")
         return connection
 
 def connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_exchange_config, connection):
@@ -89,16 +90,16 @@ def connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_exchange_config
             durable=False
         )
     except ChannelClosed:
-        logging.error(f"Channel closed.")
+        logger.error(f"Channel closed.")
         raise RabbitMQError()
     except ConnectionClosed:
-        logging.error(f"Unexpected connection loss during operation.")
+        logger.error(f"Unexpected connection loss during operation.")
         raise RabbitMQError()
     except TypeError:
-        logging.error(f"Invalid argument types.")
+        logger.error(f"Invalid argument types.")
         raise RabbitMQError()
     else:
-        logging.info(f"Channel and exchange {rabbitmq_exchange_config.exchange} created at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        logger.info(f"Channel and exchange {rabbitmq_exchange_config.exchange} created at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         return rabbitmq_channel
 
 
@@ -112,13 +113,13 @@ def declare_queue(rabbitmq_server_config, rabbitmq_exchange_config, channel, rou
         )
         queue_name = result.method.queue
     except ChannelClosed:
-        logging.error(f"Channel closed.")
+        logger.error(f"Channel closed.")
         raise RabbitMQError()
     except ConnectionClosed:
-        logging.error(f"Unexpected connection loss during operation.")
+        logger.error(f"Unexpected connection loss during operation.")
         raise RabbitMQError()
     except TypeError:
-        logging.error(f"Invalid argument types.")
+        logger.error(f"Invalid argument types.")
         raise RabbitMQError()
     # Bind queue
     try:
@@ -128,18 +129,18 @@ def declare_queue(rabbitmq_server_config, rabbitmq_exchange_config, channel, rou
             routing_key=routing_key
         )
     except ChannelClosed:
-        logging.error(f"Binding violates server rules.")
+        logger.error(f"Binding violates server rules.")
         raise RabbitMQError()
     except ConnectionClosed:
-        logging.error(f"Connection lost during binding operation.")
+        logger.error(f"Connection lost during binding operation.")
         raise RabbitMQError()
     except ValueError:
-        logging.error(f"Missing required arguments.")
+        logger.error(f"Missing required arguments.")
         raise RabbitMQError()
     except TypeError:
-        logging.error(f"Invalid argument types.")
+        logger.error(f"Invalid argument types.")
         raise RabbitMQError()
-    logging.info(f"Queue {queue_name} created and bound to exchange {rabbitmq_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+    logger.info(f"Queue {queue_name} created and bound to exchange {rabbitmq_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
     return queue_name
 
 
@@ -150,22 +151,22 @@ def get_message(rabbitmq_server_connection):
             auto_ack=False
         )
     except AMQPConnectionError:  # Raised if the connection is closed or lost during the operation.
-        logging.error(f"Connection closed or lost during message reception.")
+        logger.error(f"Connection closed or lost during message reception.")
         raise RabbitMQError()
     except ChannelClosed:  # Subclass of AMQPChannelError: Triggered if RabbitMQ closes the channel mid - operation(e.g., due to an error).
-        logging.error(f"Channel closed during message reception.")
+        logger.error(f"Channel closed during message reception.")
         raise RabbitMQError()
     except ChannelWrongStateError:  # Occurs if the channel is in an unusable state(e.g., recovering).
-        logging.error(f"Channel is in an unusable state.")
+        logger.error(f"Channel is in an unusable state.")
         raise RabbitMQError()
     except AMQPChannelError:  # Raised if the channel is closed or invalid when calling basic_get.
-        logging.error(f"Channel is closed or invalid when calling basic_get.")
+        logger.error(f"Channel is closed or invalid when calling basic_get.")
         raise RabbitMQError()
     except TypeError:  # Raised for invalid arguments(e.g., non - string queue name, empty queue name).
-        logging.error(f"Invalid argument type.")
+        logger.error(f"Invalid argument type.")
         raise RabbitMQError()
     except ValueError:
-        logging.error(f"Invalid argument value.")
+        logger.error(f"Invalid argument value.")
         raise RabbitMQError()
     else:
         return method, properties, body
@@ -175,19 +176,19 @@ def ack_message(rabbitmq_server_connection, delivery_tag):
     try:
         rabbitmq_server_connection.channel.basic_ack(delivery_tag)
     except AMQPConnectionError:  # Raised if the connection is closed or lost during acknowledgement.
-        logging.error(f"Connection closed or lost during acknowledgement.")
+        logger.error(f"Connection closed or lost during acknowledgement.")
         raise RabbitMQError()
     except ChannelClosed:  # Raised if: The channel is closed or invalid, RabbitMQ closes the channel due to an error(e.g., invalid delivery_tag)
-        logging.error(f"Channel closed during acknowledgement.")
+        logger.error(f"Channel closed during acknowledgement.")
         raise RabbitMQError()
     except AMQPChannelError:
-        logging.error(f"Channel is closed or invalid when calling basic_ack.")
+        logger.error(f"Channel is closed or invalid when calling basic_ack.")
         raise RabbitMQError()
     except TypeError:  # Raised if arguments have invalid types(e.g., delivery_tag is a string).
-        logging.error(f"Invalid argument type.")
+        logger.error(f"Invalid argument type.")
         raise RabbitMQError()
     except ValueError:  # Raised if the delivery_tag is: Negative, Zero, A non-integer value
-        logging.error(f"Invalid argument value.")
+        logger.error(f"Invalid argument value.")
         raise RabbitMQError()
 
 
@@ -200,17 +201,17 @@ def publish_message(rabbitmq_server_connection, routing_key, body, properties=No
             properties=properties
         )
     except AMQPConnectionError:  # Raised if the connection is closed or lost during the operation.
-        logging.error(f"Connection closed or lost during message publishing.")
+        logger.error(f"Connection closed or lost during message publishing.")
         raise RabbitMQError()
     except ChannelClosed:  # Subclass of AMQPChannelError: Triggered if RabbitMQ closes the channel mid - operation(e.g., due to an error).
-        logging.error(f"Channel closed during message publishing.")
+        logger.error(f"Channel closed during message publishing.")
         raise RabbitMQError()
     except AMQPChannelError:  # Raised if the channel is closed or invalid when calling basic_publish.
-        logging.error(f"Channel is closed or invalid when calling basic_publish.")
+        logger.error(f"Channel is closed or invalid when calling basic_publish.")
         raise RabbitMQError()
     except TypeError:  # Raised for invalid arguments(e.g., non - string queue name, empty queue name).
-        logging.error(f"Invalid argument type.")
+        logger.error(f"Invalid argument type.")
         raise RabbitMQError()
     except ValueError:
-        logging.error(f"Invalid argument value.")
+        logger.error(f"Invalid argument value.")
         raise RabbitMQError()

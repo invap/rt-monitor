@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+# Create a logger for the monitor builder component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.framework.framework_builder import FrameworkBuilder
 from rt_monitor.monitor import Monitor
@@ -25,15 +27,15 @@ class MonitorBuilder:
     # Raises: FrameworkError(), EventLogListError(), MonitorConstructionError()
     @staticmethod
     def build_monitor():
-        logging.info(f"Creating monitor with framework: [ {MonitorBuilder.framework_file} ].")
+        logger.info(f"Creating monitor with framework: [ {MonitorBuilder.framework_file} ].")
         try:
             framework_builder = FrameworkBuilder(MonitorBuilder.framework_file)
             framework = framework_builder.build_framework()
         except FrameworkSpecificationError:
-            logging.error(f"Error creating framework.")
+            logger.error(f"Error creating framework.")
             raise FrameworkError()
         # Build monitor
-        logging.info(f"Creating monitor...")
+        logger.info(f"Creating monitor...")
         monitor = Monitor(framework, MonitorBuilder.signal_flags)
-        logging.info(f"Monitor created.")
+        logger.info(f"Monitor created.")
         return monitor

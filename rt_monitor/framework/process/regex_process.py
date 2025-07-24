@@ -2,13 +2,15 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 from pyformlang.finite_automaton import (
     State,
     Symbol,
     DeterministicFiniteAutomaton
 )
 from pyformlang.regular_expression import Regex
+import logging
+# Create a logger for the regex-based process component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.process_errors import (
     ProcessSpecificationError,
@@ -25,7 +27,7 @@ class RegExProcess(Process):
     # Raises: ProcessSpecificationError()
     def process_from_toml_dict(process_dict, files_path):
         if "structure" not in process_dict:
-            logging.error(f"Regular expression not found.")
+            logger.error(f"Regular expression not found.")
             raise ProcessSpecificationError()
         # Create DFA from regex
         dfa_start = Regex(process_dict["structure"].replace(";", ".")).to_epsilon_nfa().to_deterministic()
@@ -83,7 +85,7 @@ class RegExProcess(Process):
         try:
             variables = Process._get_variables_from_properties(properties)
         except VariableSpecificationError:
-            logging.error(f"Variables specification error.")
+            logger.error(f"Variables specification error.")
             raise ProcessSpecificationError()
         else:
             return RegExProcess(dfa, tasks, checkpoints, properties, variables)

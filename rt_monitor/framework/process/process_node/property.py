@@ -2,8 +2,10 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 import tomllib
+import logging
+# Create a logger for the proporty component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.process_errors import (
     PropertySpecificationError,
@@ -39,7 +41,7 @@ class Property:
     def property_from_toml_dict(property_name, prop_dict, files_path):
         # Decoding source for formula
         if "file" not in prop_dict and "formula" not in prop_dict:
-            logging.error(f"Property [ {property_name} ] source not found.")
+            logger.error(f"Property [ {property_name} ] source not found.")
             raise PropertySpecificationError()
         if "formula" in prop_dict:
             # This operation might raise a PropertySpecificationError exception.
@@ -57,18 +59,18 @@ class Property:
         try:
             f = open(file_name, "rb")
         except FileNotFoundError:
-            logging.error(f"Property file [ {file_name} ] not found.")
+            logger.error(f"Property file [ {file_name} ] not found.")
             raise PropertySpecificationError()
         except PermissionError:
-            logging.error(f"Permissions error opening file [ {file_name} ].")
+            logger.error(f"Permissions error opening file [ {file_name} ].")
             raise PropertySpecificationError()
         except IsADirectoryError:
-            logging.error(f"[ {file_name} ] is a directory and not a file.")
+            logger.error(f"[ {file_name} ] is a directory and not a file.")
             raise PropertySpecificationError()
         try:
             property_dict = tomllib.load(f)
         except tomllib.TOMLDecodeError:
-            logging.error(f"TOML decoding of file [ {file_name} ] failed.")
+            logger.error(f"TOML decoding of file [ {file_name} ] failed.")
             raise PropertySpecificationError()
         # This operation might raise a PropertySpecificationError exception.
         return Property._property_from_toml_dict(property_name, property_dict)
@@ -78,10 +80,10 @@ class Property:
     def _property_from_toml_dict(property_name, prop_dict):
         # Decoding formula
         if "format" not in prop_dict:
-            logging.error(f"Property must have a declared format.")
+            logger.error(f"Property must have a declared format.")
             raise PropertySpecificationError()
         if prop_dict["format"] not in {"smt2", "sympy", "py"}:
-            logging.error(f"Property format [ {prop_dict["format"]} ] unknown.")
+            logger.error(f"Property format [ {prop_dict["format"]} ] unknown.")
             raise PropertySpecificationError()
         # Decoding variables
         if "variables" not in prop_dict:
@@ -90,7 +92,7 @@ class Property:
             try:
                 variables = Property.build_variable_declarations(prop_dict["variables"])
             except VariableSpecificationError:
-                logging.error(f"Property variable declarations error.")
+                logger.error(f"Property variable declarations error.")
                 raise PropertySpecificationError()
         # Decoding additional declarations
         if "declarations" not in prop_dict:
@@ -99,7 +101,7 @@ class Property:
             declarations = prop_dict["declarations"]
         # Decoding additional declarations
         if "formula" not in prop_dict:
-            logging.error(f"Property formula not found.")
+            logger.error(f"Property formula not found.")
             raise PropertySpecificationError()
         else:
             formula = prop_dict["formula"]
@@ -115,7 +117,7 @@ class Property:
             variable_name_class_type = variable_name_class_type_with_parenthesis.removeprefix("(").removesuffix(")")
             split_variable_name_class_type = variable_name_class_type.split(" ", 1)
             if not len(split_variable_name_class_type) == 2:
-                logging.error(f"Incorrect variable declaration [ {variable_name_class_type_with_parenthesis} ] "
+                logger.error(f"Incorrect variable declaration [ {variable_name_class_type_with_parenthesis} ] "
                               f"should be ([variable_name]:[variable_class] [variable_type]).")
                 raise VariableSpecificationError()
             variable_type = split_variable_name_class_type[1]
@@ -125,7 +127,7 @@ class Property:
             variable_name = split_variable_name_class[0]
             variable_class = split_variable_name_class[1]
             if variable_class not in {"Component", "State", "Clock"}:
-                logging.error(
+                logger.error(
                     f"Variables class [ {variable_class} ] unsupported.")
                 raise VariableSpecificationError()
             variable_decls[variable_name] = (variable_class, variable_type)

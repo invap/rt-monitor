@@ -2,17 +2,19 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 from pyformlang.finite_automaton import (
     State,
     Symbol,
     EpsilonNFA, Epsilon
 )
+import logging
+# Create a logger for the graph-based process component
+logger = logging.getLogger(__name__)
+
 from rt_monitor.errors.process_errors import (
     ProcessSpecificationError,
     VariableSpecificationError
 )
-
 from rt_monitor.framework.process.process import Process
 
 
@@ -23,7 +25,7 @@ class GraphProcess(Process):
     @staticmethod
     def process_from_toml_dict(process_dict, files_path):
         if "structure" not in process_dict:
-            logging.error(f"Regular expression not found.")
+            logger.error(f"Regular expression not found.")
             raise ProcessSpecificationError()
         nfa = EpsilonNFA()
         # Build dictionaries containing tasks and checkpoints
@@ -34,7 +36,7 @@ class GraphProcess(Process):
         start_node_name = process_dict["structure"]["start"]
         start_node_type = "task" if start_node_name in tasks else "checkpoint" if start_node_name in checkpoints else "invalid"
         if start_node_type == "invalid":  # This should never execute
-            logging.error(f"Process atom [ {start_node_name} ] type error.")
+            logger.error(f"Process atom [ {start_node_name} ] type error.")
             raise ProcessSpecificationError()
         nfa.add_start_state(State(f"{start_node_type}_{start_node_name}_source_state"))
         # Collect all final states (i.e., all the states)
@@ -88,7 +90,7 @@ class GraphProcess(Process):
                 case "checkpoint", "checkpoint":
                     nfa.add_transition(State(f"checkpoint_{src_node_name}_target_state"), Epsilon(), State(f"checkpoint_{trg_node_name}_source_state"))
                 case _: # This should never execute
-                    logging.error(f"Process atom type error.")
+                    logger.error(f"Process atom type error.")
                     raise ProcessSpecificationError()
         # Add all final states
         for state_name in final_states_names:
@@ -98,7 +100,7 @@ class GraphProcess(Process):
         try:
             variables = Process._get_variables_from_properties(properties)
         except VariableSpecificationError:
-            logging.error(f"Variables specification error.")
+            logger.error(f"Variables specification error.")
             raise ProcessSpecificationError()
         else:
             return GraphProcess(dfa, tasks, checkpoints, properties, variables)
