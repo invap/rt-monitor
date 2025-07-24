@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+# Create a logger for the RabbitMQ utility component
 logger = logging.getLogger(__name__)
 
 import pika
