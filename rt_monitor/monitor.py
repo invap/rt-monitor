@@ -11,7 +11,7 @@ import logging
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
-from rt_monitor.analysis_statistics import AnalysisStatistics
+# from rt_monitor.analysis_statistics import AnalysisStatistics
 from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
     ClockError,
@@ -206,7 +206,7 @@ class Monitor(threading.Thread):
                             abort = True
                         else:
                             logger.debug(f"Received event: {decoded_event.serialized()}")
-                            AnalysisStatistics.event()
+                            # AnalysisStatistics.event()
                             # Process event.
                             try:
                                 is_a_valid_report = decoded_event.process_with(self)
@@ -241,8 +241,8 @@ class Monitor(threading.Thread):
             exit(-2)
         logger.info(f"Runtime verification process {reason}.")
         # Log analysis statistics only in normal termination (poison pill received or stop by user)
-        if poison_received or stop:
-            Monitor.log_analysis_statistics()
+        # if poison_received or stop:
+        #     Monitor.log_analysis_statistics()
         # Send poison pill with the log_entries routing_key to the RabbitMQ server
         try:
             publish_message(
@@ -291,7 +291,7 @@ class Monitor(threading.Thread):
                 publish_message(
                     rabbitmq_log_server_connection,
                     'log_entries',
-                    f"Task {task_name} cannot start at timestamp {task_time} [ FAIL ].",
+                    f"Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
@@ -299,7 +299,7 @@ class Monitor(threading.Thread):
             except RabbitMQError:
                 logger.info("Error sending log entry to the RabbitMQ server.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task {task_name} cannot start at timestamp {task_time} [ FAIL ].")
+            logger.debug(f"Sent log entry: Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
             return False
         else:
             # Publish log entry at RabbitMQ server
@@ -307,14 +307,14 @@ class Monitor(threading.Thread):
                 publish_message(
                     rabbitmq_log_server_connection,
                     'log_entries',
-                    f"Task {task_name} started at timestamp {task_time} [ PASSED ].",
+                    f"Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )                )
             except RabbitMQError:
                 logger.info("Error sending log entry to the RabbitMQ server.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task {task_name} started at timestamp {task_time} [ PASSED ].")
+            logger.debug(f"Sent log entry: Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
             task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
                 task_time,
@@ -345,7 +345,7 @@ class Monitor(threading.Thread):
                 publish_message(
                     rabbitmq_log_server_connection,
                     'log_entries',
-                    f"Task {task_name} cannot finish at timestamp {task_time} [ FAIL ].",
+                    f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
@@ -353,7 +353,7 @@ class Monitor(threading.Thread):
             except RabbitMQError:
                 logger.info("Error sending log entry to the RabbitMQ server.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task {task_name} cannot finish at timestamp {task_time} [ FAIL ].")
+            logger.debug(f"Sent log entry: Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
             return False
         else:
             # Publish log entry at RabbitMQ server
@@ -361,7 +361,7 @@ class Monitor(threading.Thread):
                 publish_message(
                     rabbitmq_log_server_connection,
                     'log_entries',
-                    f"Task {task_name} finished at timestamp {task_time} [ PASSED ].",
+                    f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
@@ -369,7 +369,7 @@ class Monitor(threading.Thread):
             except RabbitMQError:
                 logger.info("Error sending log entry to the RabbitMQ server.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task {task_name} finished at timestamp {task_time} [ PASSED ].")
+            logger.debug(f"Sent log entry: Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
@@ -400,7 +400,7 @@ class Monitor(threading.Thread):
                 publish_message(
                     rabbitmq_log_server_connection,
                     'log_entries',
-                    f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ FAIL ].",
+                    f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
@@ -408,7 +408,7 @@ class Monitor(threading.Thread):
             except RabbitMQError:
                 logger.info("Error sending log entry to the RabbitMQ server.")
                 exit(-2)
-            logger.debug(f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ FAIL ].")
+            logger.debug(f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.")
             return False
         else:
             # Publish log entry at RabbitMQ server
@@ -416,7 +416,7 @@ class Monitor(threading.Thread):
                 publish_message(
                     rabbitmq_log_server_connection,
                     'log_entries',
-                    f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ PASSED ].",
+                    f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
@@ -424,7 +424,7 @@ class Monitor(threading.Thread):
             except RabbitMQError:
                 logger.info("Error sending log entry to the RabbitMQ server.")
                 exit(-2)
-            logger.debug(f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ PASSED ].")
+            logger.debug(f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.")
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
             checkpoint_conditions_are_met = self._are_all_properties_true(
                 checkpoint_reached_event.time(),
@@ -543,6 +543,10 @@ class Monitor(threading.Thread):
         except BuildSpecificationError:
             logger.error(f"Error evaluating formula [ {logic_property.name()} ]")
             raise BuildSpecificationError()
+        # TODO: Note that the stop policy is decoupled from the validity of the property, thus True does not
+        #  necessarily mean that the analysis of the property is true itself, but only that the process should not stop.
+        #  This ambiguity between the interpretation of the variable "is_a_valid_report" in lines 212 and 218 and the
+        #  return value of this function should be eliminated in the near future in order to avoid misunderstandings.
         match config.stop:
             case "on_might_fail":
                 return not (evaluation_result == PropertyEvaluator.PropertyEvaluationResult.FAILED or evaluation_result == PropertyEvaluator.PropertyEvaluationResult.MIGHT_FAIL)
@@ -553,92 +557,92 @@ class Monitor(threading.Thread):
             case _:  # This case cannot happen
                 pass
 
-    @staticmethod
-    def log_analysis_statistics():
-        # Publish log entry at RabbitMQ server
-        try:
-            publish_message(
-                rabbitmq_log_server_connection,
-                'log_entries',
-                "--------------- Analysis Statistics ---------------",
-                pika.BasicProperties(
-                    delivery_mode=2  # Persistent message
-                )
-            )
-        except RabbitMQError:
-            logger.info("Error sending log entry to the RabbitMQ server.")
-            exit(-2)
-        logger.debug(f"Sent log entry: --------------- Analysis Statistics ---------------")
-        # Publish log entry at RabbitMQ server
-        try:
-            publish_message(
-                rabbitmq_log_server_connection,
-                'log_entries',
-                f"Processed events: {AnalysisStatistics.events}.",
-                pika.BasicProperties(
-                    delivery_mode=2  # Persistent message
-                )
-            )
-        except RabbitMQError:
-            logger.info("Error sending log entry to the RabbitMQ server.")
-            exit(-2)
-        logger.debug(f"Processed events: {AnalysisStatistics.events}.")
-        # Compute the total number of properties
-        total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
-        # Publish log entry at RabbitMQ server
-        try:
-            publish_message(
-                rabbitmq_log_server_connection,
-                'log_entries',
-                f"Analyzed properties: {total_props}.",
-                pika.BasicProperties(
-                    delivery_mode=2  # Persistent message
-                )
-            )
-        except RabbitMQError:
-            logger.info("Error sending log entry to the RabbitMQ server.")
-            exit(-2)
-        logger.debug(f"Analyzed properties: {total_props}.")
-        if total_props > 0:
-            # Publish log entry at RabbitMQ server
-            try:
-                publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
-                    f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
-                    pika.BasicProperties(
-                        delivery_mode=2  # Persistent message
-                    )
-                )
-            except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
-                exit(-2)
-            logger.debug(f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).")
-            # Publish log entry at RabbitMQ server
-            try:
-                publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
-                    f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
-                    pika.BasicProperties(
-                        delivery_mode=2  # Persistent message
-                    )
-                )
-            except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
-                exit(-2)
-            logger.debug(f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).")
-            # Publish log entry at RabbitMQ server
-            try:
-                publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
-                    f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
-                    pika.BasicProperties(
-                        delivery_mode=2  # Persistent message
-                    )
-                )
-            except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
-                exit(-2)
-            logger.debug(f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).")
+    # @staticmethod
+    # def log_analysis_statistics():
+    #     # Publish log entry at RabbitMQ server
+    #     try:
+    #         publish_message(
+    #             rabbitmq_log_server_connection,
+    #             'log_entries',
+    #             "--------------- Analysis Statistics ---------------",
+    #             pika.BasicProperties(
+    #                 delivery_mode=2  # Persistent message
+    #             )
+    #         )
+    #     except RabbitMQError:
+    #         logger.info("Error sending log entry to the RabbitMQ server.")
+    #         exit(-2)
+    #     logger.debug(f"Sent log entry: --------------- Analysis Statistics ---------------")
+    #     # Publish log entry at RabbitMQ server
+    #     try:
+    #         publish_message(
+    #             rabbitmq_log_server_connection,
+    #             'log_entries',
+    #             f"Processed events: {AnalysisStatistics.events}.",
+    #             pika.BasicProperties(
+    #                 delivery_mode=2  # Persistent message
+    #             )
+    #         )
+    #     except RabbitMQError:
+    #         logger.info("Error sending log entry to the RabbitMQ server.")
+    #         exit(-2)
+    #     logger.debug(f"Processed events: {AnalysisStatistics.events}.")
+    #     # Compute the total number of properties
+    #     total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
+    #     # Publish log entry at RabbitMQ server
+    #     try:
+    #         publish_message(
+    #             rabbitmq_log_server_connection,
+    #             'log_entries',
+    #             f"Analyzed properties: {total_props}.",
+    #             pika.BasicProperties(
+    #                 delivery_mode=2  # Persistent message
+    #             )
+    #         )
+    #     except RabbitMQError:
+    #         logger.info("Error sending log entry to the RabbitMQ server.")
+    #         exit(-2)
+    #     logger.debug(f"Analyzed properties: {total_props}.")
+    #     if total_props > 0:
+    #         # Publish log entry at RabbitMQ server
+    #         try:
+    #             publish_message(
+    #                 rabbitmq_log_server_connection,
+    #                 'log_entries',
+    #                 f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
+    #                 pika.BasicProperties(
+    #                     delivery_mode=2  # Persistent message
+    #                 )
+    #             )
+    #         except RabbitMQError:
+    #             logger.info("Error sending log entry to the RabbitMQ server.")
+    #             exit(-2)
+    #         logger.debug(f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).")
+    #         # Publish log entry at RabbitMQ server
+    #         try:
+    #             publish_message(
+    #                 rabbitmq_log_server_connection,
+    #                 'log_entries',
+    #                 f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
+    #                 pika.BasicProperties(
+    #                     delivery_mode=2  # Persistent message
+    #                 )
+    #             )
+    #         except RabbitMQError:
+    #             logger.info("Error sending log entry to the RabbitMQ server.")
+    #             exit(-2)
+    #         logger.debug(f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).")
+    #         # Publish log entry at RabbitMQ server
+    #         try:
+    #             publish_message(
+    #                 rabbitmq_log_server_connection,
+    #                 'log_entries',
+    #                 f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
+    #                 pika.BasicProperties(
+    #                     delivery_mode=2  # Persistent message
+    #                 )
+    #             )
+    #         except RabbitMQError:
+    #             logger.info("Error sending log entry to the RabbitMQ server.")
+    #             exit(-2)
+    #         logger.debug(f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).")
