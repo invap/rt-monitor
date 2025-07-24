@@ -8,17 +8,12 @@ class FrameworkError(Exception):
         super().__init__()
 
 
-class EventLogListError(Exception):
+class EventReportError(Exception):
     def __init__(self):
         super().__init__()
 
 
 class UndeclaredComponentVariableError(Exception):
-    def __init__(self):
-        super().__init__()
-
-
-class MonitorConstructionError(Exception):
     def __init__(self):
         super().__init__()
 

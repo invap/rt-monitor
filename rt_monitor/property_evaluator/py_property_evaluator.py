@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+import time
+import pika
 import numpy as np
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
@@ -12,35 +14,60 @@ from rt_monitor.errors.evaluator_errors import (
     UnboundVariablesError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
+from rt_monitor.monitor import AnalysisStatistics
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
+from rt_monitor.rabbitmq_server_connections import rabbitmq_log_server_connection
 
 
 class PyPropertyEvaluator(PropertyEvaluator):
-    def __init__(self, components, process_state, execution_state, timed_state):
-        super().__init__(components, process_state, execution_state, timed_state)
+    def __init__(self, components, execution_state, timed_state):
+        super().__init__(components, execution_state, timed_state)
 
     # Raises: EvaluationError()
     def eval(self, now, prop):
-        logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
+        initial_build_time = time.time()
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
             logging.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
+        end_build_time = time.time()
         locs = {}
         # The formula is checked to be either true or false
+        initial_analysis_time = time.time()
         exec(spec, globals(), locs)
         result = locs['result']
+        end_analysis_time = time.time()
         match result:
             case True:
                 # If the formula is true, then the prop of interest passed.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
+                # Publish log entry at RabbitMQ server
+                rabbitmq_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_log_server_connection.exchange,
+                    routing_key='log_entry',
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    properties=pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.passed()
             case False:
                 # If the formula is false, then the prop of interest failed.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
+                # Publish log entry at RabbitMQ server
+                rabbitmq_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_log_server_connection.exchange,
+                    routing_key='log_entry',
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    properties=pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.failed()
         if result == False:
-            # Output counterexample as python program
+            # Output counterexample as a python program
             spec_filename = prop.name() + "@" + str(now) + ".py"
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)

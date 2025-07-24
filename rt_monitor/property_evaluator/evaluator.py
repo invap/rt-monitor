@@ -11,10 +11,10 @@ from rt_monitor.property_evaluator.sympy_property_evaluator import SymPyProperty
 
 
 class Evaluator:
-    def __init__(self, components, process_state, execution_state, timed_state):
-        self._smt2_evaluator = SMT2PropertyEvaluator(components, process_state, execution_state, timed_state)
-        self._py_evaluator = PyPropertyEvaluator(components, process_state, execution_state, timed_state)
-        self._sympy_evaluator = SymPyPropertyEvaluator(components, process_state, execution_state, timed_state)
+    def __init__(self, components, execution_state, timed_state):
+        self._smt2_evaluator = SMT2PropertyEvaluator(components, execution_state, timed_state)
+        self._py_evaluator = PyPropertyEvaluator(components, execution_state, timed_state)
+        self._sympy_evaluator = SymPyPropertyEvaluator(components, execution_state, timed_state)
 
     # Raises: EvaluationError()
     def eval(self, now, prop):

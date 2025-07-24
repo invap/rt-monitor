@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+import time
+import pika
 import numpy as np
 from z3 import z3
 
@@ -13,37 +15,72 @@ from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
+from rt_monitor.monitor import AnalysisStatistics
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
+from rt_monitor.rabbitmq_server_connections import rabbitmq_log_server_connection
 
 
 class SMT2PropertyEvaluator(PropertyEvaluator):
-    def __init__(self, components, process_state, execution_state, timed_state):
-        super().__init__(components, process_state, execution_state, timed_state)
+    def __init__(self, components, execution_state, timed_state):
+        super().__init__(components, execution_state, timed_state)
 
     # Raises: EvaluationError()
     def eval(self, now, prop):
-        logging.log(LoggingLevel.ANALYSIS, f"Checking property {prop.name()}...")
+        initial_build_time = time.time()
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
             logging.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
+        end_build_time = time.time()
         filename = prop.name()
+        initial_analysis_time = time.time()
         temp_solver = z3.Solver()
         temp_solver.from_string(spec)
         # The negation of the formula is checked for satisfiability
         result = temp_solver.check()
+        end_analysis_time = time.time()
         match result:
             case z3.unsat:
                 # If the negation of the formula is unsatisfiable, then the prop_dict of interest passed.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} PASSED")
+                # Publish log entry at RabbitMQ server
+                rabbitmq_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_log_server_connection.exchange,
+                    routing_key='log_entry',
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    properties=pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.passed()
             case z3.sat:
                 # If the negation of the formula is satisfiable, then the prop_dict of interest failed.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} FAILED")
+                # Publish log entry at RabbitMQ server
+                rabbitmq_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_log_server_connection.exchange,
+                    routing_key='log_entry',
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    properties=pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.failed()
             case z3.unknown:
                 # If the negation of the formula is unknown, then the prop_dict of interest is not guarantied to pass.
-                logging.log(LoggingLevel.ANALYSIS, f"Property {prop.name()} MIGHT FAIL")
+                # Publish log entry at RabbitMQ server
+                rabbitmq_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_log_server_connection.exchange,
+                    routing_key='log_entry',
+                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: [ MIGHT FAIL ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                    properties=pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ MIGHT FAIL ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                AnalysisStatistics.might_fail()
         if result == z3.sat or result == z3.unknown:
             # Output counterexample as smt2 specification
             spec_filename = filename + "@" + str(now) + ".smt2"
@@ -51,7 +88,10 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
             spec_file.write(spec)
             spec_file.close()
             logging.info(f"Specification dumped: [ {spec_filename} ]")
-            return PropertyEvaluator.PropertyEvaluationResult.FAILED
+            if result == z3.sat:
+                return PropertyEvaluator.PropertyEvaluationResult.FAILED
+            else:
+                return PropertyEvaluator.PropertyEvaluationResult.MIGHT_FAIL
         else:
             return PropertyEvaluator.PropertyEvaluationResult.PASSED
 

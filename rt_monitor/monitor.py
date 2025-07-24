@@ -2,13 +2,15 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import csv
 import logging
 import re
 import threading
-
+import time
+import pika
 from pyformlang.finite_automaton import Symbol
 
+from rt_monitor.analysis_statistics import AnalysisStatistics
+from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
     ClockError,
     UndeclaredClockError,
@@ -27,6 +29,21 @@ from rt_monitor.errors.monitor_errors import (
     ComponentDoesNotExistError,
     ComponentError
 )
+from rt_monitor.rabbitmq_server_configs import (
+    rabbitmq_server_config,
+    rabbitmq_event_exchange_config,
+    rabbitmq_log_exchange_config
+)
+from rt_monitor.rabbitmq_server_connections import rabbitmq_event_server_connection, rabbitmq_log_server_connection
+from rt_monitor.rabbitmq_utility import (
+    RabbitMQError,
+    get_message,
+    ack_message,
+    publish_message,
+    connect_to_server,
+    connect_to_channel_exchange,
+    declare_queue
+)
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.framework.clock import Clock
 from rt_monitor.reporting.event_decoder import EventDecoder
@@ -35,27 +52,18 @@ from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
-class Monitor(threading.Thread):
+# Errors:
+# -2: RabbitMQ server setup error
 
-    def __init__(self, framework, reports_map):
+class Monitor(threading.Thread):
+    def __init__(self, framework, signal_flags):
         super().__init__()
         # Analysis framework
         self._framework = framework
-        self._current_state = self._framework.process().dfa().start_state
-        # Event reports map
-        self._reports_map = reports_map
-        # Events for controlling the execution of the monitor (TBS by set_events)
-        self._pause_event = None
-        self._has_paused_event = None
-        self._stop_event = None
-        self._has_stopped_event = None
-        # Variables for stats
-        self._amount_of_events_to_verify = len(reports_map["main"].readlines())
-        # Returns the pointer to the beginning because readlines() moves the pointer to the end.
-        reports_map["main"].seek(0)
-        self._amount_of_processed_events = 0
+        # Signaling flags
+        self._signal_flags = signal_flags
         # State
-        self._process_state = set()
+        self._current_state = None
         self._execution_state = {}
         self._timed_state = {}
         # Build the state dictionary discarding the variable class
@@ -65,13 +73,13 @@ class Monitor(threading.Thread):
             match self._framework.process().variables()[variable][0]:
                 case "State":
                     if "Array" in self._framework.process().variables()[variable][1]:
-                        # Array data is stored as a dictionary whose key are the position of in the array.
+                        # Array data is stored as a dictionary whose keys are the position of in the array.
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], {})
                     else:
                         self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue())
                 case "Component":
                     # There is nothing to do here; the existence of the variables mentioned in the process in any of
-                    # the declared components is checked at the momento of creation of the framework.
+                    # the declared components is checked at the moment of the creation of the framework.
                     pass
                 case "Clock":
                     self._timed_state[variable] = (
@@ -84,106 +92,189 @@ class Monitor(threading.Thread):
         # Build formula evaluator
         self._evaluator = Evaluator(
             self._framework.components(),
-            self._process_state,
             self._execution_state,
             self._timed_state
         )
 
-    def get_event_count(self):
-        return [self._amount_of_events_to_verify, self._amount_of_processed_events]
-
-    def set_events(self, pause_event, has_pause_event, stop_event, has_stoped_event):
-        self._pause_event = pause_event
-        self._has_paused_event = has_pause_event
-        self._stop_event = stop_event
-        self._has_stopped_event = has_stoped_event
-
-    def stop_components(self):
-        self._framework.stop_components()
-
-    # Raises: AbortRun()
+    # Raises:
     def run(self):
-        MAIN_REPORT = "main"
-        ERROR_EXCEPTIONS = (
+        EXCEPTIONS = (
             BuildSpecificationError,
             UndeclaredVariableError,
             ClockError,
-            UndeclaredClockError
-        )
-        CRITICAL_EXCEPTIONS = (
+            UndeclaredClockError,
             TaskDoesNotExistError,
             CheckpointDoesNotExistError,
             ComponentDoesNotExistError,
             ComponentError
         )
-        is_a_valid_report = True
+
+        last_message_time = time.time()
+        # Control variables
+        poison_received = False
+        stop = False
         abort = False
-        csv_reader = csv.reader(self._reports_map[MAIN_REPORT])
-        for line in csv_reader:
-            # Decode next event.
-            try:
-                decoded_event = EventDecoder.decode(line)
-            except InvalidEvent as e:
-                logging.critical(f"Invalid event [ {e.event().serialized()} ].")
+        # Set up the connection to the RabbitMQ connection to server
+        try:
+            connection = connect_to_server(rabbitmq_server_config)
+        except RabbitMQError:
+            logging.critical(f"Error setting up the connection to the RabbitMQ server.")
+            exit(-2)
+        # Set up the RabbitMQ channel and exchange for events with the RabbitMQ server
+        try:
+            event_channel = connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_event_exchange_config, connection)
+        except RabbitMQError:
+            logging.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
+            exit(-2)
+        # Set up the RabbitMQ queue and routing key for events with the RabbitMQ server
+        try:
+            event_queue_name = declare_queue(rabbitmq_server_config, rabbitmq_event_exchange_config, event_channel, 'events')
+        except RabbitMQError:
+            logging.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
+            exit(-2)
+        # Start getting events from the RabbitMQ server
+        logging.info(f"Start getting events from queue {event_queue_name} - exchange {rabbitmq_event_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Set up connection for events with the RabbitMQ server
+        rabbitmq_event_server_connection.connection = connection
+        rabbitmq_event_server_connection.channel = event_channel
+        rabbitmq_event_server_connection.exchange = rabbitmq_event_exchange_config.exchange
+        rabbitmq_event_server_connection.queue_name = event_queue_name
+        # Set up the RabbitMQ channel and exchange for logging with the RabbitMQ server
+        try:
+            log_channel = connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_log_exchange_config, connection)
+        except RabbitMQError:
+            logging.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
+            exit(-2)
+        # Start sending log entries to the RabbitMQ server with timeout handling for message reception
+        logging.info(f"Start sending log entries to the exchange {rabbitmq_log_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Set up connection for events with the RabbitMQ server
+        rabbitmq_log_server_connection.connection = connection
+        rabbitmq_log_server_connection.channel = log_channel
+        rabbitmq_log_server_connection.exchange = rabbitmq_log_exchange_config.exchange
+        # Initialize process state for the analysis
+        self._current_state = self._framework.process().dfa().start_state
+        while not poison_received and not stop and not abort:
+            # Handle SIGINT
+            if self._signal_flags['stop']:
+                logging.info("SIGINT received. Stopping the event acquisition process.")
+                stop = True
+            # Handle SIGTSTP
+            if self._signal_flags['pause']:
+                logging.info("SIGTSTP received. Pausing the event acquisition process.")
+                while self._signal_flags['pause'] and not self._signal_flags['stop']:
+                    time.sleep(1)  # Efficiently wait for signals
+                if self._signal_flags['stop']:
+                    logging.info("SIGINT received. Stopping the event acquisition process.")
+                    stop = True
+                if not self._signal_flags['pause']:
+                    logging.info("SIGTSTP received. Resuming the event acquisition process.")
+            # Timeout handling for message reception
+            if 0 < config.timeout < (time.time() - last_message_time):
+                logging.info(f"No event received for {config.timeout} seconds. Timeout reached.")
                 abort = True
-                break
-            else:
-                logging.info(f"Processing: {decoded_event.serialized()}")
-                mark = decoded_event.time()
-                # Process the events of all self-logging components until time mark of the next event.
-                components = [c for c in self._reports_map if c != "main"]
-                for component in components:
-                    # Too many messages on the log
-                    # logging.info(f"Processing log for self-logging component: {component}")
-                    self._framework.components()[component].process_log(self._reports_map[component], mark)
-                # Process main event.
+            # Process event only if temination has not been decided
+            if not stop and not abort:
+                # Get message from RabbitMQ
                 try:
-                    is_a_valid_report = decoded_event.process_with(self)
-                except ERROR_EXCEPTIONS as e:
-                    logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
-                    abort = True
-                    break
-                except CRITICAL_EXCEPTIONS as e:
-                    logging.critical(f"Event [ {decoded_event.serialized()} ] produced an error: {e}.")
-                    abort = True
-                    break
-                else:
-                    # Thread control.
-                    if not self._pause_event.is_set():
-                        # Notifies that the analysis has gracefully paused.
-                        self._has_paused_event.clear()
-                        self._pause_event.wait()
-                        self._has_paused_event.set()
-                    if not self._stop_event.is_set():
-                        # Notifies that the analysis has gracefully stopped.
-                        self._has_stopped_event.clear()
-                        break
-                    # There was no exception in processing the event.
-                    self._amount_of_processed_events = self._amount_of_processed_events + 1
-                    # Action if the event cause the verification to fail.
-                    if not is_a_valid_report:
-                        logging.info(
-                            f"The following event caused the verification to fail: "
-                            f"[ {decoded_event.serialized()} ]"
-                        )
-                        break
-        self._framework.stop_components()
-        # Log the result of when the verification finishes.
-        if abort:
-            logging.critical(f"Runtime verification process ABORTED.")
+                    method, properties, body = get_message(rabbitmq_event_server_connection)
+                except RabbitMQError:
+                    logging.critical(f"Error getting message from RabbitMQ server.")
+                    exit(-2)
+                if method:  # Message exists
+                    # ACK the message from RabbitMQ
+                    try:
+                        ack_message(rabbitmq_event_server_connection, method.delivery_tag)
+                    except RabbitMQError:
+                        logging.critical(f"Error acknowledging a message to the RabbitMQ event server.")
+                        exit(-2)
+                    # Process message
+                    if properties.headers and properties.headers.get('termination'):
+                        # Poison pill received
+                        logging.info(f"Poison pill received with the events routing_key from the RabbitMQ server.")
+                        # Stop getting events from the RabbitMQ server
+                        logging.info(f"Stop getting events from the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+                        poison_received = True
+                    else:
+                        last_message_time = time.time()
+                        # Decode the next event.
+                        event = body.decode().rstrip('\n\r')
+                        try:
+                            decoded_event = EventDecoder.decode(event.split(","))
+                        except InvalidEvent as f:
+                            logging.critical(f"Invalid event [ {f.event().serialized()} ].")
+                            abort = True
+                        else:
+                            logging.log(LoggingLevel.DEBUG, f"Received event: {decoded_event.serialized()}")
+                            AnalysisStatistics.event()
+                            # Process event.
+                            try:
+                                is_a_valid_report = decoded_event.process_with(self)
+                            except EXCEPTIONS as f:
+                                logging.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
+                                abort = True
+                            else:
+                                # Action if the event caused the verification to fail.
+                                if not is_a_valid_report:
+                                    poison_received = True
+        # Logging the reason for stoping the verification process to the RabbitMQ server
+        if poison_received:
+            reason = "COMPLETED"
+        elif stop:
+            reason = "STOPPED"
+        elif abort:
+            reason = "ABORTED"
         else:
-            if self._stop_event.is_set():
-                if not is_a_valid_report:
-                    logging.log(LoggingLevel.ANALYSIS, "Verification completed UNSUCCESSFULLY.")
-                else:
-                    logging.log(LoggingLevel.ANALYSIS, "Verification completed SUCCESSFULLY.")
+            reason = "STOPPED by an unknown reason"
+        # Publish log entry at RabbitMQ server
+        try:
+            publish_message(
+                rabbitmq_log_server_connection,
+                'log_entries',
+                f"Runtime verification process {reason}.",
+                pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
+            )
+        except RabbitMQError:
+            logging.info("Error sending log entry to the RabbitMQ server.")
+            exit(-2)
+        logging.info(f"Runtime verification process {reason}.")
+        # Log analysis statistics only in normal termination (poison pill received or stop by user)
+        if poison_received or stop:
+            Monitor.log_analysis_statistics()
+        # Send poison pill with the log_entries routing_key to the RabbitMQ server
+        try:
+            publish_message(
+                rabbitmq_log_server_connection,
+                'log_entries',
+                '',
+                pika.BasicProperties(
+                    delivery_mode=2,
+                    headers={'termination': True}
+                )
+            )
+        except RabbitMQError:
+            logging.info("Error sending with the log_entries routing_key to the RabbitMQ server.")
+            exit(-2)
+        else:
+            logging.info("Poison pill sent with the log_entries routing_key to the RabbitMQ server.")
+        # Stop publishing log entries to the RabbitMQ server
+        logging.info(f"Stop publishing log entries to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Close connection to the RabbitMQ logging server if it exists
+        if connection and connection.is_open:
+            try:
+                connection.close()
+                logging.info(f"Connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} closed.")
+            except Exception:
+                logging.error(f"Error closing the logging connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
+        task_time = task_started_event.time()
         if task_name not in self._framework.process().tasks():
-            logging.error(f"Task [ {task_name} ] does not exist.")
+            logging.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
         # A task named task_name can start only if the DFA of the process of the analysis framework
         # (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
@@ -191,26 +282,53 @@ class Monitor(threading.Thread):
         # the list of destinations from the current state through transitions labelled with that symbol
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"task_started_{task_name}"))
-        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"Task {task_name} cannot start at timestamp {task_time} [ FAIL ].",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"Sent log entry: Task {task_name} cannot start at timestamp {task_time} [ FAIL ].")
             return False
         else:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"Task {task_name} started at timestamp {task_time} [ PASSED ].",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"Sent log entry: Task {task_name} started at timestamp {task_time} [ PASSED ].")
             task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
-                task_started_event.time(),
+                task_time,
                 task_specification.preconditions(),
             )
             self._current_state = destinations[0]
             return preconditions_are_met
-        #
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
+        task_time = task_finished_event.time()
         if task_name not in self._framework.process().tasks():
-            logging.error(f"Task [ {task_name} ] does not exist.")
+            logging.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
         # A task named task_name can finish only if the DFA of the process of the analysis framework
         # (i.e., self._framework.process().dfa()) has an outgoing transition from the current state
@@ -218,11 +336,39 @@ class Monitor(threading.Thread):
         # the list of destinations from the current state through transitions labelled with that symbol
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"task_finished_{task_name}"))
-        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # As the automaton is deterministic, the length of destination should be either 0 or 1.
         assert(len(destinations) <= 1)
         if destinations == []:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"Task {task_name} cannot finish at timestamp {task_time} [ FAIL ].",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"Sent log entry: Task {task_name} cannot finish at timestamp {task_time} [ FAIL ].")
             return False
         else:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"Task {task_name} finished at timestamp {task_time} [ PASSED ].",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"Sent log entry: Task {task_name} finished at timestamp {task_time} [ PASSED ].")
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
@@ -235,6 +381,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
+        checkpoint_time = checkpoint_reached_event.time()
         if checkpoint_name not in self._framework.process().checkpoints():
             logging.error(f"Checkpoint [ {checkpoint_name} ] does not exist.")
             raise CheckpointDoesNotExistError()
@@ -244,11 +391,39 @@ class Monitor(threading.Thread):
         # whether the list of destinations from the current state through transitions labelled with that symbol
         # is not empty.
         destinations = self._framework.process().dfa()(self._current_state, Symbol(f"checkpoint_reached_{checkpoint_name}"))
-        # As the automaton is deterministic the lenght of destination should be either 0 or 1.
+        # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ FAIL ].",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"Checkpoint {checkpoint_name} is unreachable at timestamp {checkpoint_time} [ FAIL ].")
             return False
         else:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ PASSED ].",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"Checkpoint {checkpoint_name} reached at timestamp {checkpoint_time} [ PASSED ].")
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
             checkpoint_conditions_are_met = self._are_all_properties_true(
                 checkpoint_reached_event.time(),
@@ -289,9 +464,7 @@ class Monitor(threading.Thread):
         try:
             component.process_high_level_call(component_data)
         except FunctionNotImplementedError as e:
-            logging.error(
-                f"Function [ {e.function_name()} ] is not implemented for component [ {component_name} ]."
-            )
+            logging.error(f"Function [ {e.function_name()} ] is not implemented for component [ {component_name} ].")
             raise ComponentError()
         return True
 
@@ -369,5 +542,102 @@ class Monitor(threading.Thread):
         except BuildSpecificationError:
             logging.error(f"Error evaluating formula [ {logic_property.name()} ]")
             raise BuildSpecificationError()
-        return evaluation_result == PropertyEvaluator.PropertyEvaluationResult.PASSED
+        match config.stop:
+            case "on_might_fail":
+                return not (evaluation_result == PropertyEvaluator.PropertyEvaluationResult.FAILED or evaluation_result == PropertyEvaluator.PropertyEvaluationResult.MIGHT_FAIL)
+            case "on_fail":
+                return not evaluation_result == PropertyEvaluator.PropertyEvaluationResult.FAILED
+            case "dont":
+                return True
+            case _:  # This case cannot happen
+                pass
 
+    @staticmethod
+    def log_analysis_statistics():
+        # Publish log entry at RabbitMQ server
+        try:
+            publish_message(
+                rabbitmq_log_server_connection,
+                'log_entries',
+                "--------------- Analysis Statistics ---------------",
+                pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
+            )
+        except RabbitMQError:
+            logging.info("Error sending log entry to the RabbitMQ server.")
+            exit(-2)
+        logging.debug(f"Sent log entry: --------------- Analysis Statistics ---------------")
+        # Publish log entry at RabbitMQ server
+        try:
+            publish_message(
+                rabbitmq_log_server_connection,
+                'log_entries',
+                f"Processed events: {AnalysisStatistics.events}.",
+                pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
+            )
+        except RabbitMQError:
+            logging.info("Error sending log entry to the RabbitMQ server.")
+            exit(-2)
+        logging.debug(f"Processed events: {AnalysisStatistics.events}.")
+        # Compute the total number of properties
+        total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
+        # Publish log entry at RabbitMQ server
+        try:
+            publish_message(
+                rabbitmq_log_server_connection,
+                'log_entries',
+                f"Analyzed properties: {total_props}.",
+                pika.BasicProperties(
+                    delivery_mode=2  # Persistent message
+                )
+            )
+        except RabbitMQError:
+            logging.info("Error sending log entry to the RabbitMQ server.")
+            exit(-2)
+        logging.debug(f"Analyzed properties: {total_props}.")
+        if total_props > 0:
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).")
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).")
+            # Publish log entry at RabbitMQ server
+            try:
+                publish_message(
+                    rabbitmq_log_server_connection,
+                    'log_entries',
+                    f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
+                    pika.BasicProperties(
+                        delivery_mode=2  # Persistent message
+                    )
+                )
+            except RabbitMQError:
+                logging.info("Error sending log entry to the RabbitMQ server.")
+                exit(-2)
+            logging.debug(f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).")

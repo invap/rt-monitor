@@ -15,8 +15,4 @@ class Framework:
     def process(self):
         return self._process
 
-    def stop_components(self):
-        for component_name in self._components:
-            self._components[component_name].stop()
-
 

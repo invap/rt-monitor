@@ -2,9 +2,7 @@
 
 This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given:
 1. an analysis framework specification (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format)
-2. an [event reports map file](#event-reports-map-file) for a description of the file format) containing: 
-	- a reference to the **main** event report file, and 
-	- references to the event report files of the self-loggable components declared in the analysis framework specification (see Section [Self-loggables software components](#self-loggables-software-components) for a discussion on how these event report files are processed)
+2. an [event report file](#event-report-file)
 
 The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading:
  
@@ -33,9 +31,8 @@ rt-monitor/
 │   ├── monitor.py                # Implementation of the analysis framework
 │   ├── monitor_builder.py
 │   ├── novalue.py
-│   └── rt-monitor-sh.py          # Entry point of the command line interface of the RR
+│   └── rt_monitor_sh.py          # Entry point of the command line interface of the RR
 ├── README_images                 # Images for the read me file
-│   ├── ...                       # ...
 │   └── ...                       # ...
 ├── COPYING                       # Licence of the project 
 ├── pyproject.toml                # Configuration file (optional, recommended)
@@ -138,7 +135,7 @@ This section provide instructions for setting up the project using [Poetry](http
 [tool.poetry]
 name = "rt-monitor"
 version = "0.1.0"
-description = "This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given: 1. an analysis framework specification, and 2. an event reports map file containing: a. a reference to the **main** event report file, and b. references to the event report files of the self-loggable components declared in the analysis framework specification."
+description = "This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given: 1. an analysis framework specification, and 2. an event report file."
 authors = ["Carlos Gustavo Lopez Pombo <clpombo@gmail.com>"]
 readme = "README.md"
 license = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
@@ -345,12 +342,12 @@ Each property is declared to be of a certain type which requires a purpose speci
 
 
 ## Event language for monitoring
-From the six different types of events, `timed_event`, `state_event`, `process_event`, `component_event`, `self_loggable_component_log_init_event`, and `self_loggable_component_event`, only four are relevant to the monitoring process because `self_loggable_component_log_init_event` and `self_loggable_component_event` are only used by the RR for recording the event reports associated to self-loggable components. The remaining four are:
+From the six different types of events, `timed_event`, `state_event`, `process_event`, `component_event`.
 
 - `timed_event`: the event is expected to have the format `[timestamp],timed_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the timed event reported and has the shape `[clock action],[clock variable]`, where `[clock action]` is in the set {`clock_start`, `clock_pause`, `clock_resume`, `clock_reset`} and `[clock variable]` is the name of a free clock variable occurring in any property of the SSP (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties"),
 - `state_event`: the event is expected to have the format `[timestamp],state_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the state event reported and has the shape `variable_value_assigned,[variable name],[value]` where `[variable name]` is the name of a free state variable occurring in any property of the structured sequential process (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties") for details on the language for writing properties of structured sequential processes),
 - `process_event`: the event is expected to have the format `[timestamp],process_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the process event reported and has the shape `task_started,[name]`, `task_finished,[name]` or `checkpoint_reached,[name]`, where `[name]` is a unique identifier corresponding to a task o checkpoint, respectively, in the structured sequential process (see Section [Structured Sequential Process](#structured-sequential-process "Structured Sequential Process") for details on the language for declaring structured sequential processes),
-- `component_event`: the event is expected to have the format `[timestamp],component_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the component event reported and has the shape `[component name],[function name],[parameter list],[result]`, where `[component name]` is a unique identifier corresponding to a component declared in the specification of the analysis framework (see Section [Specification language for describing the analysis framework](https://github.com/invap/rt-monitor/blob/main/README.md#specification-language-for-describing-the-analysis-framework "Specification language for describing the analysis framework") for details on the language for specifying the analysis framework), `[function name]` is the name of a function implemented by the component, `[parameter list]` is the list of parameters required by the function `[function name]`, separated by commas, and `[result]` is the value returned by the invocation, provided that the function returns a value, see for example the entries resulting from the code fragment from [Line 70](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L70) to [Line 76](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L76) of the function [`main`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L17), in the file [`main.c`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c), where the invocation of function `sample` is followed by a code fragment reporting a component event:
+- `component_event`: the event is expected to have the format `[timestamp],component_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the component event reported and has the shape `[component name],[function name],[parameter list]`, where `[component name]` is a unique identifier corresponding to a component declared in the specification of the analysis framework (see Section [Specification language for describing the analysis framework](https://github.com/invap/rt-monitor/blob/main/README.md#specification-language-for-describing-the-analysis-framework "Specification language for describing the analysis framework") for details on the language for specifying the analysis framework), `[function name]` is the name of a function implemented by the component, `[parameter list]` is the list of parameters required by the function `[function name]`, separated by commas, see for example the entries resulting from the code fragment from [Line 70](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L70) to [Line 76](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L76) of the function [`main`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L17), in the file [`main.c`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c), where the invocation of function `sample` is followed by a code fragment reporting a component event:
 ```c
 value = sample ();
 // [ INSTRUMENTACION: Component event. ]
@@ -360,8 +357,6 @@ report(component_event,str);
 resume(&reporting_clk);
 //
 ```
-
-As we will discuss in Section [Self-logging software components](#self-logging-software-components) there is no predefined format for the event report produced by self-logging components and for that reeason, the are forzed to provide its own implemetation of the functionality for processing their event reports.
 
 
 ## Specification language for describing the analysis framework
@@ -430,16 +425,6 @@ In the first place, the RM constructs a representation of SSP that stores preced
 ## Monitoring components
 
 ---
-
-Write.
-
----
-
-### Self-logging software components
-
----
-
-Remember to say that if the toml file providing the event logs list includes a certain component (for example, the adc in Example app) the event log file referenced in the toml file has to have the same component name as the component declared in the analysis framework specification
 
 Write.
 
