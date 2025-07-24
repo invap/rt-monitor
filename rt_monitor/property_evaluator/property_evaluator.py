@@ -2,8 +2,10 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 from enum import Enum
+import logging
+# Create a logger for the property evaluator component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.evaluator_errors import UnboundVariablesError
 
@@ -50,7 +52,7 @@ class PropertyEvaluator:
                 declarations.append(self._build_declaration(variable, property.variables()[variable][1]))
                 variables.remove(variable)
         if len(variables) != 0:
-            logging.error(f"Variables [ {variables} ] are not bound.")
+            logger.error(f"Variables [ {variables} ] are not bound.")
             raise UnboundVariablesError()
         return declarations
 
@@ -78,7 +80,7 @@ class PropertyEvaluator:
                 assumptions.append(self._build_time_assumption(variable, self._timed_state[variable][1], now))
                 variables.remove(variable)
         if len(variables) != 0:
-            logging.error(f"Variables [ {variables} ] are not bound.")
+            logger.error(f"Variables [ {variables} ] are not bound.")
             raise UnboundVariablesError()
         return assumptions
 

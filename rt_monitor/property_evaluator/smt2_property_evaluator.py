@@ -2,11 +2,13 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 import time
 import pika
 import numpy as np
 from z3 import z3
+import logging
+# Create a logger for the smt2 property evaluator component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
@@ -31,7 +33,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
-            logging.error(f"Building specification for property [ {prop.name()} ] error.")
+            logger.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
         end_build_time = time.time()
         filename = prop.name()
@@ -53,7 +55,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
-                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.passed()
             case z3.sat:
                 # If the negation of the formula is satisfiable, then the prop_dict of interest failed.
@@ -66,7 +68,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
-                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.failed()
             case z3.unknown:
                 # If the negation of the formula is unknown, then the prop_dict of interest is not guarantied to pass.
@@ -79,7 +81,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
-                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ MIGHT FAIL ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ MIGHT FAIL ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.might_fail()
         if result == z3.sat or result == z3.unknown:
             # Output counterexample as smt2 specification
@@ -87,7 +89,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)
             spec_file.close()
-            logging.info(f"Specification dumped: [ {spec_filename} ]")
+            logger.info(f"Specification dumped: [ {spec_filename} ]")
             if result == z3.sat:
                 return PropertyEvaluator.PropertyEvaluationResult.FAILED
             else:
@@ -165,7 +167,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
     def _build_time_assumption(variable, clock, now):
         # Check whether the clock has been started.
         if not clock.has_started():
-            logging.error(f"Clock [ {clock.name()} ] was not started.")
+            logger.error(f"Clock [ {clock.name()} ] was not started.")
             raise ClockWasNotStartedError()
         # The clock has been started.
         assumption = f"(assert (= {variable} {clock.get_time(now)}))\n"

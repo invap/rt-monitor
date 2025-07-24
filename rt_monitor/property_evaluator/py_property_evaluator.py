@@ -2,10 +2,12 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-import logging
 import time
 import pika
 import numpy as np
+import logging
+# Create a logger for the py property evaluator component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
@@ -30,7 +32,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
-            logging.error(f"Building specification for property [ {prop.name()} ] error.")
+            logger.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
         end_build_time = time.time()
         locs = {}
@@ -51,7 +53,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
-                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ PASSED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.passed()
             case False:
                 # If the formula is false, then the prop of interest failed.
@@ -64,7 +66,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         delivery_mode=2  # Persistent message
                     )
                 )
-                logging.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ FAILED ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
                 AnalysisStatistics.failed()
         if result == False:
             # Output counterexample as a python program
@@ -72,7 +74,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
             spec_file = open(spec_filename, "w")
             spec_file.write(spec)
             spec_file.close()
-            logging.info(f"Specification dumped: [ {spec_filename} ]")
+            logger.info(f"Specification dumped: [ {spec_filename} ]")
             return PropertyEvaluator.PropertyEvaluationResult.FAILED
         else:
             return PropertyEvaluator.PropertyEvaluationResult.PASSED
@@ -126,7 +128,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
     def _build_time_assumption(variable, clock, now):
         # Check whether the clock has been started.
         if not clock.has_started():
-            logging.error(f"Clock [ {clock.name()} ] was not started.")
+            logger.error(f"Clock [ {clock.name()} ] was not started.")
             raise ClockWasNotStartedError()
         # The clock has been started.
         return f"{variable} = {clock.get_time(now)}"

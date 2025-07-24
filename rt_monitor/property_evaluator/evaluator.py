@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import logging
+# Create a logger for the evaluator component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.evaluator_errors import EvaluationError
 from rt_monitor.property_evaluator.py_property_evaluator import PyPropertyEvaluator
@@ -26,5 +28,5 @@ class Evaluator:
             case "sympy":
                 return self._sympy_evaluator.eval(now, prop)
             case _:
-                logging.error(f"Property format [ {prop.format()} ] unknown.")
+                logger.error(f"Property format [ {prop.format()} ] unknown.")
                 raise EvaluationError()
