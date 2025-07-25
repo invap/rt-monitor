@@ -16,7 +16,6 @@ from rt_monitor.errors.evaluator_errors import (
     UnboundVariablesError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
-# from rt_monitor.monitor import AnalysisStatistics
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 from rt_monitor.rabbitmq_utility.rabbitmq_server_connections import rabbitmq_log_server_connection
@@ -54,7 +53,6 @@ class PyPropertyEvaluator(PropertyEvaluator):
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
-                # AnalysisStatistics.passed()
             case False:
                 # If the formula is false, then the prop of interest failed.
                 # Publish log entry at RabbitMQ server
@@ -67,7 +65,6 @@ class PyPropertyEvaluator(PropertyEvaluator):
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
-                # AnalysisStatistics.failed()
         if result == False:
             # Output counterexample as a python program
             spec_filename = prop.name() + "@" + str(now) + ".py"

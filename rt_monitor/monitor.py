@@ -11,7 +11,6 @@ import logging
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
-# from rt_monitor.analysis_statistics import AnalysisStatistics
 from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
     ClockError,
@@ -150,11 +149,14 @@ class Monitor(threading.Thread):
         self._current_state = self._framework.process().dfa().start_state
         # initialize last_message_time for testing timeout
         last_message_time = time.time()
+        start_time_epoch = time.time()
+        number_of_events = 0
         # Control variables
         poison_received = False
+        completed = False
         stop = False
         abort = False
-        while not poison_received and not stop and not abort:
+        while not poison_received and not completed and not stop and not abort:
             # Handle SIGINT
             if self._signal_flags['stop']:
                 logger.info("SIGINT received. Stopping the event acquisition process.")
@@ -171,7 +173,6 @@ class Monitor(threading.Thread):
                     logger.info("SIGTSTP received. Resuming the event acquisition process.")
             # Timeout handling for message reception
             if 0 < config.timeout < (time.time() - last_message_time):
-                logger.info(f"No event received for {config.timeout} seconds. Timeout reached.")
                 abort = True
             # Process event only if temination has not been decided
             if not stop and not abort:
@@ -192,8 +193,6 @@ class Monitor(threading.Thread):
                     if properties.headers and properties.headers.get('termination'):
                         # Poison pill received
                         logger.info(f"Poison pill received with the events routing_key from the RabbitMQ server.")
-                        # Stop getting events from the RabbitMQ server
-                        logger.info(f"Stop getting events from the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                         poison_received = True
                     else:
                         last_message_time = time.time()
@@ -206,7 +205,6 @@ class Monitor(threading.Thread):
                             abort = True
                         else:
                             logger.debug(f"Received event: {decoded_event.serialized()}")
-                            # AnalysisStatistics.event()
                             # Process event.
                             try:
                                 is_a_valid_report = decoded_event.process_with(self)
@@ -214,35 +212,18 @@ class Monitor(threading.Thread):
                                 logger.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
                                 abort = True
                             else:
-                                # Action if the event caused the verification to fail.
+                                # TODO: Note that the stop policy is decoupled from the validity of the property, thus
+                                #  True does not necessarily mean that the analysis of the property is true itself, but
+                                #  only that the process should not stop. This ambiguity between the interpretation of
+                                #  the variable "is_a_valid_report" and the return value of the function
+                                #  _is_property_true should be eliminated in the near future in order to avoid
+                                #  misunderstandings.
                                 if not is_a_valid_report:
-                                    poison_received = True
-        # Logging the reason for stoping the verification process to the RabbitMQ server
-        if poison_received:
-            reason = "COMPLETED"
-        elif stop:
-            reason = "STOPPED"
-        elif abort:
-            reason = "ABORTED"
-        else:
-            reason = "STOPPED by an unknown reason"
-        # Publish log entry at RabbitMQ server
-        try:
-            publish_message(
-                rabbitmq_log_server_connection,
-                'log_entries',
-                f"Runtime verification process {reason}.",
-                pika.BasicProperties(
-                    delivery_mode=2  # Persistent message
-                )
-            )
-        except RabbitMQError:
-            logger.info("Error sending log entry to the RabbitMQ server.")
-            exit(-2)
-        logger.info(f"Runtime verification process {reason}.")
-        # Log analysis statistics only in normal termination (poison pill received or stop by user)
-        # if poison_received or stop:
-        #     Monitor.log_analysis_statistics()
+                                    completed = True
+                                # Only increment number_of_events is it is a valid event (rules out poisson pill)
+                                number_of_events += 1
+        # Stop getting events from the RabbitMQ server
+        logger.info(f"Stop getting events from the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Send poison pill with the log_entries routing_key to the RabbitMQ server
         try:
             publish_message(
@@ -261,13 +242,27 @@ class Monitor(threading.Thread):
             logger.info("Poison pill sent with the log_entries routing_key to the RabbitMQ server.")
         # Stop publishing log entries to the RabbitMQ server
         logger.info(f"Stop publishing log entries to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Logging the reason for stoping the verification process to the RabbitMQ server
+        if poison_received:
+            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, poison pill received.")
+        elif completed:
+            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, applied stop policy.")
+        elif stop:
+            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, SIGINT received.")
+        elif abort:
+            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, message reception timeout reached ({time.time()-last_message_time} secs.).")
+        else:
+            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, unknown reason.")
+        # Log analysis statistics only in normal termination (poison pill received or stop by user)
+        # if poison_received or stop:
+        #     Monitor.log_analysis_statistics()
         # Close connection to the RabbitMQ logging server if it exists
         if connection and connection.is_open:
             try:
                 connection.close()
                 logger.info(f"Connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} closed.")
-            except Exception:
-                logger.error(f"Error closing the logger connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+            except Exception as e:
+                logger.error(f"Error closing connection to RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}: {e}.")
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
@@ -556,93 +551,3 @@ class Monitor(threading.Thread):
                 return True
             case _:  # This case cannot happen
                 pass
-
-    # @staticmethod
-    # def log_analysis_statistics():
-    #     # Publish log entry at RabbitMQ server
-    #     try:
-    #         publish_message(
-    #             rabbitmq_log_server_connection,
-    #             'log_entries',
-    #             "--------------- Analysis Statistics ---------------",
-    #             pika.BasicProperties(
-    #                 delivery_mode=2  # Persistent message
-    #             )
-    #         )
-    #     except RabbitMQError:
-    #         logger.info("Error sending log entry to the RabbitMQ server.")
-    #         exit(-2)
-    #     logger.debug(f"Sent log entry: --------------- Analysis Statistics ---------------")
-    #     # Publish log entry at RabbitMQ server
-    #     try:
-    #         publish_message(
-    #             rabbitmq_log_server_connection,
-    #             'log_entries',
-    #             f"Processed events: {AnalysisStatistics.events}.",
-    #             pika.BasicProperties(
-    #                 delivery_mode=2  # Persistent message
-    #             )
-    #         )
-    #     except RabbitMQError:
-    #         logger.info("Error sending log entry to the RabbitMQ server.")
-    #         exit(-2)
-    #     logger.debug(f"Processed events: {AnalysisStatistics.events}.")
-    #     # Compute the total number of properties
-    #     total_props = AnalysisStatistics.passed_props + AnalysisStatistics.might_fail_props + AnalysisStatistics.failed_props
-    #     # Publish log entry at RabbitMQ server
-    #     try:
-    #         publish_message(
-    #             rabbitmq_log_server_connection,
-    #             'log_entries',
-    #             f"Analyzed properties: {total_props}.",
-    #             pika.BasicProperties(
-    #                 delivery_mode=2  # Persistent message
-    #             )
-    #         )
-    #     except RabbitMQError:
-    #         logger.info("Error sending log entry to the RabbitMQ server.")
-    #         exit(-2)
-    #     logger.debug(f"Analyzed properties: {total_props}.")
-    #     if total_props > 0:
-    #         # Publish log entry at RabbitMQ server
-    #         try:
-    #             publish_message(
-    #                 rabbitmq_log_server_connection,
-    #                 'log_entries',
-    #                 f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).",
-    #                 pika.BasicProperties(
-    #                     delivery_mode=2  # Persistent message
-    #                 )
-    #             )
-    #         except RabbitMQError:
-    #             logger.info("Error sending log entry to the RabbitMQ server.")
-    #             exit(-2)
-    #         logger.debug(f"PASSED properties: {AnalysisStatistics.passed_props} ({AnalysisStatistics.passed_props * 100 / total_props:.2f}%).")
-    #         # Publish log entry at RabbitMQ server
-    #         try:
-    #             publish_message(
-    #                 rabbitmq_log_server_connection,
-    #                 'log_entries',
-    #                 f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).",
-    #                 pika.BasicProperties(
-    #                     delivery_mode=2  # Persistent message
-    #                 )
-    #             )
-    #         except RabbitMQError:
-    #             logger.info("Error sending log entry to the RabbitMQ server.")
-    #             exit(-2)
-    #         logger.debug(f"MIGHT FAIL properties: {AnalysisStatistics.might_fail_props} ({AnalysisStatistics.might_fail_props * 100 / total_props:.2f}%).")
-    #         # Publish log entry at RabbitMQ server
-    #         try:
-    #             publish_message(
-    #                 rabbitmq_log_server_connection,
-    #                 'log_entries',
-    #                 f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).",
-    #                 pika.BasicProperties(
-    #                     delivery_mode=2  # Persistent message
-    #                 )
-    #             )
-    #         except RabbitMQError:
-    #             logger.info("Error sending log entry to the RabbitMQ server.")
-    #             exit(-2)
-    #         logger.debug(f"FAILED properties: {AnalysisStatistics.failed_props} ({AnalysisStatistics.failed_props * 100 / total_props:.2f}%).")

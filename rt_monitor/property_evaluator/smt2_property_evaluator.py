@@ -17,7 +17,6 @@ from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError, EvaluationError
 )
 from rt_monitor.logging_configuration import LoggingLevel
-# from rt_monitor.monitor import AnalysisStatistics
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 from rt_monitor.rabbitmq_utility.rabbitmq_server_connections import rabbitmq_log_server_connection
@@ -56,7 +55,6 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
-                # AnalysisStatistics.passed()
             case z3.sat:
                 # If the negation of the formula is satisfiable, then the prop_dict of interest failed.
                 # Publish log entry at RabbitMQ server
@@ -69,7 +67,6 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
-                # AnalysisStatistics.failed()
             case z3.unknown:
                 # If the negation of the formula is unknown, then the prop_dict of interest is not guarantied to pass.
                 # Publish log entry at RabbitMQ server
@@ -82,7 +79,6 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: [ MIGHT FAIL ] - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
-                # AnalysisStatistics.might_fail()
         if result == z3.sat or result == z3.unknown:
             # Output counterexample as smt2 specification
             spec_filename = filename + "@" + str(now) + ".smt2"

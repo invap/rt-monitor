@@ -8,7 +8,6 @@ import signal
 import threading
 import wx
 
-from rt_monitor.analysis_statistics import AnalysisStatistics
 from rt_monitor.config import config
 from rt_monitor.errors.monitor_errors import FrameworkError
 from rt_monitor.logging_configuration import (
@@ -28,8 +27,6 @@ from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_w
 
 
 def _run_verification(process_thread):
-    # Initialize analysis statistics
-    AnalysisStatistics.init()
     # Starts the monitor thread
     process_thread.start()
     # Waiting for the verification process to finish, either naturally or manually.
@@ -38,6 +35,7 @@ def _run_verification(process_thread):
     # AnalysisStatistics.print()
     # Signal the main loop to exit
     wx.CallAfter(wx.GetApp().ExitMainLoop)
+
 
 # Errors:
 # -1: Framework error
