@@ -18,7 +18,7 @@ from rt_monitor.logging_configuration import (
     configure_logging_level
 )
 from rt_monitor.monitor_builder import MonitorBuilder
-from rt_monitor.rabbitmq_utility.rabbitmq_server_configs import (
+from rt_monitor.rabbitmq_server_configs import (
     rabbitmq_server_config,
     rabbitmq_event_exchange_config,
     rabbitmq_log_exchange_config

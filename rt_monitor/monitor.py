@@ -30,13 +30,8 @@ from rt_monitor.errors.monitor_errors import (
     ComponentDoesNotExistError,
     ComponentError
 )
-from rt_monitor.rabbitmq_utility.rabbitmq_server_configs import (
-    rabbitmq_server_config,
-    rabbitmq_event_exchange_config,
-    rabbitmq_log_exchange_config
-)
-from rt_monitor.rabbitmq_utility.rabbitmq_server_connections import rabbitmq_event_server_connection, rabbitmq_log_server_connection
-from rt_monitor.rabbitmq_utility.rabbitmq_utility import (
+
+from rt_rabbitmq_wrapper.rabbitmq_utility import (
     RabbitMQError,
     get_message,
     ack_message,
@@ -45,6 +40,12 @@ from rt_monitor.rabbitmq_utility.rabbitmq_utility import (
     connect_to_channel_exchange,
     declare_queue
 )
+from rt_monitor.rabbitmq_server_configs import (
+    rabbitmq_server_config,
+    rabbitmq_event_exchange_config,
+    rabbitmq_log_exchange_config
+)
+from rt_monitor.rabbitmq_server_connections import rabbitmq_event_server_connection, rabbitmq_log_server_connection
 from rt_monitor.framework.clock import Clock
 from rt_monitor.reporting.event_decoder import EventDecoder
 from rt_monitor.novalue import NoValue

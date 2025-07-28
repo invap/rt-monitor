@@ -19,7 +19,7 @@ from rt_monitor.errors.evaluator_errors import (
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
-from rt_monitor.rabbitmq_utility.rabbitmq_server_connections import rabbitmq_log_server_connection
+from rt_monitor.rabbitmq_server_connections import rabbitmq_log_server_connection
 
 
 class SMT2PropertyEvaluator(PropertyEvaluator):
