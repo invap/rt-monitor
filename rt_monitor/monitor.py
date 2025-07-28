@@ -263,7 +263,7 @@ class Monitor(threading.Thread):
         # Close connection to the RabbitMQ logging server if it exists
         if connection and connection.is_open:
             try:
-                connection.close()
+                #connection.close()
                 logging.info(f"Connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port} closed.")
             except Exception:
                 logging.error(f"Error closing the logging connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
