@@ -128,7 +128,7 @@ class Monitor(threading.Thread):
         except RabbitMQError:
             logger.critical(f"Error setting up the events channel and exchange at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
             exit(-2)
-        # Set up the RabbitMQ queue and routing key for events with the RabbitMQ server
+        # Set up the RabbitMQ queue for events with the RabbitMQ server
         try:
             event_queue_name = declare_queue(
                 rabbitmq_server_config,
