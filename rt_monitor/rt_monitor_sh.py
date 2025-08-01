@@ -59,7 +59,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh /path/to/spec.toml --event_host=https://myrabbitmq-event.org.ar --event_port=5672 --event_user=my_user --event_password=my_password --event_exchange=event_exchange  --log_host=https://myrabbitmq-log.org.ar --log_port=5672 --log_user=my_other_user --log_password=my_other_password --log_exchange=log_exchange --log_file=output.log --log_level=event --timeout=120 --stop=dont"
+        epilog="Example: python -m rt_monitor.rt_monitor_sh /path/to/spec.toml --event_host=https://myrabbitmq-event.org.ar --event_port=5672 --event_user=my_user --event_password=my_password --event_exchange=event_exchange  --result_exchange=result_exchange --log_host=https://myrabbitmq-log.org.ar --log_port=5672 --log_user=my_other_user --log_password=my_other_password --log_exchange=log_exchange --log_file=output.log --log_level=event --timeout=120 --stop=dont"
     )
     parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
     parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host.')
@@ -67,7 +67,7 @@ def main():
     parser.add_argument('--user', default='guest', help='RabbitMQ server user.')
     parser.add_argument('--password', default='guest', help='RabbitMQ server password.')
     parser.add_argument('--event_exchange', type=str, default='my_event_exchange', help='Name of the event exchange at the RabbitMQ server.')
-    parser.add_argument('--log_exchange', type=str, default='my_log_exchange', help='Name of the log exchange at the RabbitMQ server.')
+    parser.add_argument('--result_exchange', type=str, default='my_result_exchange', help='Name of the result exchange at the RabbitMQ server.')
     parser.add_argument("--log_level", type=str, choices=["debug", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level.")
     parser.add_argument('--log_file', help='Path to log file.')
     parser.add_argument("--timeout", type=int, default=0, help="Timeout in seconds to wait for events after last received, from the RabbitMQ server (0 = no timeout).")
@@ -128,7 +128,7 @@ def main():
     rabbitmq_server_config.password = args.password
     # RabbitMQ exchange configuration
     rabbitmq_event_exchange_config.exchange = args.event_exchange
-    rabbitmq_log_exchange_config.exchange = args.log_exchange
+    rabbitmq_result_exchange_config.exchange = args.result_exchange
     # Other configuration
     config.timeout = timeout
     config.stop = args.stop

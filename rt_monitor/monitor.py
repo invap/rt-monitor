@@ -43,9 +43,12 @@ from rt_rabbitmq_wrapper.rabbitmq_utility import (
 from rt_monitor.rabbitmq_server_configs import (
     rabbitmq_server_config,
     rabbitmq_event_exchange_config,
-    rabbitmq_log_exchange_config
+    rabbitmq_result_exchange_config
 )
-from rt_monitor.rabbitmq_server_connections import rabbitmq_event_server_connection, rabbitmq_log_server_connection
+from rt_monitor.rabbitmq_server_connections import (
+    rabbitmq_event_server_connection,
+    rabbitmq_result_server_connection
+)
 from rt_monitor.framework.clock import Clock
 from rt_monitor.reporting.event_decoder import EventDecoder
 from rt_monitor.novalue import NoValue
@@ -109,43 +112,57 @@ class Monitor(threading.Thread):
             ComponentDoesNotExistError,
             ComponentError
         )
-        # Set up the connection to the RabbitMQ connection to server
+        # Set up the connection to the event RabbitMQ connection to server
         try:
             connection = connect_to_server(rabbitmq_server_config)
         except RabbitMQError:
-            logger.critical(f"Error setting up the connection to the RabbitMQ server.")
+            logger.critical(f"Error setting up the connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
             exit(-2)
         # Set up the RabbitMQ channel and exchange for events with the RabbitMQ server
         try:
-            event_channel = connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_event_exchange_config, connection)
+            event_channel = connect_to_channel_exchange(
+                rabbitmq_server_config,
+                rabbitmq_event_exchange_config,
+                connection
+            )
         except RabbitMQError:
-            logger.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
+            logger.critical(f"Error setting up the events channel and exchange at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
             exit(-2)
         # Set up the RabbitMQ queue and routing key for events with the RabbitMQ server
         try:
-            event_queue_name = declare_queue(rabbitmq_server_config, rabbitmq_event_exchange_config, event_channel, 'events')
+            event_queue_name = declare_queue(
+                rabbitmq_server_config,
+                rabbitmq_event_exchange_config,
+                event_channel
+            )
         except RabbitMQError:
-            logger.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
+            logger.critical(f"Error declaring and binding queue to the event exchange at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
             exit(-2)
-        # Start getting events from the RabbitMQ server
-        logger.info(f"Start getting events from queue {event_queue_name} - exchange {rabbitmq_event_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Start receiving events from the RabbitMQ server
+        logger.info(f"Start receiving events from queue {event_queue_name} - exchange {rabbitmq_event_exchange_config.exchange} at THE RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Set up connection for events with the RabbitMQ server
         rabbitmq_event_server_connection.connection = connection
         rabbitmq_event_server_connection.channel = event_channel
         rabbitmq_event_server_connection.exchange = rabbitmq_event_exchange_config.exchange
         rabbitmq_event_server_connection.queue_name = event_queue_name
+        # Set up the connection to the result RabbitMQ connection to server
+        try:
+            connection = connect_to_server(rabbitmq_server_config)
+        except RabbitMQError:
+            logger.critical(f"Error setting up the connection to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+            exit(-2)
         # Set up the RabbitMQ channel and exchange for logger with the RabbitMQ server
         try:
-            log_channel = connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_log_exchange_config, connection)
+            log_channel = connect_to_channel_exchange(rabbitmq_server_config, rabbitmq_result_exchange_config, connection)
         except RabbitMQError:
-            logger.critical(f"Error setting up the channel and exchange at the RabbitMQ server.")
+            logger.critical(f"Error setting up the results channel and exchange at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
             exit(-2)
         # Set up connection for events with the RabbitMQ server
-        rabbitmq_log_server_connection.connection = connection
-        rabbitmq_log_server_connection.channel = log_channel
-        rabbitmq_log_server_connection.exchange = rabbitmq_log_exchange_config.exchange
-        # Start sending log entries to the RabbitMQ server with timeout handling for message reception
-        logger.info(f"Start sending log entries to the exchange {rabbitmq_log_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        rabbitmq_result_server_connection.connection = connection
+        rabbitmq_result_server_connection.channel = log_channel
+        rabbitmq_result_server_connection.exchange = rabbitmq_result_exchange_config.exchange
+        # Start sending results to the RabbitMQ server with timeout handling for message reception
+        logger.info(f"Start sending results to the exchange {rabbitmq_result_exchange_config.exchange} at RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Initialize process state for the analysis
         self._current_state = self._framework.process().dfa().start_state
         # initialize last_message_time for testing timeout
@@ -160,18 +177,18 @@ class Monitor(threading.Thread):
         while not poison_received and not completed and not stop and not abort:
             # Handle SIGINT
             if self._signal_flags['stop']:
-                logger.info("SIGINT received. Stopping the event acquisition process.")
+                logger.info("SIGINT received. Stopping the event reception process.")
                 stop = True
             # Handle SIGTSTP
             if self._signal_flags['pause']:
-                logger.info("SIGTSTP received. Pausing the event acquisition process.")
+                logger.info("SIGTSTP received. Pausing the event reception process.")
                 while self._signal_flags['pause'] and not self._signal_flags['stop']:
                     time.sleep(1)  # Efficiently wait for signals
                 if self._signal_flags['stop']:
-                    logger.info("SIGINT received. Stopping the event acquisition process.")
+                    logger.info("SIGINT received. Stopping the event reception process.")
                     stop = True
                 if not self._signal_flags['pause']:
-                    logger.info("SIGTSTP received. Resuming the event acquisition process.")
+                    logger.info("SIGTSTP received. Resuming the event reception process.")
             # Timeout handling for message reception
             if 0 < config.timeout < (time.time() - last_message_time):
                 abort = True
@@ -181,19 +198,19 @@ class Monitor(threading.Thread):
                 try:
                     method, properties, body = get_message(rabbitmq_event_server_connection)
                 except RabbitMQError:
-                    logger.critical(f"Error getting message from RabbitMQ server.")
+                    logger.critical(f"Error receiving event from queue {event_queue_name} - exchange {rabbitmq_event_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                     exit(-2)
                 if method:  # Message exists
                     # ACK the message from RabbitMQ
                     try:
                         ack_message(rabbitmq_event_server_connection, method.delivery_tag)
                     except RabbitMQError:
-                        logger.critical(f"Error acknowledging a message to the RabbitMQ event server.")
+                        logger.critical(f"Error sending ack to the exchange {rabbitmq_event_exchange_config.exchange} at the RabbitMQ event server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                         exit(-2)
                     # Process message
                     if properties.headers and properties.headers.get('termination'):
                         # Poison pill received
-                        logger.info(f"Poison pill received with the events routing_key from the RabbitMQ server.")
+                        logger.info(f"Poison pill received from queue {event_queue_name} - exchange {rabbitmq_event_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                         poison_received = True
                     else:
                         last_message_time = time.time()
@@ -223,13 +240,12 @@ class Monitor(threading.Thread):
                                     completed = True
                                 # Only increment number_of_events is it is a valid event (rules out poisson pill)
                                 number_of_events += 1
-        # Stop getting events from the RabbitMQ server
-        logger.info(f"Stop getting events from the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
-        # Send poison pill with the log_entries routing_key to the RabbitMQ server
+        # Stop receiving messages from the RabbitMQ server
+        logger.info(f"Stop receiving events from queue {event_queue_name} - exchange {rabbitmq_event_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Send poison pill with the results exchange to the RabbitMQ server
         try:
             publish_message(
-                rabbitmq_log_server_connection,
-                'log_entries',
+                rabbitmq_result_server_connection,
                 '',
                 pika.BasicProperties(
                     delivery_mode=2,
@@ -237,26 +253,23 @@ class Monitor(threading.Thread):
                 )
             )
         except RabbitMQError:
-            logger.info("Error sending with the log_entries routing_key to the RabbitMQ server.")
+            logger.critical(f"Error sending poison pill to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
             exit(-2)
         else:
-            logger.info("Poison pill sent with the log_entries routing_key to the RabbitMQ server.")
-        # Stop publishing log entries to the RabbitMQ server
-        logger.info(f"Stop publishing log entries to the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+            logger.info(f"Poison pill sent to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+        # Stop publishing results to the RabbitMQ server
+        logger.info(f"Stop publishing results to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
         # Logging the reason for stoping the verification process to the RabbitMQ server
         if poison_received:
-            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, poison pill received.")
+            logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, poison pill received.")
         elif completed:
-            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, applied stop policy.")
+            logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, applied stop policy.")
         elif stop:
-            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, SIGINT received.")
+            logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, SIGINT received.")
         elif abort:
-            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, message reception timeout reached ({time.time()-last_message_time} secs.).")
+            logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, message reception timeout reached ({time.time()-last_message_time} secs.).")
         else:
-            logger.info(f"Processed events: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, unknown reason.")
-        # Log analysis statistics only in normal termination (poison pill received or stop by user)
-        # if poison_received or stop:
-        #     Monitor.log_analysis_statistics()
+            logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, unknown reason.")
         # Close connection to the RabbitMQ logging server if it exists
         if connection and connection.is_open:
             try:
@@ -285,8 +298,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             try:
                 publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
+                    rabbitmq_result_server_connection,
+                    '',
                     f"Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
@@ -301,8 +314,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             try:
                 publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
+                    rabbitmq_result_server_connection,
+                    '',
                     f"Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
@@ -339,8 +352,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             try:
                 publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
+                    rabbitmq_result_server_connection,
+                    '',
                     f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
@@ -355,8 +368,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             try:
                 publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
+                    rabbitmq_result_server_connection,
+                    '',
                     f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
@@ -394,8 +407,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             try:
                 publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
+                    rabbitmq_result_server_connection,
+                    '',
                     f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
@@ -410,8 +423,8 @@ class Monitor(threading.Thread):
             # Publish log entry at RabbitMQ server
             try:
                 publish_message(
-                    rabbitmq_log_server_connection,
-                    'log_entries',
+                    rabbitmq_result_server_connection,
+                    '',
                     f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
