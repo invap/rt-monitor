@@ -11,6 +11,7 @@ The reader is pointed to Section [Event language for monitoring](#event-language
 
 The analysis process consists of checking if an appropriate set of event reports obtained from an execution of the SUT, through the application of a runtime reporter tool (RR) (for example, [The Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") and [The DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")), satisfy the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification.
 
+
 ## Structure the project
 The RM project is organized as follows:
 ```graphql

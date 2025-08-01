@@ -295,35 +295,33 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
-            # Publish log entry at RabbitMQ server
+            # Publish analysis result at RabbitMQ server
             try:
                 publish_message(
                     rabbitmq_result_server_connection,
-                    '',
                     f"Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
                 )
             except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
+                logger.critical(f"Error sending analysis result to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
+            logger.debug(f"Sent analysis result: Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
             return False
         else:
-            # Publish log entry at RabbitMQ server
+            # Publish analysis result at RabbitMQ server
             try:
                 publish_message(
                     rabbitmq_result_server_connection,
-                    '',
                     f"Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )                )
             except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
+                logger.critical(f"Error sending analysis result to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
+            logger.debug(f"Sent analysis result: Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
             task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
                 task_time,
@@ -349,36 +347,34 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         assert(len(destinations) <= 1)
         if destinations == []:
-            # Publish log entry at RabbitMQ server
+            # Publish analysis result at RabbitMQ server
             try:
                 publish_message(
                     rabbitmq_result_server_connection,
-                    '',
                     f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
                 )
             except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
+                logger.critical(f"Error sending analysis result to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
+            logger.debug(f"Sent analysis result: Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
             return False
         else:
-            # Publish log entry at RabbitMQ server
+            # Publish analysis result at RabbitMQ server
             try:
                 publish_message(
                     rabbitmq_result_server_connection,
-                    '',
                     f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
                 )
             except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
+                logger.critical(f"Error sending analysis result to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                 exit(-2)
-            logger.debug(f"Sent log entry: Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
+            logger.debug(f"Sent analysis result: Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
                 task_finished_event.time(),
@@ -404,34 +400,32 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
-            # Publish log entry at RabbitMQ server
+            # Publish analysis result at RabbitMQ server
             try:
                 publish_message(
                     rabbitmq_result_server_connection,
-                    '',
                     f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
                 )
             except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
+                logger.critical(f"Error sending analysis result to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                 exit(-2)
             logger.debug(f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.")
             return False
         else:
-            # Publish log entry at RabbitMQ server
+            # Publish analysis result at RabbitMQ server
             try:
                 publish_message(
                     rabbitmq_result_server_connection,
-                    '',
                     f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.",
                     pika.BasicProperties(
                         delivery_mode=2  # Persistent message
                     )
                 )
             except RabbitMQError:
-                logger.info("Error sending log entry to the RabbitMQ server.")
+                logger.critical(f"Error sending analysis result to the exchange {rabbitmq_result_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
                 exit(-2)
             logger.debug(f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.")
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]

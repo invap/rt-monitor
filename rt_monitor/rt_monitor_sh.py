@@ -21,7 +21,7 @@ from rt_monitor.monitor_builder import MonitorBuilder
 from rt_monitor.rabbitmq_server_configs import (
     rabbitmq_server_config,
     rabbitmq_event_exchange_config,
-    rabbitmq_log_exchange_config
+    rabbitmq_result_exchange_config
 )
 from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_with_extension
 
