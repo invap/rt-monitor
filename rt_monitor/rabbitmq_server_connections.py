@@ -6,4 +6,4 @@ from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQ_server_connection
 
 # Singleton instance shared globally
 rabbitmq_event_server_connection = RabbitMQ_server_connection()
-rabbitmq_result_server_connection = RabbitMQ_server_connection()
+rabbitmq_result_log_server_connection = RabbitMQ_server_connection()

@@ -21,7 +21,7 @@ from rt_monitor.monitor_builder import MonitorBuilder
 from rt_monitor.rabbitmq_server_configs import (
     rabbitmq_server_config,
     rabbitmq_event_exchange_config,
-    rabbitmq_result_exchange_config
+    rabbitmq_result_log_exchange_config
 )
 from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_with_extension
 
@@ -67,7 +67,7 @@ def main():
     parser.add_argument('--user', default='guest', help='RabbitMQ server user.')
     parser.add_argument('--password', default='guest', help='RabbitMQ server password.')
     parser.add_argument('--event_exchange', type=str, default='my_event_exchange', help='Name of the event exchange at the RabbitMQ server.')
-    parser.add_argument('--result_exchange', type=str, default='my_result_exchange', help='Name of the result exchange at the RabbitMQ server.')
+    parser.add_argument('--result_log_exchange', type=str, default='my_result_log_exchange', help='Name of the result logging exchange at the RabbitMQ server.')
     parser.add_argument("--log_level", type=str, choices=["debug", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level.")
     parser.add_argument('--log_file', help='Path to log file.')
     parser.add_argument("--timeout", type=int, default=0, help="Timeout in seconds to wait for events after last received, from the RabbitMQ server (0 = no timeout).")
@@ -128,7 +128,7 @@ def main():
     rabbitmq_server_config.password = args.password
     # RabbitMQ exchange configuration
     rabbitmq_event_exchange_config.exchange = args.event_exchange
-    rabbitmq_result_exchange_config.exchange = args.result_exchange
+    rabbitmq_result_log_exchange_config.exchange = args.result_log_exchange
     # Other configuration
     config.timeout = timeout
     config.stop = args.stop

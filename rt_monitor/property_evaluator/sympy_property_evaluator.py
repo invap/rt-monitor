@@ -18,7 +18,7 @@ from rt_monitor.errors.evaluator_errors import (
 from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
-from rt_monitor.rabbitmq_server_connections import rabbitmq_result_server_connection
+from rt_monitor.rabbitmq_server_connections import rabbitmq_result_log_server_connection
 
 
 class SymPyPropertyEvaluator(PropertyEvaluator):
@@ -44,24 +44,26 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
             case True:
                 # If the formula is true, then the prop of interest passed.
                 # Publish log entry at RabbitMQ server
-                rabbitmq_result_server_connection.channel.basic_publish(
-                    exchange=rabbitmq_result_server_connection.exchange,
+                rabbitmq_result_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_result_log_server_connection.exchange,
                     routing_key='',
                     body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                     properties=pika.BasicProperties(
-                        delivery_mode=2  # Persistent message
+                        delivery_mode=2,  # Persistent message
+                        headers={'type': 'log_entry'}
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
             case False:
                 # If the formula is false, then the prop of interest failed.
                 # Publish log entry at RabbitMQ server
-                rabbitmq_result_server_connection.channel.basic_publish(
-                    exchange=rabbitmq_result_server_connection.exchange,
+                rabbitmq_result_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_result_log_server_connection.exchange,
                     routing_key='',
                     body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                     properties=pika.BasicProperties(
-                        delivery_mode=2  # Persistent message
+                        delivery_mode=2,  # Persistent message
+                        headers={'type': 'log_entry'}
                     )
                 )
                 logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
