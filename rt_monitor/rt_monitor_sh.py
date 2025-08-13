@@ -18,12 +18,11 @@ from rt_monitor.logging_configuration import (
     configure_logging_level
 )
 from rt_monitor.monitor_builder import MonitorBuilder
-from rt_monitor.rabbitmq_server_configs import (
-    rabbitmq_server_config,
-    rabbitmq_event_exchange_config,
-    rabbitmq_result_log_exchange_config
+from rt_monitor import rabbitmq_server_connections
+from rt_monitor.utility import (
+    is_valid_file_with_extension_nex,
+    is_valid_file_with_extension
 )
-from rt_monitor.utility import is_valid_file_with_extension_nex, is_valid_file_with_extension
 
 
 def _run_verification(process_thread):
@@ -39,7 +38,6 @@ def _run_verification(process_thread):
 
 # Errors:
 # -1: Framework error
-
 def main():
     # Signal handling flags
     signal_flags = {'stop': False, 'pause': False}
@@ -59,17 +57,12 @@ def main():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh /path/to/spec.toml --event_host=https://myrabbitmq-event.org.ar --event_port=5672 --event_user=my_user --event_password=my_password --event_exchange=event_exchange  --result_exchange=result_exchange --log_host=https://myrabbitmq-log.org.ar --log_port=5672 --log_user=my_other_user --log_password=my_other_password --log_exchange=log_exchange --log_file=output.log --log_level=event --timeout=120 --stop=dont"
+        epilog="Example: python -m rt_monitor.rt_monitor_sh /path/to/spec.toml --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont"
     )
     parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
-    parser.add_argument('--host', type=str, default='localhost', help='RabbitMQ server host.')
-    parser.add_argument('--port', type=int, default=5672, help='RabbitMQ server port.')
-    parser.add_argument('--user', default='guest', help='RabbitMQ server user.')
-    parser.add_argument('--password', default='guest', help='RabbitMQ server password.')
-    parser.add_argument('--event_exchange', type=str, default='my_event_exchange', help='Name of the event exchange at the RabbitMQ server.')
-    parser.add_argument('--result_log_exchange', type=str, default='my_result_log_exchange', help='Name of the result logging exchange at the RabbitMQ server.')
+    parser.add_argument("--rabbitmq_config_file", type=str, default='./rabbitmq_config.toml', help='Path to the TOML file containing the RabbitMQ server configuration.')
     parser.add_argument("--log_level", type=str, choices=["debug", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level.")
-    parser.add_argument('--log_file', help='Path to log file.')
+    parser.add_argument("--log_file", help='Path to log file.')
     parser.add_argument("--timeout", type=int, default=0, help="Timeout in seconds to wait for events after last received, from the RabbitMQ server (0 = no timeout).")
     parser.add_argument("--stop", type=str, choices=["on_might_fail", "on_fail", "dont"], default="on_might_fail", help="Stop policy.")
     # Start the execution of The Runtime Monitor
@@ -119,19 +112,21 @@ def main():
         exit(-1)
     logger.info(f"Framework file: {args.framework}")
     # Determine timeout
-    timeout = args.timeout if args.timeout >= 0 else 0
-    logger.info(f"Timeout for message reception: {timeout} seconds.")
-    # RabbitMQ server configuration
-    rabbitmq_server_config.host = args.host
-    rabbitmq_server_config.port = args.port
-    rabbitmq_server_config.user = args.user
-    rabbitmq_server_config.password = args.password
-    # RabbitMQ exchange configuration
-    rabbitmq_event_exchange_config.exchange = args.event_exchange
-    rabbitmq_result_log_exchange_config.exchange = args.result_log_exchange
-    # Other configuration
-    config.timeout = timeout
+    config.timeout = args.timeout if args.timeout >= 0 else 0
+    logger.info(f"Timeout for message reception: {config.timeout} seconds.")
+    # Determine stop policy
     config.stop = args.stop
+    # RabbitMQ infrastructure configuration
+    valid = is_valid_file_with_extension(args.rabbitmq_config_file, "toml")
+    if not valid:
+        logger.critical(f"RabbitMQ infrastructure configuration file error.")
+        exit(-1)
+    logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
+    rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
+    # Start receiving events from the RabbitMQ server
+    logger.info(f"Start receiving events from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}.")
+    # Start sending analysis results to the RabbitMQ server with timeout handling for message reception
+    logger.info(f"Start sending analysis results to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
     # Create the Monitor
     monitor_builder = MonitorBuilder(args.framework, signal_flags)
     try:

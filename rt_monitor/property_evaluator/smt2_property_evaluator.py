@@ -7,15 +7,11 @@ import pika
 import numpy as np
 from z3 import z3
 import logging
-
-from rt_monitor.rabbitmq_server_configs import rabbitmq_result_log_exchange_config, rabbitmq_server_config
-
 # Create a logger for the smt2 property evaluator component
 logger = logging.getLogger(__name__)
 
 from rt_rabbitmq_wrapper.rabbitmq_utility import (
-    RabbitMQError,
-    publish_message
+    RabbitMQError
 )
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
@@ -25,7 +21,7 @@ from rt_monitor.errors.evaluator_errors import (
 )
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
-from rt_monitor.rabbitmq_server_connections import rabbitmq_result_log_server_connection
+from rt_monitor import rabbitmq_server_connections
 
 
 class SMT2PropertyEvaluator(PropertyEvaluator):
@@ -53,8 +49,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 # If the negation of the formula is unsatisfiable, then the prop_dict of interest passed.
                 # Publish log entry at RabbitMQ server
                 try:
-                    publish_message(
-                        rabbitmq_result_log_server_connection,
+                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
                         f"Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -62,7 +57,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         )
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_result_log_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                     exit(-2)
                 else:
                     logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
@@ -70,8 +65,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 # If the negation of the formula is satisfiable, then the prop_dict of interest failed.
                 # Publish log entry at RabbitMQ server
                 try:
-                    publish_message(
-                        rabbitmq_result_log_server_connection,
+                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
                         f"Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -79,7 +73,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         )
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_result_log_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                     exit(-2)
                 else:
                     logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
@@ -87,8 +81,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 # If the negation of the formula is unknown, then the prop_dict of interest is not guarantied to pass.
                 # Publish log entry at RabbitMQ server
                 try:
-                    publish_message(
-                        rabbitmq_result_log_server_connection,
+                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
                         f"Property: {prop.name()} - Timestamp: {now} - Analysis: MIGHT FAIL - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -96,18 +89,17 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         )
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_result_log_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                     exit(-2)
                 else:
                     logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: MIGHT FAIL - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
         if result == z3.sat or result == z3.unknown:
-            # Output counterexample as smt2 specification
+            # Output counterexample as an smt2 specification
             spec_filename = filename + "@" + str(now) + ".smt2"
             # Publish counterexample at RabbitMQ server
             try:
-                publish_message(
-                    rabbitmq_result_log_server_connection,
-                    f"Property: {prop.name()} - Timestamp: {now} - Analysis: MIGHT FAIL - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                    spec,
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
                         headers={'type': 'counterexample', 'filename': spec_filename}
@@ -115,7 +107,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending log entry to the exchange {rabbitmq_result_log_exchange_config.exchange} at the RabbitMQ server at {rabbitmq_server_config.host}:{rabbitmq_server_config.port}.")
+                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                 exit(-2)
             else:
                 logger.debug(f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}.")

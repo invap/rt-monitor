@@ -9,16 +9,18 @@ import logging
 # Create a logger for the py property evaluator component
 logger = logging.getLogger(__name__)
 
+from rt_rabbitmq_wrapper.rabbitmq_utility import (
+    RabbitMQError
+)
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError,
     NoValueAssignedToVariableError,
     UnboundVariablesError, EvaluationError
 )
-from rt_monitor.logging_configuration import LoggingLevel
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
-from rt_monitor.rabbitmq_server_connections import rabbitmq_result_log_server_connection
+from rt_monitor import rabbitmq_server_connections
 
 
 class PyPropertyEvaluator(PropertyEvaluator):
@@ -34,18 +36,19 @@ class PyPropertyEvaluator(PropertyEvaluator):
             logger.error(f"Building specification for property [ {prop.name()} ] error.")
             raise EvaluationError()
         end_build_time = time.time()
-        locs = {}
-        # The formula is checked to be either true or false
+        filename = prop.name()
         initial_analysis_time = time.time()
+        locs = {}
         exec(spec, globals(), locs)
+        # The formula is checked to be either true or false
         result = locs['result']
         end_analysis_time = time.time()
         match result:
             case True:
                 # If the formula is true, then the prop of interest passed.
                 # Publish log entry at RabbitMQ server
-                rabbitmq_result_log_server_connection.channel.basic_publish(
-                    exchange=rabbitmq_result_log_server_connection.exchange,
+                rabbitmq_server_connections.rabbitmq_result_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange,
                     routing_key='',
                     body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                     properties=pika.BasicProperties(
@@ -53,12 +56,12 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         headers={'type': 'log_entry'}
                     )
                 )
-                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
             case False:
                 # If the formula is false, then the prop of interest failed.
                 # Publish log entry at RabbitMQ server
-                rabbitmq_result_log_server_connection.channel.basic_publish(
-                    exchange=rabbitmq_result_log_server_connection.exchange,
+                rabbitmq_server_connections.rabbitmq_result_log_server_connection.channel.basic_publish(
+                    exchange=rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange,
                     routing_key='',
                     body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
                     properties=pika.BasicProperties(
@@ -66,14 +69,25 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         headers={'type': 'log_entry'}
                     )
                 )
-                logger.log(LoggingLevel.DEBUG, f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
         if result == False:
-            # Output counterexample as a python program
-            spec_filename = prop.name() + "@" + str(now) + ".py"
-            spec_file = open(spec_filename, "w")
-            spec_file.write(spec)
-            spec_file.close()
-            logger.info(f"Specification dumped: [ {spec_filename} ]")
+            # Output counterexample as a py program
+            spec_filename = filename + "@" + str(now) + ".py"
+            # Publish counterexample at RabbitMQ server
+            try:
+                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                    spec,
+                    pika.BasicProperties(
+                        delivery_mode=2,  # Persistent message
+                        headers={'type': 'counterexample', 'filename': spec_filename}
+                    )
+                )
+            except RabbitMQError:
+                logger.critical(
+                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                exit(-2)
+            else:
+                logger.debug(f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}.")
             return PropertyEvaluator.PropertyEvaluationResult.FAILED
         else:
             return PropertyEvaluator.PropertyEvaluationResult.PASSED
