@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 from rt_rabbitmq_wrapper.rabbitmq_utility import (
     RabbitMQError
 )
+from rt_rabbitmq_wrapper.exchange_types.event import event_protobuf
 
 from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
@@ -146,9 +147,9 @@ class Monitor(threading.Thread):
                     else:
                         last_message_time = time.time()
                         # Decode the next event.
-                        event = body.decode().rstrip('\n\r')
+                        event = event_protobuf.protobuf_to_event(body.decode())
                         try:
-                            decoded_event = EventDecoder.decode(event.split(","))
+                            decoded_event = EventDecoder.decode(event.serialize().split(","))
                         except InvalidEvent as f:
                             logger.critical(f"Invalid event [ {f.event().serialized()} ].")
                             abort = True

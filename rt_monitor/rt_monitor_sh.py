@@ -24,7 +24,6 @@ from rt_monitor.utility import (
     is_valid_file_with_extension
 )
 
-
 def _run_verification(process_thread):
     # Starts the monitor thread
     process_thread.start()
