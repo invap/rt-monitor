@@ -3,13 +3,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import argparse
+import json
 import logging
 import signal
 import threading
 import wx
 
 from rt_monitor.config import config
-from rt_monitor.errors.monitor_errors import FrameworkError
+from rt_monitor.errors.framework_errors import FrameworkSpecificationError
+from rt_monitor.framework.framework_builder import FrameworkBuilder
 from rt_monitor.logging_configuration import (
     LoggingLevel,
     LoggingDestination,
@@ -17,12 +19,14 @@ from rt_monitor.logging_configuration import (
     configure_logging_destination,
     configure_logging_level
 )
-from rt_monitor.monitor_builder import MonitorBuilder
+from rt_monitor.monitor import Monitor
 from rt_monitor import rabbitmq_server_connections
 from rt_monitor.utility import (
     is_valid_file_with_extension_nex,
     is_valid_file_with_extension
 )
+
+from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 
 
 def _run_verification(process_thread):
@@ -30,14 +34,13 @@ def _run_verification(process_thread):
     process_thread.start()
     # Waiting for the verification process to finish, either naturally or manually.
     process_thread.join()
-    # Print analysis statistics
-    # AnalysisStatistics.print()
     # Signal the main loop to exit
     wx.CallAfter(wx.GetApp().ExitMainLoop)
 
 
 # Errors:
 # -1: Framework error
+# -2: RabbitMQ server setup error
 def main():
     # Signal handling flags
     signal_flags = {'stop': False, 'pause': False}
@@ -57,9 +60,8 @@ def main():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh /path/to/spec.toml --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont"
+        epilog="Example: python -m rt_monitor.rt_monitor_sh --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont"
     )
-    parser.add_argument("framework", type=str, help="Path to the framework specification file in toml format.")
     parser.add_argument("--rabbitmq_config_file", type=str, default='./rabbitmq_config.toml', help='Path to the TOML file containing the RabbitMQ server configuration.')
     parser.add_argument("--log_level", type=str, choices=["debug", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level.")
     parser.add_argument("--log_file", help='Path to log file.')
@@ -105,12 +107,6 @@ def main():
             logger.info("Log file error. Log destination: CONSOLE.")
         else:
             logger.info(f"Log destination: FILE ({args.log_file}).")
-    # Validate and normalize the framework path
-    valid = is_valid_file_with_extension(args.framework, "toml")
-    if not valid:
-        logger.critical(f"Framework file error.")
-        exit(-1)
-    logger.info(f"Framework file: {args.framework}")
     # Determine timeout
     config.timeout = args.timeout if args.timeout >= 0 else 0
     logger.info(f"Timeout for message reception: {config.timeout} seconds.")
@@ -120,25 +116,44 @@ def main():
     valid = is_valid_file_with_extension(args.rabbitmq_config_file, "toml")
     if not valid:
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
-        exit(-1)
+        exit(-2)
     logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
     rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
-    # Start receiving events from the RabbitMQ server
-    logger.info(f"Start receiving events from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}.")
-    # Start sending analysis results to the RabbitMQ server with timeout handling for message reception
-    logger.info(f"Start sending analysis results to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-    # Create the Monitor
-    monitor_builder = MonitorBuilder(args.framework, signal_flags)
-    try:
-        monitor = monitor_builder.build_monitor()
-    except FrameworkError:
-        logger.critical(f"Runtime monitoring process ABORTED.")
-    else:
-        # Creates a thread for controlling the analysis process
-        application_thread = threading.Thread(
-            target=_run_verification, args=[monitor]
-        )
-        application_thread.start()
+    # Receive the analysis framework from the RabbitMQ server
+    framework = None
+    while framework is None:
+        try:
+            method, properties, body = rabbitmq_server_connections.rabbitmq_framework_server_connection.get_message()
+        except RabbitMQError:
+            logger.critical(
+                f"Error receiving framework from queue {rabbitmq_server_connections.rabbitmq_framework_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_framework_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.port}.")
+            exit(-2)
+        if method:  # Message exists
+            framework_received = True
+            # ACK the message from RabbitMQ
+            try:
+                rabbitmq_server_connections.rabbitmq_framework_server_connection.ack_message(method.delivery_tag)
+            except RabbitMQError:
+                logger.critical(
+                    f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_framework_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.port}.")
+                exit(-2)
+            # Process message
+            framework_dict = json.loads(body.decode())
+            framework_builder = FrameworkBuilder(framework_dict)
+            try:
+                framework = framework_builder.build_framework()
+            except FrameworkSpecificationError:
+                logger.critical(f"Error creating framework.")
+                exit(-1)
+    # Create monitor
+    monitor = Monitor(framework, signal_flags)
+    logger.info(f"Monitor created.")
+    # Creates a thread for controlling the analysis process
+    application_thread = threading.Thread(
+        target=_run_verification, args=[monitor]
+    )
+    application_thread.start()
+    exit(0)
 
 
 if __name__ == "__main__":

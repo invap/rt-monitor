@@ -4,7 +4,6 @@
 
 import importlib.util
 import os
-import tomllib
 import logging
 # Create a logger for the framework builder component
 logger = logging.getLogger(__name__)
@@ -19,52 +18,20 @@ from rt_monitor.framework.process.process_builder import ProcessBuilder
 
 
 class FrameworkBuilder:
-    spec_file_path = ""
-    spec_file_name = ""
     files_path = ""
     framework_dict = {}
 
-    def __init__(self, framework_file):
-        if framework_file[0] == "/" or framework_file[0] == ".":
-            # framework_file was given with absolute or relative path.
-            split_framework_file = framework_file.rsplit("/", 1)
-            if len(split_framework_file) == 2:
-                FrameworkBuilder.spec_file_path = split_framework_file[0]
-                FrameworkBuilder.spec_file_name = split_framework_file[1]
-            else:
-                FrameworkBuilder.spec_file_path = "/"
-                FrameworkBuilder.spec_file_name = split_framework_file[0]
-        else:
-            # framework_file was given as just a file name.
-            FrameworkBuilder.spec_file_path = "process/"
-            FrameworkBuilder.spec_file_name = framework_file
-        # Parse TOML file and build dictionary
-        try:
-            f = open(framework_file, "rb")
-        except FileNotFoundError:
-            logger.error(f"Analysis framework specification file [ {framework_file} ] not found.")
-            raise FrameworkSpecificationError()
-        except PermissionError:
-            logger.error(f"Permissions error opening file [ {framework_file} ].")
-            raise FrameworkSpecificationError()
-        except IsADirectoryError:
-            logger.error(f"[ {framework_file} ] is a directory and not a file.")
-            raise FrameworkSpecificationError()
-        try:
-            FrameworkBuilder.framework_dict = tomllib.load(f)
-        except tomllib.TOMLDecodeError:
-            logger.error(f"TOML decoding of file [ {framework_file} ] failed.")
-            raise FrameworkSpecificationError()
+    def __init__(self, framework_dict):
+        FrameworkBuilder.framework_dict = framework_dict
         # Determining working directory
         if "working_directory" in FrameworkBuilder.framework_dict:
             FrameworkBuilder.files_path = FrameworkBuilder.framework_dict["working_directory"]
         else:
-            FrameworkBuilder.files_path = FrameworkBuilder.spec_file_path
+            FrameworkBuilder.files_path = "./"
 
     @staticmethod
     def build_framework():
         # Build analysis framework
-        logger.info(f"Creating framework with file: {FrameworkBuilder.spec_file_name}.")
         # Building the process
         try:
             process = FrameworkBuilder._parse_process()
