@@ -2,18 +2,26 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
+import json
 import time
 import pika
 import logging
 # Create a logger for the sympy property evaluator component
 logger = logging.getLogger(__name__)
 
+from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import SymPyVerdict
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.specification.specification import SymPySpecification
+from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import SpecificationDictCoDec
+
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     NoValueAssignedToVariableError,
     UnboundVariablesError,
     BuildSpecificationError,
-    EvaluationError, UnsupportedSymPyVariableTypeError
+    UnsupportedSymPyVariableTypeError,
+    EvaluationError
 )
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -43,40 +51,64 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
         match result:
             case True:
                 # If the formula is true, then the prop of interest passed.
-                # Publish log entry at RabbitMQ server
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.channel.basic_publish(
-                    exchange=rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange,
-                    routing_key='',
-                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
-                    properties=pika.BasicProperties(
-                        delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
-                    )
+                # Publish verdict at RabbitMQ server
+                verdict = SymPyVerdict(
+                    now,
+                    prop.name(),
+                    SymPyVerdict.VERDICT.PASS,
+                    end_build_time - initial_build_time,
+                    end_analysis_time - initial_analysis_time
                 )
-                logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                verdict_dict = VerdictDictCoDec.to_dict(verdict)
+                try:
+                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                        json.dumps(verdict_dict),
+                        pika.BasicProperties(
+                            delivery_mode=2,  # Persistent message
+                            headers={'type': 'verdict'}
+                        )
+                    )
+                except RabbitMQError:
+                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    exit(-2)
+                else:
+                    logger.debug(f"Sent verdict: [ {verdict} ].")
             case False:
                 # If the formula is false, then the prop of interest failed.
-                # Publish log entry at RabbitMQ server
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.channel.basic_publish(
-                    exchange=rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange,
-                    routing_key='',
-                    body=f"Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
-                    properties=pika.BasicProperties(
-                        delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
-                    )
+                # Publish verdict at RabbitMQ server
+                verdict = SymPyVerdict(
+                    now,
+                    prop.name(),
+                    SymPyVerdict.VERDICT.FAIL,
+                    end_build_time - initial_build_time,
+                    end_analysis_time - initial_analysis_time
                 )
-                logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                verdict_dict = VerdictDictCoDec.to_dict(verdict)
+                try:
+                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                        json.dumps(verdict_dict),
+                        pika.BasicProperties(
+                            delivery_mode=2,  # Persistent message
+                            headers={'type': 'verdict'}
+                        )
+                    )
+                except RabbitMQError:
+                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    exit(-2)
+                else:
+                    logger.debug(f"Sent verdict: [ {verdict} ].")
         if result == False:
             # Output counterexample as a py program
-            spec_filename = filename + "@" + str(now) + ".py"
+            specification_dict = SpecificationDictCoDec.to_dict(
+                SymPySpecification(prop.name(), now, spec)
+            )
             # Publish counterexample at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    spec,
+                    json.dumps(specification_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'counterexample', 'filename': spec_filename}
+                        headers={'type': 'counterexample'}
                     )
                 )
             except RabbitMQError:

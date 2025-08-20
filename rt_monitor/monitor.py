@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import re
+import json
 import threading
 import time
 import pika
@@ -11,9 +12,16 @@ import logging
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
-from rt_rabbitmq_wrapper.rabbitmq_utility import (
-    RabbitMQError
+from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
+from rt_rabbitmq_wrapper.exchange_types.event.event_dict_codec import EventDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.event.event_codec_errors import EventDictError
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import (
+    ProcessVerdict,
+    TaskStartedVerdict,
+    TaskFinishedVerdict,
+    CheckpointReachedVerdict
 )
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
 
 from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
@@ -26,7 +34,6 @@ from rt_monitor.errors.clock_errors import (
 )
 from rt_monitor.errors.component_errors import FunctionNotImplementedError
 from rt_monitor.errors.evaluator_errors import BuildSpecificationError
-from rt_monitor.errors.event_decoder_errors import InvalidEvent
 from rt_monitor.errors.monitor_errors import (
     UndeclaredVariableError,
     TaskDoesNotExistError,
@@ -36,7 +43,6 @@ from rt_monitor.errors.monitor_errors import (
 )
 from rt_monitor import rabbitmq_server_connections
 from rt_monitor.framework.clock import Clock
-from rt_monitor.reporting.event_decoder import EventDecoder
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -145,20 +151,20 @@ class Monitor(threading.Thread):
                         poison_received = True
                     else:
                         last_message_time = time.time()
-                        # Decode the next event.
-                        event = body.decode().rstrip('\n\r')
+                        # Event received
+                        event_dict = json.loads(body.decode())
                         try:
-                            decoded_event = EventDecoder.decode(event.split(","))
-                        except InvalidEvent as f:
-                            logger.critical(f"Invalid event [ {f.event().serialized()} ].")
+                            event = EventDictCoDec.from_dict(event_dict)
+                        except EventDictError:
+                            logger.critical(f"Error building event from dict: [ {event_dict} ].")
                             abort = True
                         else:
-                            logger.debug(f"Received event: {decoded_event.serialized()}")
+                            logger.debug(f"Received event: {event_dict}")
                             # Process event.
                             try:
-                                is_a_valid_report = decoded_event.process_with(self)
+                                is_a_valid_report = event.process_with(self)
                             except EXCEPTIONS as f:
-                                logger.error(f"Event [ {decoded_event.serialized()} ] produced an error: {f}.")
+                                logger.error(f"Event [ {event_dict} ] produced an error: {f}.")
                                 abort = True
                             else:
                                 # TODO: Note that the stop policy is decoupled from the validity of the property, thus
@@ -190,7 +196,7 @@ class Monitor(threading.Thread):
         else:
             logger.info(f"Poison pill sent to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
         # Stop publishing results to the RabbitMQ server
-        logger.info(f"Stop sending analysis results to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+        logger.info(f"Stop sending verdicts to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
         # Close connection to the RabbitMQ results log server if it exists
         rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
         # Logging the reason for stoping the verification process to the RabbitMQ server
@@ -209,7 +215,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_started(self, task_started_event):
         task_name = task_started_event.name()
-        task_time = task_started_event.time()
+        task_time = task_started_event.timestamp()
         if task_name not in self._framework.process().tasks():
             logger.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
@@ -222,34 +228,48 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
-            # Publish analysis result at RabbitMQ server
+            verdict = TaskStartedVerdict(
+                task_time,
+                task_name,
+                ProcessVerdict.VERDICT.FAIL
+            )
+            verdict_dict = VerdictDictCoDec.to_dict(verdict)
+            print(verdict_dict)
+            # Publish verdict at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    f"Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
+                    json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
+                        headers={'type': 'verdict'}
                     )
                 )
             except RabbitMQError:
-                logger.critical(f"Error sending analysis result log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+                logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
                 exit(-2)
-            logger.debug(f"Sent analysis result log entry: Task started: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
+            logger.debug(f"Sent verdict: [ {verdict} ].")
             return False
         else:
-            # Publish analysis result at RabbitMQ server
+            verdict = TaskStartedVerdict(
+                task_time,
+                task_name,
+                ProcessVerdict.VERDICT.PASS
+            )
+            verdict_dict = VerdictDictCoDec.to_dict(verdict)
+            # Publish verdict at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    f"Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
+                    json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
+                        headers={'type': 'verdict'}
                     )
                 )
             except RabbitMQError:
-                logger.critical(f"Error sending analysis result log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+                logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
                 exit(-2)
-            logger.debug(f"Sent analysis result log entry: Task started: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
+            logger.debug(f"Sent verdict: [ {verdict} ].")
+            # Analysis of preconditions
             task_specification = self._framework.process().tasks()[task_name]
             preconditions_are_met = self._are_all_properties_true(
                 task_time,
@@ -262,7 +282,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_finished(self, task_finished_event):
         task_name = task_finished_event.name()
-        task_time = task_finished_event.time()
+        task_time = task_finished_event.timestamp()
         if task_name not in self._framework.process().tasks():
             logger.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
@@ -275,37 +295,50 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         assert(len(destinations) <= 1)
         if destinations == []:
-            # Publish analysis result at RabbitMQ server
+            verdict = TaskFinishedVerdict(
+                task_time,
+                task_name,
+                ProcessVerdict.VERDICT.FAIL
+            )
+            verdict_dict = VerdictDictCoDec.to_dict(verdict)
+            # Publish verdict at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.",
+                    json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
+                        headers={'type': 'verdict'}
                     )
                 )
             except RabbitMQError:
-                logger.critical(f"Error sending analysis result log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+                logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
                 exit(-2)
-            logger.debug(f"Sent analysis result log entry: Task finished: {task_name} - Timestamp: {task_time} - Analysis: FAILED.")
+            logger.debug(f"Sent verdict: [ {verdict} ].")
             return False
         else:
-            # Publish analysis result at RabbitMQ server
+            verdict = TaskFinishedVerdict(
+                task_time,
+                task_name,
+                ProcessVerdict.VERDICT.PASS
+            )
+            verdict_dict = VerdictDictCoDec.to_dict(verdict)
+            # Publish verdict at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    f"Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.",
+                    json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
+                        headers={'type': 'verdict'}
                     )
                 )
             except RabbitMQError:
-                logger.critical(f"Error sending analysis result log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+                logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
                 exit(-2)
-            logger.debug(f"Sent analysis result log entry: Task finished: {task_name} - Timestamp: {task_time} - Analysis: PASSED.")
+            logger.debug(f"Sent verdict: [ {verdict} ].")
+            # Analysis of posconditions
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
-                task_finished_event.time(),
+                task_finished_event.timestamp(),
                 task_specification.postconditions(),
             )
             self._current_state = destinations[0]
@@ -315,7 +348,7 @@ class Monitor(threading.Thread):
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_checkpoint_reached(self, checkpoint_reached_event):
         checkpoint_name = checkpoint_reached_event.name()
-        checkpoint_time = checkpoint_reached_event.time()
+        checkpoint_time = checkpoint_reached_event.timestamp()
         if checkpoint_name not in self._framework.process().checkpoints():
             logger.error(f"Checkpoint [ {checkpoint_name} ] does not exist.")
             raise CheckpointDoesNotExistError()
@@ -328,37 +361,50 @@ class Monitor(threading.Thread):
         # As the automaton is deterministic, the length of destination should be either 0 or 1.
         # assert(len(destinations) <= 1)
         if destinations == []:
-            # Publish analysis result at RabbitMQ server
+            verdict = CheckpointReachedVerdict(
+                checkpoint_time,
+                checkpoint_name,
+                ProcessVerdict.VERDICT.FAIL
+            )
+            verdict_dict = VerdictDictCoDec.to_dict(verdict)
+            # Publish verdict at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.",
+                    json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
+                        headers={'type': 'verdict'}
                     )
                 )
             except RabbitMQError:
-                logger.critical(f"Error sending analysis result log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+                logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
                 exit(-2)
-            logger.debug(f"Sent analysis result log entry: Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: FAILED.")
+            logger.debug(f"Sent verdict: [ {verdict} ].")
             return False
         else:
-            # Publish analysis result at RabbitMQ server
+            verdict = CheckpointReachedVerdict(
+                checkpoint_time,
+                checkpoint_name,
+                ProcessVerdict.VERDICT.PASS
+            )
+            verdict_dict = VerdictDictCoDec.to_dict(verdict)
+            # Publish verdict at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    f"Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.",
+                    json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'log_entry'}
+                        headers={'type': 'verdict'}
                     )
                 )
             except RabbitMQError:
-                logger.critical(f"Error sending analysis result log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
+                logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
                 exit(-2)
-            logger.debug(f"Sent analysis result log entry: Checkpoint reached: {checkpoint_name} - Timestamp: {checkpoint_time} - Analysis: PASSED.")
+            logger.debug(f"Sent verdict: [ {verdict} ].")
+            # Analysis of properties
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
             checkpoint_conditions_are_met = self._are_all_properties_true(
-                checkpoint_reached_event.time(),
+                checkpoint_reached_event.timestamp(),
                 checkpoint_specification.properties(),
             )
             self._current_state = destinations[0]
@@ -407,7 +453,7 @@ class Monitor(threading.Thread):
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].start(clock_start_event.time())
+            self._timed_state[clock_name][1].start(clock_start_event.timestamp())
         except ClockWasAlreadyStartedError:
             logger.error(f"Clock [ {clock_name} ] was already started.")
             raise ClockError()
@@ -420,7 +466,7 @@ class Monitor(threading.Thread):
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].pause(clock_pause_event.time())
+            self._timed_state[clock_name][1].pause(clock_pause_event.timestamp())
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
@@ -436,7 +482,7 @@ class Monitor(threading.Thread):
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].resume(clock_resume_event.time())
+            self._timed_state[clock_name][1].resume(clock_resume_event.timestamp())
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
@@ -452,7 +498,7 @@ class Monitor(threading.Thread):
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].reset(clock_reset_event.time())
+            self._timed_state[clock_name][1].reset(clock_reset_event.timestamp())
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()

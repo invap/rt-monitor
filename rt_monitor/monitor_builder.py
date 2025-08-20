@@ -8,10 +8,7 @@ logger = logging.getLogger(__name__)
 
 from rt_monitor.framework.framework_builder import FrameworkBuilder
 from rt_monitor.monitor import Monitor
-from rt_monitor.errors.monitor_errors import (
-    FrameworkError,
-    EventReportError
-)
+from rt_monitor.errors.monitor_errors import FrameworkError
 from rt_monitor.errors.framework_errors import FrameworkSpecificationError
 
 

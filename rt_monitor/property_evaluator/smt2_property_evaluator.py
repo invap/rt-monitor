@@ -2,6 +2,7 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
+import json
 import time
 import pika
 import numpy as np
@@ -10,14 +11,18 @@ import logging
 # Create a logger for the smt2 property evaluator component
 logger = logging.getLogger(__name__)
 
-from rt_rabbitmq_wrapper.rabbitmq_utility import (
-    RabbitMQError
-)
+from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import SMT2Verdict
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.specification.specification import SMT2Specification
+from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import SpecificationDictCoDec
+
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     NoValueAssignedToVariableError,
     UnboundVariablesError,
-    BuildSpecificationError, EvaluationError
+    BuildSpecificationError,
+    EvaluationError
 )
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -47,67 +52,93 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         match result:
             case z3.unsat:
                 # If the negation of the formula is unsatisfiable, then the prop_dict of interest passed.
-                # Publish log entry at RabbitMQ server
+                # Publish verdict at RabbitMQ server
+                verdict = SMT2Verdict(
+                    now,
+                    prop.name(),
+                    SMT2Verdict.VERDICT.PASS,
+                    end_build_time - initial_build_time,
+                    end_analysis_time - initial_analysis_time
+                )
+                verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
                     rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                        f"Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                        json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'log_entry'}
+                            headers={'type': 'verdict'}
                         )
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                     exit(-2)
                 else:
-                    logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: PASSED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                    logger.debug(f"Sent verdict: [ {verdict} ].")
             case z3.sat:
                 # If the negation of the formula is satisfiable, then the prop_dict of interest failed.
-                # Publish log entry at RabbitMQ server
+                # Publish verdict at RabbitMQ server
+                verdict = SMT2Verdict(
+                    now,
+                    prop.name(),
+                    SMT2Verdict.VERDICT.FAIL,
+                    end_build_time - initial_build_time,
+                    end_analysis_time - initial_analysis_time
+                )
+                verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
                     rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                        f"Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                        json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'log_entry'}
+                            headers={'type': 'verdict'}
                         )
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                     exit(-2)
                 else:
-                    logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: FAILED - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                    logger.debug(f"Sent verdict: [ {verdict} ].")
             case z3.unknown:
                 # If the negation of the formula is unknown, then the prop_dict of interest is not guarantied to pass.
-                # Publish log entry at RabbitMQ server
+                # Publish verdicts at RabbitMQ server
+                verdict = SMT2Verdict(
+                    now,
+                    prop.name(),
+                    SMT2Verdict.VERDICT.MIGHT_FAIL,
+                    end_build_time - initial_build_time,
+                    end_analysis_time - initial_analysis_time
+                )
+                verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
                     rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                        f"Property: {prop.name()} - Timestamp: {now} - Analysis: MIGHT FAIL - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.",
+                        json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'log_entry'}
+                            headers={'type': 'verdict'}
                         )
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                     exit(-2)
                 else:
-                    logger.debug(f"Sent log entry: Property: {prop.name()} - Timestamp: {now} - Analysis: MIGHT FAIL - Spec. build time (secs.): {end_build_time - initial_build_time:.3f} - Analysis time (secs.): {end_analysis_time - initial_analysis_time:.3f}.")
+                    logger.debug(f"Sent verdict: [ {verdict} ].")
         if result == z3.sat or result == z3.unknown:
             # Output counterexample as an smt2 specification
-            spec_filename = filename + "@" + str(now) + ".smt2"
+            specification_dict = SpecificationDictCoDec.to_dict(
+                SMT2Specification(prop.name(), now, spec)
+            )
             # Publish counterexample at RabbitMQ server
             try:
                 rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
-                    spec,
+                    json.dumps(specification_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'counterexample', 'filename': spec_filename}
+                        headers={'type': 'counterexample'}
                     )
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
                 exit(-2)
             else:
                 logger.debug(f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}.")
