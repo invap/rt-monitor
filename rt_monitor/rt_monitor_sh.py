@@ -153,7 +153,6 @@ def main():
         target=_run_verification, args=[monitor]
     )
     application_thread.start()
-    exit(0)
 
 
 if __name__ == "__main__":
