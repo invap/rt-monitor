@@ -3,6 +3,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 
+class ComponentsSpecificationError(Exception):
+    def __init__(self):
+        super().__init__()
+
+
 class FunctionNotImplementedError(Exception):
     def __init__(self, function_name):
         super().__init__()

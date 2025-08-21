@@ -110,7 +110,7 @@ class Property:
     @staticmethod
     def build_variable_declarations(property_variables):
         # variable_decls is a dictionary whose keys are variable names and value is its class {State, Clock, Component}
-        # and type {Int, Real, (Array Int ?)}
+        # and type {Bool, Int, Real, (Array Int ?)}
         variable_decls = {}
         split_property_variables = property_variables.split(",")
         for variable_name_class_type_with_parenthesis in split_property_variables:

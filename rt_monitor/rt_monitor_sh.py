@@ -4,14 +4,15 @@
 
 import argparse
 import json
+import tomllib
 import logging
 import signal
 import threading
 import wx
 
 from rt_monitor.config import config
+from rt_monitor.framework.framework import Framework
 from rt_monitor.errors.framework_errors import FrameworkSpecificationError
-from rt_monitor.framework.framework_builder import FrameworkBuilder
 from rt_monitor.logging_configuration import (
     LoggingLevel,
     LoggingDestination,
@@ -119,32 +120,49 @@ def main():
         exit(-2)
     logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
     rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
-    # Receive the analysis framework from the RabbitMQ server
-    framework = None
-    while framework is None:
+    # Receive the monitor dispatch from the RabbitMQ server
+    dispatch = False
+    while not dispatch:
         try:
-            method, properties, body = rabbitmq_server_connections.rabbitmq_framework_server_connection.get_message()
+            method, properties, body = rabbitmq_server_connections.rabbitmq_dispatch_server_connection.get_message()
         except RabbitMQError:
             logger.critical(
-                f"Error receiving framework from queue {rabbitmq_server_connections.rabbitmq_framework_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_framework_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.port}.")
+                f"Error receiving framework from queue {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.port}.")
             exit(-2)
         if method:  # Message exists
-            framework_received = True
             # ACK the message from RabbitMQ
             try:
-                rabbitmq_server_connections.rabbitmq_framework_server_connection.ack_message(method.delivery_tag)
+                rabbitmq_server_connections.rabbitmq_dispatch_server_connection.ack_message(method.delivery_tag)
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_framework_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_framework_server_connection.server_info.port}.")
+                    f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.port}.")
                 exit(-2)
             # Process message
-            framework_dict = json.loads(body.decode())
-            framework_builder = FrameworkBuilder(framework_dict)
+            dispatch_dict = json.loads(body.decode())
             try:
-                framework = framework_builder.build_framework()
+                logger.info(f"Initiating monitoring task: {dispatch_dict['name']}.")
+            except KeyError:
+                logger.info(f"Initiating monitoring task.")
+            try:
+                working_path = dispatch_dict['working_directory']
+            except KeyError:
+                working_path = './'
+            finally:
+                logger.info(f"Working directory: {working_path}.")
+            try:
+                spec_filename = dispatch_dict['specification']
+            except KeyError:
+                logger.critical(f"Specification file not found.")
+                exit(-1)
+            else:
+                logger.info(f"Specification file: {spec_filename}.")
+            # Initiating
+            try:
+                framework = Framework.build_framework(working_path, spec_filename)
             except FrameworkSpecificationError:
                 logger.critical(f"Error creating framework.")
                 exit(-1)
+            dispatch = True
     # Create monitor
     monitor = Monitor(framework, signal_flags)
     logger.info(f"Monitor created.")
