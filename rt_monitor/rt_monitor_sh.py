@@ -158,7 +158,7 @@ def main():
                 logger.info(f"Specification file: {spec_filename}.")
             # Initiating
             try:
-                framework = Framework.build_framework(working_path, spec_filename)
+                framework = Framework.framework_from_file(working_path, spec_filename)
             except FrameworkSpecificationError:
                 logger.critical(f"Error creating framework.")
                 exit(-1)

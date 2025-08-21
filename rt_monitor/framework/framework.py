@@ -21,14 +21,8 @@ class Framework:
         self._process = process
         self._components = components
 
-    def components(self):
-        return self._components
-
-    def process(self):
-        return self._process
-
     @staticmethod
-    def build_framework(working_path, spec_filename):
+    def framework_from_file(working_path, spec_filename):
         # Build analysis framework
         spec_complete_filename = working_path + spec_filename
         try:
@@ -47,6 +41,10 @@ class Framework:
         except tomllib.TOMLDecodeError:
             logger.error(f"TOML decoding of file [ {spec_complete_filename} ] failed.")
             raise FrameworkSpecificationError()
+        return Framework.framework_from_dict(framework_dict, working_path)
+
+    @staticmethod
+    def framework_from_dict(framework_dict, working_path):
         # Building the process
         try:
             process = Framework._parse_process(framework_dict['process'], working_path)
@@ -58,7 +56,7 @@ class Framework:
             raise FrameworkSpecificationError()
         # Building components structure
         try:
-            components = Framework._parse_components(framework_dict['components'], working_path)
+            components = Framework._parse_components(framework_dict['components'])
         except ComponentsSpecificationError:
             logger.error(f"Components definition error.")
             raise FrameworkSpecificationError()
@@ -71,6 +69,12 @@ class Framework:
         # There was no exception in building the framework.
         logger.info(f"Framework created.")
         return Framework(process, components)
+
+    def components(self):
+        return self._components
+
+    def process(self):
+        return self._process
 
     # Raises: ProcessSpecificationError()
     @staticmethod
@@ -89,7 +93,7 @@ class Framework:
 
     # Raises: ComponentError()
     @staticmethod
-    def _parse_components(component_dict, working_path):
+    def _parse_components(component_dict):
         # Determine general path for components
         general_components_path = ""
         if "location" in component_dict:
