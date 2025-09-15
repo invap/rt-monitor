@@ -88,6 +88,7 @@ class Monitor(threading.Thread):
             self._execution_state,
             self._timed_state
         )
+        logger.info(f"Monitor created.")
 
     # Raises:
     def run(self):
@@ -185,7 +186,7 @@ class Monitor(threading.Thread):
         # Stop receiving messages from the RabbitMQ server
         logger.info(f"Stop receiving events from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}.")
         # Close connection to the RabbitMQ events server if it exists
-        rabbitmq_server_connections.rabbitmq_event_server_connection.close()
+        #rabbitmq_server_connections.rabbitmq_event_server_connection.close()
         # Send poison pill with the results exchange to the RabbitMQ server
         try:
             rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
@@ -203,7 +204,7 @@ class Monitor(threading.Thread):
         # Stop publishing results to the RabbitMQ server
         logger.info(f"Stop sending verdicts to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
         # Close connection to the RabbitMQ results log server if it exists
-        rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+        #rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
         # Logging the reason for stoping the verification process to the RabbitMQ server
         if poison_received:
             logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, poison pill received.")

@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 from pathlib import Path, PurePosixPath
+import logging
+# Create a logger for the monitor component
+logger = logging.getLogger(__name__)
 
 
 def is_valid_file_with_extension(path_str, extension):
@@ -20,24 +23,30 @@ def is_valid_file_with_extension(path_str, extension):
     try:  # Normalize and convert to PurePosixPath for strict POSIX parsing
         path = PurePosixPath(path_str)
     except Exception:
+        logger.error(f"Invalid POSIX path: {path_str}")
         return False
     # Validate filename exists and isn't empty
     if path.name == "" or path.name == "." or path.name == "..":
+        logger.info(f"Invalid filename in path: {path_str}")
         return False
     # Validate extension
     if extension != "any" and path.suffix != normalized_extension:
+        logger.info(f"File extension does not match for path: {path_str}")  
         return False
     # Convert to concrete Path for filesystem checks
     concrete_path = Path(path_str)
     try:
         # Check if the parent directory exists
         if not concrete_path.parent.is_dir():
+            logger.info(f"Parent directory does not exist for path: {path_str}")
             return False
         # Check if the file exists and is a regular file
         return concrete_path.is_file()
     except PermissionError:  # Insufficient permissions to verify
+        logger.error(f"Permission denied for path: {path_str}")
         return False
     except OSError:  # Other filesystem errors (e.g., broken symlink)
+        logger.error(f"OS error when accessing path: {path_str}")
         return False
 
 def is_valid_file_with_extension_nex(path_str, extension):
@@ -54,12 +63,15 @@ def is_valid_file_with_extension_nex(path_str, extension):
     try:  # Normalize and convert to PurePosixPath for strict POSIX parsing
         path = PurePosixPath(path_str)
     except Exception:
+        logger.error(f"Invalid POSIX path: {path_str}")
         return False
     # Validate filename exists and isn't empty
     if path.name == "" or path.name == "." or path.name == "..":
+        logger.info(f"Invalid filename in path: {path_str}")
         return False
     # Validate extension
     if extension != "any" and path.suffix != normalized_extension:
+        logger.info(f"File extension does not match for path: {path_str}")
         return False
     # Convert to concrete Path for filesystem checks
     concrete_path = Path(path_str)
@@ -67,6 +79,8 @@ def is_valid_file_with_extension_nex(path_str, extension):
         # Check if the parent directory exists
         return concrete_path.parent.is_dir()
     except PermissionError:  # Insufficient permissions to verify
+        logger.error(f"Permission denied for path: {path_str}")
         return False
     except OSError:  # Other filesystem errors (e.g., broken symlink)
+        logger.error(f"OS error when accessing path: {path_str}")
         return False

@@ -9,6 +9,7 @@ import logging
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
+from rt_monitor.errors.framework_errors import FrameworkSpecificationError
 from rt_monitor.errors.process_errors import ProcessSpecificationError
 from rt_monitor.errors.component_errors import ComponentsSpecificationError
 from rt_monitor.framework.process.process import Process

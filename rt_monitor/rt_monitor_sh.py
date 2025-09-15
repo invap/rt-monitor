@@ -43,6 +43,9 @@ def _run_verification(process_thread):
 # -1: Framework error
 # -2: RabbitMQ server setup error
 def main():
+    # Initiating wx application
+    app = wx.App()
+
     # Signal handling flags
     signal_flags = {'stop': False, 'pause': False}
 
@@ -119,6 +122,7 @@ def main():
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
         exit(-2)
     logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
+    # Create RabbitMQ communication infrastructure
     rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
     # Receive the monitor dispatch from the RabbitMQ server
     dispatch = False
@@ -130,6 +134,7 @@ def main():
                 f"Error receiving framework from queue {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.port}.")
             exit(-2)
         if method:  # Message exists
+            dispatch = True
             # ACK the message from RabbitMQ
             try:
                 rabbitmq_server_connections.rabbitmq_dispatch_server_connection.ack_message(method.delivery_tag)
@@ -137,43 +142,50 @@ def main():
                 logger.critical(
                     f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.port}.")
                 exit(-2)
-            # Process message
+            # Decodes message
             dispatch_dict = json.loads(body.decode())
-            try:
-                logger.info(f"Initiating monitoring task: {dispatch_dict['name']}.")
-            except KeyError:
-                logger.info(f"Initiating monitoring task.")
-            try:
-                working_path = dispatch_dict['working_directory']
-            except KeyError:
-                working_path = './'
-            finally:
-                logger.info(f"Working directory: {working_path}.")
-            try:
-                spec_filename = dispatch_dict['specification']
-            except KeyError:
-                logger.critical(f"Specification file not found.")
-                exit(-1)
-            else:
-                logger.info(f"Specification file: {spec_filename}.")
-            # Initiating
-            try:
-                framework = Framework.framework_from_file(working_path, spec_filename)
-            except FrameworkSpecificationError:
-                logger.critical(f"Error creating framework.")
-                exit(-1)
-            dispatch = True
-    # Create monitor
-    monitor = Monitor(framework, signal_flags)
-    logger.info(f"Monitor created.")
-    # Creates a thread for controlling the analysis process
-    application_thread = threading.Thread(
-        target=_run_verification, args=[monitor]
-    )
-    application_thread.start()
+            # Close connection to the RabbitMQ dispatch server if it exists
+            rabbitmq_server_connections.rabbitmq_dispatch_server_connection.close()
+    # Process dispatch message
+    try:
+        logger.info(f"Initiating monitoring task: {dispatch_dict['name']}.")
+    except KeyError:
+        logger.info(f"Initiating monitoring task.")
+    try:
+        working_path = dispatch_dict['working_directory']
+    except KeyError:
+        working_path = './'
+    finally:
+        logger.info(f"Working directory: {working_path}.")
+    try:
+        spec_filename = dispatch_dict['specification']
+    except KeyError:
+        logger.critical(f"Specification file not found.")
+    else:
+        logger.info(f"Specification file: {spec_filename}.")
+        # Create framework
+        try:
+            framework = Framework.framework_from_file(working_path, spec_filename)
+        except FrameworkSpecificationError:
+            logger.critical(f"Error creating framework.")
+        else:
+            # Create monitor
+            monitor = Monitor(framework, signal_flags)
+            # Creates a thread for controlling the analysis process
+            application_thread = threading.Thread(target=_run_verification, args=[monitor])
+            # Runs the monitor
+            application_thread.start()
+            # Initiating the wx main event loop
+            app.MainLoop()
+        finally:
+            # Close connection to the RabbitMQ events server if it exists
+            rabbitmq_server_connections.rabbitmq_event_server_connection.close()
+            # Close connection to the RabbitMQ results log server if it exists
+            rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+    finally:
+        exit(0)
 
 
 if __name__ == "__main__":
-    app = wx.App()
     main()
-    app.MainLoop()
+ 
