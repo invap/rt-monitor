@@ -16,7 +16,6 @@ from rt_rabbitmq_wrapper.rabbitmq_utility import (
 
 
 # Singleton instance shared globally
-rabbitmq_dispatch_server_connection = None
 rabbitmq_event_server_connection = None
 rabbitmq_result_log_server_connection = None
 
@@ -24,7 +23,7 @@ rabbitmq_result_log_server_connection = None
 # Errors:
 # -2: RabbitMQ server setup error
 def build_rabbitmq_server_connections(file_path):
-    global rabbitmq_event_server_connection, rabbitmq_result_log_server_connection, rabbitmq_dispatch_server_connection
+    global rabbitmq_event_server_connection, rabbitmq_result_log_server_connection
     try:
         f = open(file_path, "rb")
     except FileNotFoundError:
@@ -40,35 +39,6 @@ def build_rabbitmq_server_connections(file_path):
         rabbitmq_exchange_dict = tomllib.load(f)
     except tomllib.TOMLDecodeError:
         logger.error(f"TOML decoding of file [ {file_path} ] failed.")
-        exit(-2)
-    # Configure dispatch exchange
-    try:
-        dispatch_conf_dict = rabbitmq_exchange_dict["exchanges"]["dispatch"]
-    except KeyError:
-        host, port, user, password, connection_attempts, retry_delay, exchange, exchange_type = "localhost", 5672, "guest", "guest", 5, 3, "dispatch_exchange", "direct"
-    else:
-        host = dispatch_conf_dict["host"] if "host" in dispatch_conf_dict else "localhost"
-        port = dispatch_conf_dict["port"] if "port" in dispatch_conf_dict else 5672
-        user = dispatch_conf_dict["user"] if "user" in dispatch_conf_dict else "guest"
-        password = dispatch_conf_dict["password"] if "password" in dispatch_conf_dict else "guest"
-        connection_attempts = dispatch_conf_dict["connection_attempts"] if "connection_attempts" in dispatch_conf_dict else 5
-        retry_delay = dispatch_conf_dict["retry_delay"] if "retry_delay" in dispatch_conf_dict else 3
-        exchange = dispatch_conf_dict["name"] if "name" in dispatch_conf_dict else "dispatch_exchange"
-        exchange_type = dispatch_conf_dict["exchange_type"] if "exchange_type" in dispatch_conf_dict else "direct"
-    finally:
-        server_info = RabbitMQ_server_info(host, port, user, password)
-        rabbitmq_dispatch_server_connection = RabbitMQ_server_incoming_connection(
-            server_info,
-            connection_attempts,
-            retry_delay,
-            exchange,
-            exchange_type
-        )
-    # Connect to the RabbitMQ events server
-    try:
-        rabbitmq_dispatch_server_connection.connect()
-    except RabbitMQError:
-        logger.error(f"RabbitMQ framework server connection error.")
         exit(-2)
     # Configure events exchange
     try:

@@ -64,8 +64,9 @@ def main():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont"
+        epilog="Example: python -m rt_monitor.rt_monitor_sh path/to/spec.toml --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont"
     )
+    parser.add_argument("spec_file", type=str, help='Path to the TOML file containing the analysis framework specification.')
     parser.add_argument("--rabbitmq_config_file", type=str, default='./rabbitmq_config.toml', help='Path to the TOML file containing the RabbitMQ server configuration.')
     parser.add_argument("--log_level", type=str, choices=["debug", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level.")
     parser.add_argument("--log_file", help='Path to log file.')
@@ -124,66 +125,38 @@ def main():
     logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
     # Create RabbitMQ communication infrastructure
     rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
-    # Receive the monitor dispatch from the RabbitMQ server
-    dispatch = False
-    while not dispatch:
-        try:
-            method, properties, body = rabbitmq_server_connections.rabbitmq_dispatch_server_connection.get_message()
-        except RabbitMQError:
-            logger.critical(
-                f"Error receiving framework from queue {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.port}.")
-            exit(-2)
-        if method:  # Message exists
-            dispatch = True
-            # ACK the message from RabbitMQ
-            try:
-                rabbitmq_server_connections.rabbitmq_dispatch_server_connection.ack_message(method.delivery_tag)
-            except RabbitMQError:
-                logger.critical(
-                    f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_dispatch_server_connection.server_info.port}.")
-                exit(-2)
-            # Decodes message
-            dispatch_dict = json.loads(body.decode())
-            # Close connection to the RabbitMQ dispatch server if it exists
-            rabbitmq_server_connections.rabbitmq_dispatch_server_connection.close()
-    # Process dispatch message
-    try:
-        logger.info(f"Initiating monitoring task: {dispatch_dict['name']}.")
-    except KeyError:
-        logger.info(f"Initiating monitoring task.")
-    try:
-        working_path = dispatch_dict['working_directory']
-    except KeyError:
-        working_path = './'
-    finally:
-        logger.info(f"Working directory: {working_path}.")
-    try:
-        spec_filename = dispatch_dict['specification']
-    except KeyError:
-        logger.critical(f"Specification file not found.")
+    # Analysis framework specification file
+    valid = is_valid_file_with_extension(args.spec_file, "toml")
+    if not valid:
+        logger.critical(f"Analysis framework specification file error.")
+        exit(-2)
+    logger.info(f"Analysis framework specification file: {args.spec_file}")
+    # Get working path and filename from analysis framework specification filename parameter
+    split_spec_file = args.spec_file.rsplit("/", 1)
+    if len(split_spec_file) == 1:
+        working_path, spec_filename = "./", split_spec_file[0]
     else:
-        logger.info(f"Specification file: {spec_filename}.")
-        # Create framework
-        try:
-            framework = Framework.framework_from_file(working_path, spec_filename)
-        except FrameworkSpecificationError:
-            logger.critical(f"Error creating framework.")
-        else:
-            # Create monitor
-            monitor = Monitor(framework, signal_flags)
-            # Creates a thread for controlling the analysis process
-            application_thread = threading.Thread(target=_run_verification, args=[monitor])
-            # Runs the monitor
-            application_thread.start()
-            # Initiating the wx main event loop
-            app.MainLoop()
-        finally:
-            # Close connection to the RabbitMQ events server if it exists
-            rabbitmq_server_connections.rabbitmq_event_server_connection.close()
-            # Close connection to the RabbitMQ results log server if it exists
-            rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+        working_path, spec_filename = split_spec_file[0]+"/", split_spec_file[1]
+    # Create framework
+    try:
+        framework = Framework.framework_from_file(working_path, spec_filename)
+    except FrameworkSpecificationError:
+        logger.critical(f"Error creating framework.")
+    else:
+        # Create monitor
+        monitor = Monitor(framework, signal_flags)
+        # Creates a thread for controlling the analysis process
+        application_thread = threading.Thread(target=_run_verification, args=[monitor])
+        # Runs the monitor
+        application_thread.start()
+        # Initiating the wx main event loop
+        app.MainLoop()
     finally:
-        exit(0)
+        # Close connection to the RabbitMQ events server if it exists
+        rabbitmq_server_connections.rabbitmq_event_server_connection.close()
+        # Close connection to the RabbitMQ results log server if it exists
+        rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+    exit(0)
 
 
 if __name__ == "__main__":
