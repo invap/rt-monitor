@@ -56,16 +56,22 @@ class Framework:
             logger.error(f"Process specification error.")
             raise FrameworkSpecificationError()
         # Building components structure
-        try:
-            components = Framework._parse_components(framework_dict['components'])
-        except ComponentsSpecificationError:
-            logger.error(f"Components definition error.")
-            raise FrameworkSpecificationError()
-        # Check that component variables appearing in the process are declared in the components
-        for variable in process.variables():
-            if (process.variables()[variable][0] == "Component" and
-                    not any([variable in components[component].state() for component in components])):
-                logger.error(f"Variable [ {variable} ] not declared in any component.")
+        if "components" in framework_dict: 
+            try:
+                components = Framework._parse_components(framework_dict['components'])
+            except ComponentsSpecificationError:
+                logger.error(f"Components definition error.")
+                raise FrameworkSpecificationError()
+            # Check that component variables appearing in the process are declared in the components
+            for variable in process.variables():
+                if (process.variables()[variable][0] == "Component" and
+                        not any([variable in components[component].state() for component in components])):
+                    logger.error(f"Variable [ {variable} ] not declared in any component.")
+                    raise FrameworkSpecificationError()
+        else:
+            components = {}
+            if any([process.variables()[variable][0] == "Component" for variable in process.variables()]):
+                logger.error(f"Process contains component variables but no components were defined.")
                 raise FrameworkSpecificationError()
         # There was no exception in building the framework.
         logger.info(f"Framework created.")
