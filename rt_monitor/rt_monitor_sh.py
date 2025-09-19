@@ -30,15 +30,6 @@ from rt_monitor.utility import (
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 
 
-def _run_verification(process_thread):
-    # Starts the monitor thread
-    process_thread.start()
-    # Waiting for the verification process to finish, either naturally or manually.
-    process_thread.join()
-    # Signal the main loop to exit
-    wx.CallAfter(wx.GetApp().ExitMainLoop)
-
-
 # Errors:
 # -1: Framework error
 # -2: RabbitMQ server setup error
@@ -137,12 +128,22 @@ def main():
     except FrameworkError:
         logger.critical(f"Framework error.")
         exit(-1)
-    # Creates a thread for controlling the analysis process
-    application_thread = threading.Thread(target=_run_verification, args=[monitor])
-    # Runs the monitor
+
+    def _run_verification():
+        # Starts the monitor thread
+        monitor.start()
+        # Waiting for the verification process to finish, either naturally or manually.
+        monitor.join()
+        # Signal the wx main event loop to exit
+        wx.CallAfter(wx.GetApp().ExitMainLoop)
+
+    # Creates the application thread for controlling the monitor
+    application_thread = threading.Thread(target=_run_verification)
+    # Runs the application thread
     application_thread.start()
     # Initiating the wx main event loop
     app.MainLoop()
+    # Waiting for the application thread to finish
     application_thread.join()
     # Close connection to the RabbitMQ events server if it exists
     rabbitmq_server_connections.rabbitmq_event_server_connection.close()
