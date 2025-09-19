@@ -9,7 +9,7 @@ import logging
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
-from rt_monitor.errors.framework_errors import FrameworkSpecificationError
+from rt_monitor.errors.framework_errors import FrameworkError
 from rt_monitor.errors.process_errors import ProcessSpecificationError
 from rt_monitor.errors.component_errors import ComponentsSpecificationError
 from rt_monitor.framework.process.process import Process
@@ -23,25 +23,31 @@ class Framework:
         self._components = components
 
     @staticmethod
-    def framework_from_file(working_path, spec_filename):
+    def framework_from_file(spec_file):
+        # Get working path and filename from analysis framework specification filename parameter
+        split_spec_file = spec_file.rsplit("/", 1)
+        if len(split_spec_file) == 1:
+            working_path, spec_filename = "./", split_spec_file[0]
+        else:
+            working_path, spec_filename = split_spec_file[0]+"/", split_spec_file[1]
         # Build analysis framework
         spec_complete_filename = working_path + spec_filename
         try:
             f = open(spec_complete_filename, "rb")
         except FileNotFoundError:
             logger.error(f"Framework file [ {spec_complete_filename} ] not found.")
-            raise FrameworkSpecificationError()
+            raise FrameworkError()
         except PermissionError:
             logger.error(f"Permissions error opening file [ {spec_complete_filename} ].")
-            raise FrameworkSpecificationError()
+            raise FrameworkError()
         except IsADirectoryError:
             logger.error(f"[ {spec_complete_filename} ] is a directory and not a file.")
-            raise FrameworkSpecificationError()
+            raise FrameworkError()
         try:
             framework_dict = tomllib.load(f)
         except tomllib.TOMLDecodeError:
             logger.error(f"TOML decoding of file [ {spec_complete_filename} ] failed.")
-            raise FrameworkSpecificationError()
+            raise FrameworkError()
         return Framework.framework_from_dict(framework_dict, working_path)
 
     @staticmethod
@@ -51,28 +57,28 @@ class Framework:
             process = Framework._parse_process(framework_dict['process'], working_path)
         except KeyError:
             logger.error(f"Process specification not found.")
-            raise FrameworkSpecificationError()
+            raise FrameworkError()
         except ProcessSpecificationError:
             logger.error(f"Process specification error.")
-            raise FrameworkSpecificationError()
+            raise FrameworkError()
         # Building components structure
         if "components" in framework_dict: 
             try:
                 components = Framework._parse_components(framework_dict['components'])
             except ComponentsSpecificationError:
                 logger.error(f"Components definition error.")
-                raise FrameworkSpecificationError()
+                raise FrameworkError()
             # Check that component variables appearing in the process are declared in the components
             for variable in process.variables():
                 if (process.variables()[variable][0] == "Component" and
                         not any([variable in components[component].state() for component in components])):
                     logger.error(f"Variable [ {variable} ] not declared in any component.")
-                    raise FrameworkSpecificationError()
+                    raise FrameworkError()
         else:
             components = {}
             if any([process.variables()[variable][0] == "Component" for variable in process.variables()]):
                 logger.error(f"Process contains component variables but no components were defined.")
-                raise FrameworkSpecificationError()
+                raise FrameworkError()
         # There was no exception in building the framework.
         logger.info(f"Framework created.")
         return Framework(process, components)

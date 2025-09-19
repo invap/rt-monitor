@@ -3,16 +3,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import argparse
-import json
-import tomllib
 import logging
 import signal
-import threading
 import wx
 
 from rt_monitor.config import config
-from rt_monitor.framework.framework import Framework
-from rt_monitor.errors.framework_errors import FrameworkSpecificationError
 from rt_monitor.logging_configuration import (
     LoggingLevel,
     LoggingDestination,
@@ -30,22 +25,9 @@ from rt_monitor.utility import (
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 
 
-def _run_verification(process_thread):
-    # Starts the monitor thread
-    process_thread.start()
-    # Waiting for the verification process to finish, either naturally or manually.
-    process_thread.join()
-    # Signal the main loop to exit
-    wx.CallAfter(wx.GetApp().ExitMainLoop)
-
-
 # Errors:
-# -1: Framework error
 # -2: RabbitMQ server setup error
 def main():
-    # Initiating wx application
-    app = wx.App()
-
     # Signal handling flags
     signal_flags = {'stop': False, 'pause': False}
 
@@ -123,40 +105,38 @@ def main():
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
         exit(-2)
     logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
-    # Create RabbitMQ communication infrastructure
-    rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
     # Analysis framework specification file
     valid = is_valid_file_with_extension(args.spec_file, "toml")
     if not valid:
         logger.critical(f"Analysis framework specification file error.")
         exit(-2)
     logger.info(f"Analysis framework specification file: {args.spec_file}")
-    # Get working path and filename from analysis framework specification filename parameter
-    split_spec_file = args.spec_file.rsplit("/", 1)
-    if len(split_spec_file) == 1:
-        working_path, spec_filename = "./", split_spec_file[0]
-    else:
-        working_path, spec_filename = split_spec_file[0]+"/", split_spec_file[1]
-    # Create framework
-    try:
-        framework = Framework.framework_from_file(working_path, spec_filename)
-    except FrameworkSpecificationError:
-        logger.critical(f"Error creating framework.")
-    else:
-        # Create monitor
-        monitor = Monitor(framework, signal_flags)
-        # Creates a thread for controlling the analysis process
-        application_thread = threading.Thread(target=_run_verification, args=[monitor])
-        # Runs the monitor
-        application_thread.start()
-        # Initiating the wx main event loop
-        app.MainLoop()
-        application_thread.join()
-    finally:
-        # Close connection to the RabbitMQ events server if it exists
-        rabbitmq_server_connections.rabbitmq_event_server_connection.close()
-        # Close connection to the RabbitMQ results log server if it exists
-        rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+    # Create RabbitMQ communication infrastructure
+    rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
+    # Initiating wx application
+    app = wx.App()
+    print("Step 0: The visual application has been created.")
+    # Create monitor
+    monitor = Monitor(args.spec_file, signal_flags)
+    # Runs the monitor
+    monitor.start()
+    print("Step 1: The Runtime Monitor has started.")
+    # Initiating the wx main event loop
+    app.MainLoop()
+    print("Step 2: The main event loop has started.")
+    # Wait for the monitor thread to finish
+    monitor.join()
+    print("Step 3: The Runtime Monitor is has stopped.")
+     # Exit the wx main event loop
+    wx.CallAfter(wx.GetApp().ExitMainLoop())
+    print("Step 4: The main event loop has stopped.")
+    # Destroy the wx application
+    app.Destroy()
+    print("Step 5: The visual application has been destroyed.")
+    # Close connection to the RabbitMQ events server if it exists
+    rabbitmq_server_connections.rabbitmq_event_server_connection.close()
+    # Close connection to the RabbitMQ results log server if it exists
+    rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
     exit(0)
 
 

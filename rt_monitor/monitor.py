@@ -9,6 +9,9 @@ import time
 import pika
 from pyformlang.finite_automaton import Symbol
 import logging
+
+from rt_monitor.errors.framework_errors import FrameworkError
+from rt_monitor.framework.framework import Framework
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,7 @@ from rt_monitor.errors.clock_errors import (
 from rt_monitor.errors.component_errors import FunctionNotImplementedError
 from rt_monitor.errors.evaluator_errors import BuildSpecificationError
 from rt_monitor.errors.monitor_errors import (
+    MonitorError,
     UndeclaredVariableError,
     TaskDoesNotExistError,
     CheckpointDoesNotExistError,
@@ -48,11 +52,17 @@ from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
+# Errors:
+# -1: Framework error
 class Monitor(threading.Thread):
-    def __init__(self, framework, signal_flags):
+    def __init__(self, spec_file, signal_flags):
         super().__init__()
         # Analysis framework
-        self._framework = framework
+        try:
+            self._framework = Framework.framework_from_file(spec_file)
+        except FrameworkError:
+            logger.critical(f"Error creating framework.")
+            raise MonitorError()
         # Signaling flags
         self._signal_flags = signal_flags
         # State
