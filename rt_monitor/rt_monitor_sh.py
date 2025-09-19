@@ -34,9 +34,6 @@ from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 # -1: Framework error
 # -2: RabbitMQ server setup error
 def main():
-    # Initiating wx application
-    app = wx.App()
-
     # Signal handling flags
     signal_flags = {'stop': False, 'pause': False}
 
@@ -108,20 +105,22 @@ def main():
     logger.info(f"Timeout for message reception: {config.timeout} seconds.")
     # Determine stop policy
     config.stop = args.stop
+    # Analysis framework specification file
+    valid = is_valid_file_with_extension(args.spec_file, "toml")
+    if not valid:
+        logger.critical(f"Analysis framework specification file error.")
+        exit(-1)
+    logger.info(f"Analysis framework specification file: {args.spec_file}")
     # RabbitMQ infrastructure configuration
     valid = is_valid_file_with_extension(args.rabbitmq_config_file, "toml")
     if not valid:
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
         exit(-2)
     logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
-    # Analysis framework specification file
-    valid = is_valid_file_with_extension(args.spec_file, "toml")
-    if not valid:
-        logger.critical(f"Analysis framework specification file error.")
-        exit(-2)
-    logger.info(f"Analysis framework specification file: {args.spec_file}")
     # Create RabbitMQ communication infrastructure
     rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
+    # Initiating wx application
+    app = wx.App()
     # Create monitor
     try:
         monitor = Monitor(args.spec_file, signal_flags)
