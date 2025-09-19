@@ -151,6 +151,7 @@ def main():
         application_thread.start()
         # Initiating the wx main event loop
         app.MainLoop()
+        application_thread.join()
     finally:
         # Close connection to the RabbitMQ events server if it exists
         rabbitmq_server_connections.rabbitmq_event_server_connection.close()
