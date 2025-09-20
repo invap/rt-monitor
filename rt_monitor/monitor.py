@@ -4,16 +4,18 @@
 
 import re
 import json
+import signal
 import threading
 import time
 import pika
 from pyformlang.finite_automaton import Symbol
+import wx
 import logging
+# Create a logger for the monitor component
+logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.framework_errors import FrameworkError
 from rt_monitor.framework.framework import Framework
-# Create a logger for the monitor component
-logger = logging.getLogger(__name__)
 
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 from rt_rabbitmq_wrapper.exchange_types.event.event_dict_codec import EventDictCoDec
@@ -52,8 +54,48 @@ from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
 
-# Errors:
-# -1: Framework error
+def rt_monitor_runner(spec_file):
+    # Signal handling flags
+    signal_flags = {'stop': False, 'pause': False}
+
+    # Signal handling functions
+    def sigint_handler(signum, frame):
+        signal_flags['stop'] = True
+
+    def sigtstp_handler(signum, frame):
+        signal_flags['pause'] = not signal_flags['pause']  # Toggle pause state
+
+    # Registering signal handlers
+    signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGTSTP, sigtstp_handler)
+
+    # Initiating wx application
+    app = wx.App()
+    # Create monitor
+    try:
+        monitor = Monitor(spec_file, signal_flags)
+    except FrameworkError:
+        logger.critical(f"Framework error.")
+        raise MonitorError()
+
+    def _run_verification():
+        # Starts the monitor thread
+        monitor.start()
+        # Waiting for the verification process to finish, either naturally or manually.
+        monitor.join()
+        # Signal the wx main event loop to exit
+        wx.CallAfter(wx.GetApp().ExitMainLoop)
+
+    # Creates the application thread for controlling the monitor
+    application_thread = threading.Thread(target=_run_verification, daemon=True)
+    # Runs the application thread
+    application_thread.start()
+    # Initiating the wx main event loop
+    app.MainLoop()
+    # Waiting for the application thread to finish
+    application_thread.join()
+
+
 class Monitor(threading.Thread):
     def __init__(self, spec_file, signal_flags):
         super().__init__()
@@ -100,7 +142,7 @@ class Monitor(threading.Thread):
         )
         logger.info(f"Monitor created.")
 
-    # Raises:
+    # Raises: MonitorError
     def run(self):
         EXCEPTIONS = (
             BuildSpecificationError,
@@ -152,14 +194,14 @@ class Monitor(threading.Thread):
                     method, properties, body = rabbitmq_server_connections.rabbitmq_event_server_connection.get_message()
                 except RabbitMQError:
                     logger.critical(f"Error receiving event from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}.")
-                    exit(-2)
+                    raise MonitorError()
                 if method:  # Message exists
                     # ACK the message from RabbitMQ
                     try:
                         rabbitmq_server_connections.rabbitmq_event_server_connection.ack_message(method.delivery_tag)
                     except RabbitMQError:
                         logger.critical(f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}.")
-                        exit(-2)
+                        raise MonitorError()
                     # Process message
                     if properties.headers and properties.headers.get('termination'):
                         # Poison pill received
@@ -208,7 +250,7 @@ class Monitor(threading.Thread):
             )
         except RabbitMQError:
             logger.critical(f"Error sending poison pill to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-            exit(-2)
+            raise MonitorError()
         else:
             logger.info(f"Poison pill sent to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
         # Stop publishing results to the RabbitMQ server
@@ -262,7 +304,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-                exit(-2)
+                raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             return False
         else:
@@ -283,7 +325,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-                exit(-2)
+                raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             # Analysis of preconditions
             task_specification = self._framework.process().tasks()[task_name]
@@ -328,7 +370,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-                exit(-2)
+                raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             return False
         else:
@@ -349,7 +391,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-                exit(-2)
+                raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             # Analysis of posconditions
             task_specification = self._framework.process().tasks()[task_name]
@@ -394,7 +436,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-                exit(-2)
+                raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             return False
         else:
@@ -415,7 +457,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}.")
-                exit(-2)
+                raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             # Analysis of properties
             checkpoint_specification = self._framework.process().checkpoints()[checkpoint_name]
