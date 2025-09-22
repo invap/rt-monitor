@@ -3,9 +3,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import argparse
+import signal
+import threading
+import wx
 import logging
+# Create a logger for the monitor component
+logger = None  # Will be initialized in main()
 
 from rt_monitor.config import config
+from rt_monitor.errors.framework_errors import FrameworkError
 from rt_monitor.errors.monitor_errors import MonitorError
 from rt_monitor.logging_configuration import (
     LoggingLevel,
@@ -14,12 +20,54 @@ from rt_monitor.logging_configuration import (
     configure_logging_destination,
     configure_logging_level
 )
-from rt_monitor.monitor import rt_monitor_runner
+from rt_monitor.monitor import Monitor
 from rt_monitor import rabbitmq_server_connections
 from rt_monitor.utility import (
     is_valid_file_with_extension_nex,
     is_valid_file_with_extension
 )
+
+
+def rt_monitor_runner(spec_file):
+    # Signal handling flags
+    signal_flags = {'stop': False, 'pause': False}
+
+    # Signal handling functions
+    def sigint_handler(signum, frame):
+        signal_flags['stop'] = True
+
+    def sigtstp_handler(signum, frame):
+        signal_flags['pause'] = not signal_flags['pause']  # Toggle pause state
+
+    # Registering signal handlers
+    signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGTSTP, sigtstp_handler)
+
+    # Initiating wx application
+    app = wx.App()
+    # Create monitor
+    try:
+        monitor = Monitor(spec_file, signal_flags)
+    except FrameworkError:
+        logger.critical(f"Framework error.")
+        raise MonitorError()
+
+    def _run_monitoring():
+        # Starts the monitor thread
+        monitor.start()
+        # Waiting for the verification process to finish, either naturally or manually.
+        monitor.join()
+        # Signal the wx main event loop to exit
+        wx.CallAfter(wx.GetApp().ExitMainLoop)
+
+    # Creates the application thread for controlling the monitor
+    application_thread = threading.Thread(target=_run_monitoring, daemon=True)
+    # Runs the application thread
+    application_thread.start()
+    # Initiating the wx main event loop
+    app.MainLoop()
+    # Waiting for the application thread to finish
+    application_thread.join()
 
 
 # Exit codes:
@@ -28,6 +76,7 @@ from rt_monitor.utility import (
 # -3: Monitor error
 # -4: Unexpected error
 def main():
+    global logger
     # Argument processing
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",

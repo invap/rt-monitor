@@ -4,30 +4,16 @@
 
 import re
 import json
-import signal
 import threading
 import time
 import pika
 from pyformlang.finite_automaton import Symbol
-import wx
 import logging
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.framework_errors import FrameworkError
 from rt_monitor.framework.framework import Framework
-
-from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
-from rt_rabbitmq_wrapper.exchange_types.event.event_dict_codec import EventDictCoDec
-from rt_rabbitmq_wrapper.exchange_types.event.event_codec_errors import EventDictError
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import (
-    ProcessVerdict,
-    TaskStartedVerdict,
-    TaskFinishedVerdict,
-    CheckpointReachedVerdict
-)
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
-
 from rt_monitor.config import config
 from rt_monitor.errors.clock_errors import (
     ClockError,
@@ -53,47 +39,16 @@ from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
-
-def rt_monitor_runner(spec_file):
-    # Signal handling flags
-    signal_flags = {'stop': False, 'pause': False}
-
-    # Signal handling functions
-    def sigint_handler(signum, frame):
-        signal_flags['stop'] = True
-
-    def sigtstp_handler(signum, frame):
-        signal_flags['pause'] = not signal_flags['pause']  # Toggle pause state
-
-    # Registering signal handlers
-    signal.signal(signal.SIGINT, sigint_handler)
-    signal.signal(signal.SIGTSTP, sigtstp_handler)
-
-    # Initiating wx application
-    app = wx.App()
-    # Create monitor
-    try:
-        monitor = Monitor(spec_file, signal_flags)
-    except FrameworkError:
-        logger.critical(f"Framework error.")
-        raise MonitorError()
-
-    def _run_monitoring():
-        # Starts the monitor thread
-        monitor.start()
-        # Waiting for the verification process to finish, either naturally or manually.
-        monitor.join()
-        # Signal the wx main event loop to exit
-        wx.CallAfter(wx.GetApp().ExitMainLoop)
-
-    # Creates the application thread for controlling the monitor
-    application_thread = threading.Thread(target=_run_monitoring, daemon=True)
-    # Runs the application thread
-    application_thread.start()
-    # Initiating the wx main event loop
-    app.MainLoop()
-    # Waiting for the application thread to finish
-    application_thread.join()
+from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
+from rt_rabbitmq_wrapper.exchange_types.event.event_dict_codec import EventDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.event.event_codec_errors import EventDictError
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import (
+    ProcessVerdict,
+    TaskStartedVerdict,
+    TaskFinishedVerdict,
+    CheckpointReachedVerdict
+)
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
 
 
 class Monitor(threading.Thread):
