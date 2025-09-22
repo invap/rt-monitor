@@ -78,7 +78,7 @@ def rt_monitor_runner(spec_file):
         logger.critical(f"Framework error.")
         raise MonitorError()
 
-    def _run_verification():
+    def _run_monitoring():
         # Starts the monitor thread
         monitor.start()
         # Waiting for the verification process to finish, either naturally or manually.
@@ -87,7 +87,7 @@ def rt_monitor_runner(spec_file):
         wx.CallAfter(wx.GetApp().ExitMainLoop)
 
     # Creates the application thread for controlling the monitor
-    application_thread = threading.Thread(target=_run_verification, daemon=True)
+    application_thread = threading.Thread(target=_run_monitoring, daemon=True)
     # Runs the application thread
     application_thread.start()
     # Initiating the wx main event loop

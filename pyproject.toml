@@ -1,6 +1,6 @@
 [project]
 name = "rt-monitor"
-version = "2.7.2"
+version = "2.8.0"
 description = "This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given: 1. an analysis framework specification, and 2. an event reports map file containing: a. a reference to the **main** event report file, and b. references to the event report files of the self-loggable components declared in the analysis framework specification."
 authors = [
     {name = "Carlos Gustavo Lopez Pombo", email = "clpombo@gmail.com>"}

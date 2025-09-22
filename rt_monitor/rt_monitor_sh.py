@@ -103,7 +103,7 @@ def main():
     try:
         rt_monitor_runner(args.spec_file)
     except MonitorError:
-        logger.critical(f"Monitor error.")
+        logger.critical("Monitor error.")
         exit(-3)
     except Exception as e:
         logger.critical(f"Unexpected error: {e}.")
