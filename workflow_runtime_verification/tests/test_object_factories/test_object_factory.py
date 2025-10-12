@@ -95,8 +95,8 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
 
     def workflow_specification_with_many_tasks(self):
         starting_task_specification = self.starting_task_specification()
-        final_task_specification = TaskSpecification(self.final_task_name())
-        ordered_nodes = [starting_task_specification, final_task_specification]
+        ending_task_specification = self.final_task_specification()
+        ordered_nodes = [starting_task_specification, ending_task_specification]
         dependencies = {(0, 1)}
 
         return WorkflowSpecification.new_with(ordered_nodes, dependencies)
@@ -106,7 +106,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_task = TaskSpecification(self.final_task_name())
+        final_task = self.final_task_specification()
 
         ordered_nodes = [
             starting_task,
@@ -124,7 +124,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_task = TaskSpecification(self.final_task_name())
+        final_task = self.final_task_specification()
 
         ordered_nodes = [
             starting_task,
@@ -169,12 +169,23 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
 
         return WorkflowSpecification.new_with(ordered_nodes, dependencies)
 
+    def workflow_specification_starting_with_choice(self):
+        middle_task_1 = TaskSpecification(self.middle_task_1_name())
+        middle_task_2 = TaskSpecification(self.middle_task_2_name())
+        middle_task_3 = TaskSpecification(self.middle_task_3_name())
+        final_task = self.final_task_specification()
+
+        ordered_nodes = [middle_task_1, middle_task_2, middle_task_3, final_task]
+        dependencies = {(0, 3), (1, 2), (2, 3)}
+
+        return WorkflowSpecification.new_with(ordered_nodes, dependencies)
+
     def workflow_specification_with_many_tasks_and_parallel(self):
         starting_node = self.starting_task_specification()
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_node = TaskSpecification(self.final_task_name())
+        final_node = self.final_task_specification()
 
         ordered_nodes = [
             starting_node,
@@ -192,7 +203,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_node = TaskSpecification(self.final_task_name())
+        final_node = self.final_task_specification()
 
         ordered_nodes = [
             starting_node,
@@ -210,7 +221,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_node = TaskSpecification(self.final_task_name())
+        final_node = self.final_task_specification()
 
         ordered_nodes = [
             starting_node,
@@ -235,7 +246,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_node = TaskSpecification(self.final_task_name())
+        final_node = self.final_task_specification()
 
         ordered_nodes = [
             starting_node,
@@ -260,7 +271,7 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
         middle_task_1 = TaskSpecification(self.middle_task_1_name())
         middle_task_2 = TaskSpecification(self.middle_task_2_name())
         middle_task_3 = TaskSpecification(self.middle_task_3_name())
-        final_node = TaskSpecification(self.final_task_name())
+        final_node = self.final_task_specification()
 
         ordered_nodes = [
             starting_node,
@@ -326,6 +337,9 @@ class TestObjectFactory(TestLogicObjectFactory, TestEncodedEventFactory):
 
     def starting_task_specification(self):
         return TaskSpecification.new_named(self.starting_task_name())
+
+    def final_task_specification(self):
+        return TaskSpecification.new_named(self.final_task_name())
 
     def empty_component_dictionary(self):
         return dict()

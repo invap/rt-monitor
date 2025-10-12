@@ -26,6 +26,8 @@ class EventDecoder:
         match event_type:
             case "component_event":
                 return ComponentEvent.decode_with(EventDecoder, encoded_event)
+            case "hardware_event":
+                return ComponentEvent.decode_with(EventDecoder, encoded_event)
             case "workflow_event":
                 return WorkflowEvent.decode_with(EventDecoder, encoded_event)
             case "invalid":
@@ -44,7 +46,9 @@ class EventDecoder:
             case "declare_variable":
                 return DeclareVariableEvent.decode_with(EventDecoder, encoded_event)
             case "variable_value_assigned":
-                return VariableValueAssignedEvent.decode_with(EventDecoder, encoded_event)
+                return VariableValueAssignedEvent.decode_with(
+                    EventDecoder, encoded_event
+                )
             case _:
                 raise InvalidEventError(encoded_event)
 

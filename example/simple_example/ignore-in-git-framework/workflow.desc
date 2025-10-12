@@ -1,0 +1,15 @@
+8:{(0,1),(1,2),(2,3),(3,4),(2,5),(5,6),(6,7)}
+0:task,initiate_pressure_measurements,{stage_is_first},
+    {pressure_above_minimum;pressure_below_maximum},
+    {<control_failsafe,{failsafe_lock_disabled}>}
+1:task,start_coolant_pump,{stage_is_first},{stage_is_second},{}
+2:task,initiate_temperature_measurements,{stage_is_second},
+    {temperature_above_minimum;temperature_below_maximum},
+    {<control_failsafe,{failsafe_lock_disabled}>}
+3:task,stop_coolant_pump,{stage_is_second},{stage_is_first},{}
+4:checkpoint,log_test_run_results,{results_logged;signatures_logged}
+5:checkpoint,control_pressure_manually,
+    {pressure_above_minimum;pressure_below_maximum}
+6:checkpoint,control_temperature_manually,
+    {temperature_above_minimum;temperature_below_maximum}
+7:task,withdraw_control_rods,{stage_is_second},{stage_is_third},{}

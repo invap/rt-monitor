@@ -6,13 +6,11 @@
 
 ### Base Python installation
 
-1. Python (https://www.python.org/)
+1. Python 3.11 (https://www.python.org/)
 2. PIP (https://pip.pypa.io/en/stable/installation/)
 
 
 ### IDE setup
-
-Use `Python 3.10`
 
 
 #### PyCharm

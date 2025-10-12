@@ -1,18 +1,8 @@
 from workflow_runtime_verification.reporting.event.checkpoint_reached_event import (
     CheckpointReachedEvent,
 )
-from workflow_runtime_verification.reporting.event.component_event import ComponentEvent
-from workflow_runtime_verification.reporting.event.declare_variable_event import (
-    DeclareVariableEvent,
-)
-from workflow_runtime_verification.reporting.event.task_finished_event import (
-    TaskFinishedEvent,
-)
-from workflow_runtime_verification.reporting.event.task_started_event import (
-    TaskStartedEvent,
-)
-from workflow_runtime_verification.reporting.event.variable_value_assigned_event import (
-    VariableValueAssignedEvent,
+from workflow_runtime_verification.reporting.event_reporter.event_reporter import (
+    EventReporter,
 )
 from workflow_runtime_verification.tests.test_object_factories.test_name_and_value_factory import (
     TestNameAndValueFactory,
@@ -24,7 +14,10 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
         return 0
 
     def event_reporter(self):
-        return EventReporter()
+        return EventReporter.new_with_no_output()
+
+    def event_reporter_with_output(self, report_output):
+        return EventReporter(report_output)
 
     def encoded_event_with_invalid_type(self):
         return "invalid_encoded_event_type()"
@@ -102,25 +95,3 @@ class TestEncodedEventFactory(TestNameAndValueFactory):
                 self.another_variable_value(),
             ),
         ]
-
-
-class EventReporter:
-    def report_task_started(self, task_name, time):
-        return TaskStartedEvent(task_name, time).serialized()
-
-    def report_task_finished(self, task_name, time):
-        return TaskFinishedEvent(task_name, time).serialized()
-
-    def report_declared_variable(self, variable_name, variable_type, time):
-        return DeclareVariableEvent(variable_name, variable_type, time).serialized()
-
-    def report_checkpoint_reached(self, checkpoint_name, time):
-        return CheckpointReachedEvent(checkpoint_name, time).serialized()
-
-    def report_variable_value_assigned(self, variable_name, variable_value, time):
-        return VariableValueAssignedEvent(
-            variable_name, variable_value, time
-        ).serialized()
-
-    def report_component_event(self, component_name, data, time):
-        return ComponentEvent(component_name, data, time).serialized()

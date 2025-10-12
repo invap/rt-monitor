@@ -6,6 +6,7 @@ install-python-dependencies-for-application_running:
 	pip install -r requirements/application_running_requirements.txt
 
 install-python-dependencies-for-usage:
+	$(MAKE) install-python-dependencies-for-application_running
 	pip install -r requirements/usage_requirements.txt
 
 install-python-dependencies-for-development:

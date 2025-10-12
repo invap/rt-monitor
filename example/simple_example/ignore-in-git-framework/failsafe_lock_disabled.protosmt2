@@ -1,0 +1,2 @@
+fail_safe_lock
+(= fail_safe_lock 0)

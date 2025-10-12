@@ -4,7 +4,7 @@ import threading
 import wx
 
 from logging_configuration import LoggingLevel, LoggingDestination
-from verification import Verification
+from verification import VerificationFromPanel
 
 
 class MainWindow(wx.Frame):
@@ -106,7 +106,9 @@ class MonitoringPanel(wx.Panel):
         self._set_up_initial_verification_status()
         self._update_amount_of_events_to_verify()
 
-        self._verification = Verification.new_for_workflow_in_file(specification_path)
+        self._verification = VerificationFromPanel.new_for_workflow_in_file(
+            specification_path
+        )
         self._verification.run_for_report(
             event_report_path,
             self.Parent.logging_destination(),
