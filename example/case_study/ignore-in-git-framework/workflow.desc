@@ -1,0 +1,6 @@
+5;{(0,1),(0,2),(2,3),(3,4),(1,4),(4,1),(4,2)}
+0:task,init,{},{init_fondo_display},{}
+1:task,filtering_B,{filtering_B_pre},{filtering_B_post},{<filtering_chk,{12bitsreading;additionbound}>,<filtering_chk_2,{12bitsreading;additionbound}>}
+2:task,filtering,{filtering_pre},{filtering_post},{<filtering_chk,{12bitsreading;additionbound}>}
+3:task,conversion,{conversion_pre},{conversion_post},{}
+4:checkpoint,display_chk,{barpointiscorrect;bariscorrect}

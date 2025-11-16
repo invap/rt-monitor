@@ -1,0 +1,5 @@
+main_realvalue_old,main_addition
+(and
+    (= main_realvalue_old 0)
+    (= main_addition 0)
+)

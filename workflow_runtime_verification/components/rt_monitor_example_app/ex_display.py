@@ -1,13 +1,12 @@
-import inspect
 import threading
 from enum import Enum
 
 import numpy as np
 
+from workflow_runtime_verification.components.component import Component
 from workflow_runtime_verification.components.rt_monitor_example_app import (
     ex_displayVisual,
 )
-from workflow_runtime_verification.errors import FunctionNotImplemented
 
 
 class LCDCmdsCodes:
@@ -103,8 +102,10 @@ class TextConfiguration:
       uint8_t scale;    /**< Text scale */   """
 
 
-class display:
+class display(Component):
     def __init__(self):
+        super().__init__()
+
         # TODO driver must have the base configuration of the display, such as the commands codes, etc.
         # in this prototype we assume the display configuration
         # set the default width and height of the display, note that some drivers can update the size with the
@@ -166,6 +167,21 @@ class display:
             ],
         }
         return state
+
+    def exported_functions(self):
+        return {
+            "display_set_text_origin_position": self.display_set_text_origin_position,
+            "display_box": self.display_box,
+            "display_write_text": self.display_write_text,
+            "display_rect": self.display_rect,
+            "display_Show_RGB": self.display_show_rgb,
+            "display_set_text_color": self.display_set_text_color,
+            "display_set_text_bgcolor": self.display_set_text_bgcolor,
+            "display_set_text_scale": self.display_set_text_scale,
+            "display_set_text_pos": self.display_set_text_pos,
+            "display_set_text_pos2": self.display_set_text_pos2,
+            "display_set_pixel": self.display_set_pixel,
+        }
 
     def __set_pixel_pos_gamma(
         self, w: int, h: int, px_gamma: PixelGamma, value: np.uint8
@@ -548,59 +564,6 @@ class display:
         self.__write_data(np.uint8(b))
 
         # component exported methods
-
-    exported_functions = {
-        "display_set_text_origin_position": display_set_text_origin_position,
-        "display_box": display_box,
-        "display_write_text": display_write_text,
-        "display_rect": display_rect,
-        "display_Show_RGB": display_show_rgb,
-        "display_set_text_color": display_set_text_color,
-        "display_set_text_bgcolor": display_set_text_bgcolor,
-        "display_set_text_scale": display_set_text_scale,
-        "display_set_text_pos": display_set_text_pos,
-        "display_set_text_pos2": display_set_text_pos2,
-        "display_set_pixel": display_set_pixel,
-    }
-
-    def process_high_level_call(self, string_call):
-        """
-        This method receive as parameter a string_call containing a sequence of values,
-        the first one is the class method name (e.g. lectura), then a lists of
-        parameters for its call.
-        """
-        # get information from string
-        ls = string_call.split(",")
-        function_name = ls[0]
-
-        if function_name not in self.exported_functions:
-            raise FunctionNotImplemented(function_name)
-
-        function = self.exported_functions[function_name]
-        # get parameters
-        args_str = ls[1:]
-        # call the function
-        self.run_with_args(function, args_str)
-        return True
-
-    def run_with_args(self, function, args):
-        signature = inspect.signature(function)
-        parameters = signature.parameters
-        new_args = [self]
-        for name, param in parameters.items():
-            exp_type = param.annotation
-            if exp_type is not inspect.Parameter.empty:
-                try:
-                    value = args[0]
-                    args = args[1:]
-                    value = exp_type(value)
-                    new_args.append(value)
-                except (TypeError, ValueError):
-                    print(
-                        f"Error: Can't convert the arg '{name}' al tipo {exp_type.__name__}"
-                    )
-
-        return function(*new_args)
 
 
 class Font6_8:

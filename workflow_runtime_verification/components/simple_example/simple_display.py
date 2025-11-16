@@ -1,21 +1,21 @@
-from workflow_runtime_verification.errors import FunctionNotImplemented
+import numpy as np
+
+from workflow_runtime_verification.components.component import Component
 
 
-class SimpleDisplay:
-    def write(self, _data):
-        pass
+class SimpleDisplay(Component):
+    def __init__(self):
+        super().__init__()
+        self._state = {"data": np.uint16(0)}
+
+    def write(self, data: np.uint16):
+        self._state["data"] = data
 
     def stop(self):
         pass
 
-    @staticmethod
-    def state():
-        return {}
+    def state(self):
+        return self._state
 
-    def process_high_level_call(self, call_data):
-        call_data = call_data.split(",")
-        function_name = call_data[0]
-        if function_name == "display_write":
-            self.write(call_data[1])
-        else:
-            raise FunctionNotImplemented(function_name)
+    def exported_functions(self):
+        return {"display_write": self.write}
