@@ -1,5 +1,2 @@
 *__pycache__*
-.idea/*
-.github/*
-/sandbox/rt-monitor-example-app/framework/
-/poetry.lock
+poetry.lock

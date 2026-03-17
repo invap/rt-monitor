@@ -1,7 +1,7 @@
 [project]
 name = "rt-monitor"
 version = "2.8.1"
-description = "This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given: 1. an analysis framework specification, and 2. an event reports map file containing: a. a reference to the **main** event report file, and b. references to the event report files of the self-loggable components declared in the analysis framework specification."
+description = "This project contains an implementation of the Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given: 1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and 2. a *stream of events* obtained; through the RabbitMQ events exchange found in the RabbitMQ server configuration file. The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading: - Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and - Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the software under test (SUT), which can later be processed by the RR for producing an event log file). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/). The analysis process consists of checking if the stream of event obtained through the RabbitMQ events exchange satisfies the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification."
 authors = [
     {name = "Carlos Gustavo Lopez Pombo", email = "clpombo@gmail.com>"}
 ]
@@ -10,7 +10,7 @@ license = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
 repository = "https://github.com/invap/rt-monitor"
 
 
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.12,<3.14"
 packages = [
     { include = "rt_monitor" },
 ]

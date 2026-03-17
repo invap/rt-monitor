@@ -1,15 +1,17 @@
 # The Runtime Monitor
 
-This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given:
-1. an analysis framework specification (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format)
-2. an [event report file](#event-report-file)
+This project contains an implementation of the  Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given:
+1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and
+2. a *stream of events* obtained through the RabbitMQ events exchange found in the RabbitMQ server configuration file. 
 
 The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading:
  
 - Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and 
-- Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the software under test (SUT), which can later be processed by the RR for producing an event log file). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/)
+- Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the SUT, which can later be processed by an event reporter). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/)
 
-The analysis process consists of checking if an appropriate set of event reports obtained from an execution of the SUT, through the application of a runtime reporter tool (RR) (for example, [The Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") and [The DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")), satisfy the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification.
+The analysis process consists of checking if the stream of event obtained through the RabbitMQ events exchange[^reporters]
+[^reporters]: Such a stream of events can  be produced by a specialized event reporter (for example, like the [Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") or the [DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")).
+, satisfies the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification.
 
 
 ## Structure the project
@@ -24,8 +26,7 @@ rt-monitor/
 │   │   │   └── component.py      # Implements the interface of the python components used by the SUT
 │   │   ├── process               # Contains the python files implementing structured sequential processes
 │   │   ├── clock.py              # Implementation of the notion of clock used for checking timed properties
-│   │   ├── framework.py          # Implementation of the analysis framework
-│   │   └── framework_builder.py
+│   │   └── framework.py          # Implementation of the analysis framework
 │   ├── property_evaluator        # Folder containing the implementation of the property evaluators
 │   ├── reporting                 # Folder containing the implementation of event decoder and the event types
 │   ├── logging_configuration.py  # Implementation of the structure for configuring the logger
@@ -36,10 +37,9 @@ rt-monitor/
 ├── README_images                 # Images for the read me file
 │   └── ...                       # ...
 ├── COPYING                       # Licence of the project 
+├── Dockerfile                    # File containing the configuration for running the RM in a docker container 
 ├── pyproject.toml                # Configuration file (optional, recommended)
-├── README.md                     # Read me file of the project
-├── requirements.txt              # Package requirements of the project
-└── setup.py                      # Metadata and build configuration
+└── README.md                     # Read me file of the project
 ```
 
 
@@ -53,124 +53,57 @@ In this section we will review relevant aspects of how to setup this project, bo
 3. Setup tools v.75.3.0+ / Poetry v.2.1.1+ (https://python-poetry.org)
 
 
-### Setting up a Python virtual environment
-To create a Python virtual environment, follow these steps:
-
-1. **Open a terminal or command prompt:**
-Start by opening your terminal (on MacOS or Linux) or Command Prompt/PowerShell (on Windows).
-
-2. **Navigate to your project directory:**
-If you have a specific directory for your project, navigate to it using the cd command:
-```bash
-cd path/to/your/project
-```
-3. **Create a Python virtual environment:**
-Run one of the following commands, depending on your version of Python:
-	- For Python 3.3 and newer:
-	```bash
-	python -m venv env
-	```
-	Replace `env` with whatever name you'd like for your environment folder (common names include venv, .venv, or env).
-	- For Older Versions (Python 2):
-		- You may need to install `virtualenv` first if you're using Python 2:
-		```bash
-		pip install virtualenv
-		```
-		- Then, create the virtual environment with:
-		```bash
-		virtualenv env
-		```
-4. **Activate the virtual environment:**
-To activate the virtual environment, use one of the following commands based on your operating system:
-	- On Mac OS and Linux:
-	```bash
-	source env/bin/activate
-	```
-	- On Windows:
-	```bash
-	.\env\Scripts\activate
-	```
-	Once activated, you’ll see the environment name in parentheses at the beginning of your command prompt.
-5. **Install packages in the virtual environment:**
-With the environment activated, you can now install packages using `pip`, and they’ll be isolated to this environment.
-```bash
-pip install package_name
-```
-Perform this command for each of the packages required replacing `package_name` with the name of each package in the file [`requirements.txt`](https://github.com/invap/rt-monitor/blob/main/requirements.txt) or just run:
-```bash
-pip install -r requirements.txt
-```
-- **Content of [`requirements.txt`](https://github.com/invap/rt-monitor/blob/main/requirements.txt):**
-- black~=24.10.0
-- boto~=2.49.0
-- igraph~=0.11.6
-- mpmath~=1.3.0
-- numpy~=2.1.2
-- pip~=24.2
-- pynput~=1.7.7
-- pyobjc-core~=10.3.1
-- pyobjc-framework-ApplicationServices~=10.3.1
-- pyobjc-framework-Cocoa~=10.3.1
-- pyobjc-framework-CoreText~=10.3.1
-- pyobjc-framework-Quartz~=10.3.1
-- setuptools~=75.3.0
-- six~=1.16.0
-- sympy~=1.13.3
-- texttable~=1.7.0
-- toml~=0.10.2
-- wxPython~=4.2.2
-- z3-solver~=4.13.0.0
-7. **Do something with RR...**
-8. **Deactivate the virtual environment:**
-To exit the virtual environment, simply type:
-```bash
-deactivate
-```
-Your environment will remain in the project folder for you to reactivate as needed.
-
-### Setting up the project using Poetry
+### Setting up the project
 This section provide instructions for setting up the project using [Poetry](https://python-poetry.org)
 1. **Install Poetry:** find instructions for your system [here](https://python-poetry.org) 
 2. **Add [`pyproject.toml`](https://github.com/invap/rt-monitor/blob/main/pyproject.toml):** the content of the `pyproject.toml` file needed for setting up the project using poetry is shown below.
 ```toml
-[tool.poetry]
+[project]
 name = "rt-monitor"
-version = "0.1.0"
-description = "This project contains an implementation of a Runtime Monitoring tool (RM). The rationale behind this tool is that it provides runtime verification capabilities provided it is given: 1. an analysis framework specification, and 2. an event report file."
-authors = ["Carlos Gustavo Lopez Pombo <clpombo@gmail.com>"]
+version = "2.8.1"
+description = "This project contains an implementation of the Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given: 1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and 2. a *stream of events* obtained; through the RabbitMQ events exchange found in the RabbitMQ server configuration file. The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading: - Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and - Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the System Under Test (SUT), which can later be processed by the RR for producing an event log file). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/). The analysis process consists of checking if the stream of event obtained through the RabbitMQ events exchange satisfies the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification."
+authors = [
+    {name = "Carlos Gustavo Lopez Pombo", email = "clpombo@gmail.com>"}
+]
 readme = "README.md"
 license = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
 repository = "https://github.com/invap/rt-monitor"
 
-[[tool.poetry.packages]]
-include = "rt_monitor"
-from = "./"
 
-[tool.poetry.dependencies]
-black =">=24.10.0,<24.11.0"
-python = ">=3.12"
-pyobjc-core =">=10.3.1,<10.4.0"
-pyobjc-framework-applicationservices =">=10.3.1,<10.4.0"
-pyobjc-framework-cocoa =">=10.3.1,<10.4.0"
-pyobjc-framework-coretext =">=10.3.1,<10.4.0"
-pyobjc-framework-quartz =">=10.3.1,<10.4.0"
-pip =">=24.3.1,<24.4.0"
-pynput =">=1.7.7,<1.8.0"
-setuptools =">=75.3.0,<75.4.0"
-six =">=1.16.0,<1.17.0"
-wxpython =">=4.2.2,<4.3.0"
-twine =">=5.1.1,<5.2.0"
-boto ="~=2.49.0"
-igraph ="~=0.11.6"
-mpmath ="~=1.3.0"
-numpy = "~=2.1.2"
-sympy = "~=1.13.3"
-texttable = "~=1.7.0"
-toml = "~=0.10.2"
-z3-solver = "~=4.13.0.0"
+requires-python = ">=3.12,<3.14"
+packages = [
+    { include = "rt_monitor" },
+]
+dependencies = [
+    "black (>=24.10.0,<24.11.0)",
+    "colorama (>=0.4.6)",
+    "pyformlang~=1.0.11",
+    "pyobjc-core (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
+    "pyobjc-framework-applicationservices (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
+    "pyobjc-framework-cocoa (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
+    "pyobjc-framework-coretext (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
+    "pyobjc-framework-quartz (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
+    "pika (>=1.3.2)",
+    "pip (>=25.1.1,<25.2.0)",
+    "pynput (>=1.7.7,<1.8.0)",
+    "setuptools (>=75.3.0,<75.4.0)",
+    "six (>=1.16.0,<1.17.0)",
+    "wxpython (>=4.2.2,<4.3.0); sys_platform == 'darwin'",
+    "wxpython @ https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/wxPython-4.2.2-cp312-cp312-linux_x86_64.whl ; sys_platform == 'linux'",
+    "twine (>=5.1.1,<5.2.0)",
+    "boto (~=2.49.0)",
+    "igraph (~=0.11.6)",
+    "mpmath (~=1.3.0)",
+    "numpy (~=2.1.2)",
+    "sympy (~=1.13.3)",
+    "texttable (~=1.7.0)",
+    "toml (~=0.10.2)",
+    "z3-solver (~=4.13.0.0)",
+    "rt-rabbitmq-wrapper @ git+https://github.com/invap/rt-rabbitmq-wrapper.git@v2.0.0"
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 ```
 3. **Install the project:** To install the Python project using Poetry, navigate to the directory where the project is and run:
@@ -194,7 +127,7 @@ this will ensure you are using the right Python virtual machine and then, activa
 	```bash
 	docker run -it -v$PWD:/home/workspace rt-reporter-env
 	```
-3. **Do something with RR...**
+3. **Do something with RM...**
 
 
 ### Linting Python code (with Black)
@@ -232,249 +165,363 @@ Here, `.` also indicates the current directory. This is mainly useful when the s
 Look in the current directory (`-s .`) for any test files that match the naming pattern `test*.py`.
 Run all the tests it finds, starting from the current directory (`-t .`) and treating it as the top-level directory.
 
-
-### Build the application as a library with poetry
+### Build the application as a library
 To build a package from the Python project follow these steps:
 Now that your configuration files are set, you can build the package using poetry running the build command in the root directory of the project:
 ```bash
 poetry build
 ```
-This will create two files in a new `dist` directory:
-- A source distribution: [rt_reporter-0.1.0.tar.gz](https://github.com/invap/rt-reporter/blob/main/dist/rt_reporter-0.1.0.tar.gz)
-- A wheel distribution: [rt_reporter-0.1.0-py3-none-any.whl](https://github.com/invap/rt-reporter/blob/main/dist/rt_reporter-0.1.0-py3-none-any.whl)
+This will create two files in the [dist](https://github.com/invap/rt-monitor/tree/main/dist/) directory containing:
+- A source distribution file named `rt_monitor-[version].tar.gz`
+- A wheel distribution file named `rt_monitor-[version]-py3-none-any.whl`
 
 
-### Build the application as a library with setuptools
-To build a package from the Python project follow these steps:
+### Distribution Options
 
-1. **The `setup.py` file:**
-the [`setup.py`](https://github.com/invap/rt-monitor/blob/main/setup.py) file is the main configuration file for packaging in Python. See the content of the file below:
-```python
-from setuptools import setup, find_packages
+#### Option A: PyPI (Public)
 
-
-def read_requirements(file):
-    with open(file, 'r') as f:
-        return f.read().splitlines()
-
-
-setup(
-    name="rt-monitor",
-    version="0.1.0",
-    author="Carlos Gustavo Lopez Pombo",
-    author_email="clpombo@gmail.com",
-    description="An implementation of a runtime monitor.",
-    long_description=open("README.md").read(),
-    long_description_content_type="text/markdown",
-    url="https://github.com/invap/rt-monitor/",
-    packages=find_packages(),
-    install_requires=read_requirements("./requirements.txt"),
-    classifiers=[
-        "Development status :: 4 - Beta",
-        "Intended Audience :: Developers",
-        "Programming Language :: Python :: 3.12",
-        "License :: OSI Approved :: GNU Affero General Public License v3 or later",
-        "Operating System :: OS Independent",
-    ],
-    python_requires='>=3.12',
-)
-```
-2. **Add `pyproject.toml` (Optional but Recommended):** 
-the content of the `pyproject.toml` file for building the project using setuptools is shown below:
-```toml
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
-```
-This configuration tells Python to use `setuptools` and `wheel` for building the package.
-3. **Build the package:**
-Now that your configuration files are set, you can build the package using setuptools and wheel.
-- Install the necessary tools (if not already installed):
+1. Configure PyPI repository (if not using TestPyPI):
 ```bash
-pip install setuptools wheel
+poetry config pypi-token.pypi your-api-token
 ```
-- Run the build command in the root directory (where setup.py is located):
+2. Publish to PyPI:
 ```bash
-python setup.py sdist bdist_wheel
+poetry publish
 ```
-This will create two files in a new dist/ directory:
-- A source distribution: [rt_monitor-0.1.0.tar.gz](https://github.com/invap/rt-monitor/blob/main/dist/rt_reporter-0.1.0.tar.gz)
-- A wheel distribution: [rt_monitor-0.1.0-py3-none-any.whl](https://github.com/invap/rt-monitor/blob/main/dist/rt_reporter-0.1.0-py3-none-any.whl)
+
+#### Option B: Test PyPI
+
+```bash
+# Configure TestPyPI
+poetry config repositories.testpypi https://test.pypi.org/legacy/
+
+# Publish to TestPyPI
+poetry publish -r testpypi --build
+```
+
+#### Option C: Private/Internal Distribution
+
+Configure private repository:
+```bash
+poetry config repositories.my-private https://your-private-pypi.com/simple/
+poetry config http-basic.my-private username password
+```
+Publish to private repo:
+```bash
+poetry publish -r my-private --build
+```
+
+#### Option D: Direct Distribution
+
+Share the wheel file directly:
+
+```bash
+# The wheel file is in dist/
+ls dist/
+# Share rt_monitor-[version]-py3-none-any.whl
+```
+
+### Version Management
+
+Update version before building:
+
+```bash
+# Patch release (0.1.0 -> 0.1.1)
+poetry version patch
+
+# Minor release (0.1.0 -> 0.2.0)
+poetry version minor
+
+# Major release (0.1.0 -> 1.0.0)
+poetry version major
+
+# Specific version
+poetry version 1.2.3
+```
+
+### Verification
+
+Verify your package:
+
+```bash
+# Check the wheel contents
+poetry run python -c "import rt_monitor; print(rt_monitor.__version__)"
+
+# Or install and test
+pip install dist/rt_monitor-*.whl
+python -c "import rt_monitor"
+```
 
 
-### Install the application as a library locally
-Follow the steps below for installing the RR as a local library:
-1. **Build the application as a library:**
-Follow the steps in Section [Build the application as a library](#build-the-application-as-a-library)
-2. **Install the package locally:** 
-Use the command `pip install dist/rt_reporter-0.1.0-py3-none-any.whl`.
+## Relevant information about the implementation
 
-### Distribute the application as a library
-Follow the steps below for distributing the RR as a library in PyPI:
-1. **Build the application as a library:**
-Follow the steps in Section [Build the application as a library](#build-the-application-as-a-library)
-2. **Upload the package to PyPI:**
-If you want to make your package publicly available, you can upload it to the Python Package Index (PyPI).
-	- Install twine (a tool for uploading packages):
-	```bash
-	pip install twine
-	```
-	- Upload the package:
-	```bash
-	twine upload dist/*
-	```
-	This command will prompt you to enter your PyPI credentials. Once uploaded, others can install your package with `pip install your-package-name`.
-
-
-## The Runtime Monitor architecture
-[Figure 1](#rt-monitor-architecture) shows a high level view of the architecture of the RM. In it, we highlight the most relevant components and how 
+### The Runtime Monitor architecture
+[Figure 1](#rt-monitor-architecture) shows a high level view of the architecture of the RM. In it, we highlight the most relevant components and how they interact with each other and with the other agents of the RT-Constellation, through the RabbitMQ events and results-log exchanges found in the RabbitMQ server configuration file.
 
 <figure id="rt-monitor-architecture" style="text-align: center;">
-  <img src="./README_images/rt-monitor-architecture.png" width="600" alt="The Runtime Monitor architecture.">
+  <img src="./README_images/rt-monitor-architecture.pdf" width="600" alt="The Runtime Monitor architecture.">
   <figcaption style="font-style: italic;"><b>Figure 1</b>: The Runtime Monitor architecture.
   </figcaption>
 </figure>
 
-As we mentioned in the introduction, the `Runtime Monitor` takes two inputs: **1)** a *Set of event reports* obtained from a concrete execution of the `Software under Test` by an `Event reporter` (see Section [Event reports map file](#event-reports-map-file) for details about the input file format), and **2)** an *Analysis framework* consisting of: **a)** a formalization of the Structured Sequential Process (SSP) (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for details about the language for describing SPP and the input file format) and **b)** a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions). Given that input, the `Analyzer` uses de `Event processor` to crawl the event reports whose events are decoded by the `Event decoder` and then executed producing: **1)** changes in the *Execution's state*, **2)** the execution of a function associated to a specific component through the `Components' command dispatcher` which, in turn, will produce the corresponding changes in the *Component state*, or **3)** changes in the current location (task or checkpoint) in the traversing of the SSP.
+As we mentioned in the introduction, the RM requires two inputs: 
+1. a *stream of events* obtained through the RabbitMQ events exchange found in the RabbitMQ server configuration file, obtained from a concrete execution of the SUT by an event reporter (for example, like the [Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") or the [DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")), and 
+2. an *analysis framework* consisting of: 
+	1. a formalization of the Structured Sequential Process (SSP) (see Section [Syntax for writing SSPs](#syntax-for-writing-ssps) for details about the language for describing SPPs and the input file format), and
+	2. a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions). 
+
+Given that input, the `Analyzer` uses de `Event processor` to crawl the stream of events, decode them, and then execute them, producing: 
+
+1. changes in the *execution state*, in the case of *state events*,
+2. changes in the *process state*, expressing the traversing of the SSP, or
+3. the execution of a function associated to a specific component through the `Components' command dispatcher` which, in turn, will produce the corresponding changes in the *Component state*.
 
 Processing events associated with the traversing of the SSP triggers the analysis of properties associated to specific points in the SSP. In this way, an event of type `task_started` will result in checking that the preconditions of the task mentioned in the event are true in the current state, analogously, an event of type `task_finished` will result in checking that the postconditions of the task are true, finally, an event of type `checkpoint_reached` will result in checking that the properties associated to that point in the SSP are true.
 
-Each property is declared to be of a certain type which requires a purpose specific `Specification builder` specific solvers, for example, [The Z3 Theorem prover](https://www.microsoft.com/en-us/research/project/z3-3/) for SMT2 properties, [SymPy](https://www.sympy.org/en/index.html) for properties that require the use of a Computer Algebra System (CAS), or a Python program to solve simple arithmetic.
+Each property is declared to be of a certain type which requires a purpose specific `Specification builder` and `Evaluator`, built on top of specific solvers; for example, [The Z3 Theorem prover](https://www.microsoft.com/en-us/research/project/z3-3/) for SMT2 properties, [SymPy](https://www.sympy.org/en/index.html) for properties that require the use of a Computer Algebra System (CAS), or a Python program to solve simple arithmetic.
 
 
-## Event language for monitoring
-From the six different types of events, `timed_event`, `state_event`, `process_event`, `component_event`.
-
-- `timed_event`: the event is expected to have the format `[timestamp],timed_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the timed event reported and has the shape `[clock action],[clock variable]`, where `[clock action]` is in the set {`clock_start`, `clock_pause`, `clock_resume`, `clock_reset`} and `[clock variable]` is the name of a free clock variable occurring in any property of the SSP (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties"),
-- `state_event`: the event is expected to have the format `[timestamp],state_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the state event reported and has the shape `variable_value_assigned,[variable name],[value]` where `[variable name]` is the name of a free state variable occurring in any property of the structured sequential process (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties") for details on the language for writing properties of structured sequential processes),
-- `process_event`: the event is expected to have the format `[timestamp],process_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the process event reported and has the shape `task_started,[name]`, `task_finished,[name]` or `checkpoint_reached,[name]`, where `[name]` is a unique identifier corresponding to a task o checkpoint, respectively, in the structured sequential process (see Section [Structured Sequential Process](#structured-sequential-process "Structured Sequential Process") for details on the language for declaring structured sequential processes),
-- `component_event`: the event is expected to have the format `[timestamp],component_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the component event reported and has the shape `[component name],[function name],[parameter list]`, where `[component name]` is a unique identifier corresponding to a component declared in the specification of the analysis framework (see Section [Specification language for describing the analysis framework](https://github.com/invap/rt-monitor/blob/main/README.md#specification-language-for-describing-the-analysis-framework "Specification language for describing the analysis framework") for details on the language for specifying the analysis framework), `[function name]` is the name of a function implemented by the component, `[parameter list]` is the list of parameters required by the function `[function name]`, separated by commas, see for example the entries resulting from the code fragment from [Line 70](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L70) to [Line 76](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L76) of the function [`main`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c#L17), in the file [`main.c`](https://github.com/invap/rt-monitor-example-app/blob/main/buggy%20app/main.c), where the invocation of function `sample` is followed by a code fragment reporting a component event:
+### Event language for monitoring
+The SUT is assumed to be instrumented for ouputing a stream of predefined event types. Event types are defined as part of the reporting API; for example, in the case of the [C reporter API](https://github.com/invap/c-reporter-api/), the definition can be found in [Line 16](https://github.com/invap/c-reporter-api/blob/main/include/data_channel_defs.h#L16 "Event types") of file [`data_channel_defs.h`](https://github.com/invap/c-reporter-api/blob/main/include/data_channel_defs.h) as a C enumerated type:
 ```c
-value = sample ();
-// [ INSTRUMENTACION: Component event. ]
-pause(&reporting_clk);
-sprintf(str, "adc,sample,%d",value);
-report(component_event,str);
-resume(&reporting_clk);
-//
+//classification of the different types of events
+typedef enum {
+	timed_event, 
+	state_event, 
+	process_event, 
+	component_event, 
+	end_of_report_event
+} eventType;
 ```
 
 
-## Specification language for describing the analysis framework
-An *Analysis framework* consists of: **a)** a formalization of the SSP and **b)** a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions).
+Each event arrives packed through the RabbitMQ events exchange (see code fragment from [Line 147](https://github.com/invap/rt-monitor/blob/main/rt_monitor/monitor.py#L147) to [Line 152](https://github.com/invap/rt-monitor/blob/main/rt_monitor/monitor.py#L152) of file [`monitor.py`](https://github.com/invap/rt-monitor/blob/main/rt_monitor/monitor.py).
+Whenever an event is received by the monitor (see code fragment from [Line 153](https://github.com/invap/rt-monitor/blob/main/rt_monitor/monitor.py#L153) to [Line 192](https://github.com/invap/rt-monitor/blob/main/rt_monitor/monitor.py#L192) of file [`monitor.py`](https://github.com/invap/rt-monitor/blob/main/rt_monitor/monitor.py), it is processed according to the event type:
+- `timed_event`: the event is expected to have the format `[timestamp],timed_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the timed event reported and has the shape `[clock action],[clock variable]`, where `[clock action]` is in the set {`clock_start`, `clock_pause`, `clock_resume`, `clock_reset`} and `[clock variable]` is the name of a free clock variable occurring in any property of the SSP (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties") for details on the language for writing properties of structured sequential processes),
+- `state_event`: the event is expected to have the format `[timestamp],state_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the state event reported and has the shape `variable_value_assigned,[variable name],[value]` where `[variable name]` is the name of a free state variable occurring in any property of the structured sequential process (see Section [Syntax for writing properties](#syntax-for-writing-properties "Syntax for writing properties") for details on the language for writing properties of structured sequential processes),
+- `process_event`: the event is expected to have the format `[timestamp],process_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the process event reported and has the shape `task_started,[name]`, `task_finished,[name]` or `checkpoint_reached,[name]`, where `[name]` is a unique identifier corresponding to a task o checkpoint, respectively, in the structured sequential process (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework "Specification language for describing the analysis framework") for details on the language for specifying the analysis framework),
+- `component_event`: the event is expected to have the format `[timestamp],component_event,[event]` in the file corresponding to the main event report file. `[event]` provide details of the component event reported and has the shape `[component name],[function name],[parameter list]`, where `[component name]` is a unique identifier corresponding to a component declared in the specification of the analysis framework (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework "Specification language for describing the analysis framework") for details on the language for specifying the analysis framework), `[function name]` is the name of a function implemented by the component, `[parameter list]` is the list of parameters required by the function `[function name]`, separated by commas.
 
-### Syntax for writing SSPs
-Structured sequential processes are defined inductively by the following grammar in Backus–Naur form (BNF):
-```bnf
-        <SSP> ::= task (<ID>, <FORMULAE>, <FORMULAE>, <CHECKPOINTS>) | 
-                  checkpoint (<ID>, <FORMULAE>) | 
-                  <SSP> + <SSP> | 
-                  <SSP> ; <SSP> | 
-                  <SSP>* | 
-                  <SSP>w
-<CHECKPOINTS> ::= <CHECKPOINT> | <CHECKPOINT> <CHECKPOINTS>
-<FORMULAE>    ::= <FORMULA> | <FORMULA> <FORMULAE>
-<FORMULA>     ::= <SMT2-FORMULA> | <PY-FORMULA> | <SYMPY-FORMULA>
-         <ID> ::= <CHAR> | <ID><CHAR>
-       <CHAR> ::= <SYMBOL> | <LETTER> | <DIGIT>
-<LETTER>      ::= "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z"
-      <DIGIT> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-     <SYMBOL> ::= "|" | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"
+### Specification language for describing the analysis framework
+An *Analysis framework specification* is described in [TOML format](https://toml.io/) and, as we mentioned before, consists of: 
+1. a formalization of the Structured Sequential Process (SSP) (see Section [Syntax for writing SSPs](#syntax-for-writing-ssps) for details about the language for describing SPPs and the input file format), and
+2. a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions). 
+
+This information is arranged in many files. The main file consists of two top-level tables, one for describing the SSP, under the keyword process, and the other for describing the digital twins for mimicking the SUT’s Components that will be monitored resorting to a black box strategy, under the keyword components.
+
+#### Syntax for writing SSPs
+The table `process` is mandatory and contains the following key/value pairs describing the SSP:
+
+- [**mandatory**] `format`: whose associated value is a string, determining the format in which the process is presented (`regex` / `graph`), and
+- [**mandatory**] `structure`: whose associated value is determined by the value associated to the key format:
+	- if format is `regex`, the associated value is a string defining the process as a regular expression according to the following grammar:
+		```regex
+		regex ::= string | regex + regex | regex ; regex | regex*
+		```
+		, where the strings are the names of the tasks and checkpoints that are
+part of the process
+	- if format is `graph`, the associated value is a table with three key/value pairs defining a graph:
+		- nodes: an array of string (i.e., the list of names of the tasks and the checkpoints that are part of the process),
+		- edges: an array of 2-elements array of string (i.e., the arcs determining precedence between the tasks and the checkpoints that form the process), and
+		- init: a string declaring the initial node (i.e., the first task to initiate or checkpoint to be checked).
+- [**optional**] `tasks`: is an array of tables, one for each task that is part of the process.
+- [**optional**] `checkpoints`: is an array of tables, one for each checkpoint that is part of the process, without distinction whether they are local or global.
+- [**optional**] properties: is an array of tables, one for each property appearing in any task of checkpoint that is part of the process.
+
+	A `task` is a table that contains the following key/value pairs:
+	- [**mandatory**] `name`: whose associated value is a string used as a unique identifier across all the objects (i.e., tasks, checkpoints, and properties) appearing in the process,
+	- [**optional**] `preconditions`: whose associated value is an array of string (i.e., the list of the names of the properties that have to be checked when the execution of the SUT reports an event task started, for this task name; when this key is not present or when it is present but with an empty array (i.e., "[]"), it is treated as the equivalent to the value true,
+	- [**optional**] `postconditions`: whose associated value is an array of string (i.e., the list of the names of the properties that have to be checked when the execution of the SUT reports an event task finished, for this task name; when this key is not present or when it is present but with an empty array (i.e., "[]"), it is treated as the equivalent to the value true, and
+	- [**optional**] `checkpoints`: whose associated value is an array of string (i.e., the list of the names of the checkpoints that are processed when the execution of the SUT reports an event checkpoint reached.
+
+	A `checkpoint` is a table that contains the following key/value pairs:
+	- [**mandatory**] `name`: whose associated value is a string used as a unique iden- tifier across all the objects (i.e., tasks, checkpoints, and properties) appearing in the process,
+	- [**optional**] `properties`: whose associated value is an array of string (i.e., the list of names of the properties that have to be checked when an event checkpoint reached for this checkpoint name is reported by the execution of the SUT; when this key is not present or when it is present but with an empty array (i.e., "[]"), it is treated as the equivalent to the value true.
+
+#### Syntax for writing properties
+A `property` is a table that either be defined in-lined within the main file or in a separate file. 
+
+When it is defined within the main file, it contains the following key/value pairs:
+- [**mandatory**] `name`: whose associated value is a string used as a unique identifier across all the objects (i.e., tasks, checkpoints, and properties) appearing in the process,
+- [**mandatory**] `format`: whose associated value is a string declaring the format in which the formula is written; the available formats are {`smt2`, `py`, `sympy`}. `py` and `sympy` formulae are Python boolean expressions that are assigned to the variable `result` and then executed using the instruction `exec`; after the execution, the projection of the value referenced by the variable location `result` is treated as the verdict of the analysis,
+- [**mandatory**] `variables`: whose associated value is a string containing variable declarations separated by commas, that have to coincide with those variable symbols that appear free in the formula. Each declaration has the shape `([variable symbol]:[variable type] [stm2 type])`, where:
+	- `[variable symbol]` is the string used as a term in the formula,
+	- `[variable type]` is either `State`, `Component` or `Clock`, depending on whether the variable symbol refers to a value that comes from a `variable_value_assign` event reported by the execution of the SUT, or if it refers to values that are part of the internal state of one of the SUT’s Components, and
+	- `[stm2 type]` is the variable sort in [SMT-Lib format](https://smt-lib.org);
+- [**mandatory**] `formula`: whose associated value is a string containing the formula in the format declared in the value associated to the key format. If the format is `smt2` the string must be a well-formed formula written according to the syntax given in [[SMT-Lib format](https://smt-lib.org), Part 2]. If the format is `py` (resp. `sympy`) the string must be a legal expression executable in the Python virtual environment resulting from the [Runtime Monitor installation](#setting-up-the-project), and
+- [**optional**] `declarations`: whose associated value is a string containing declarations required by the tool used for the analysis of the formula in order to evaluate the satisfiability of the formula. As in the previous case, if the format is `smt2` the string must formed by legal definitions written according to the syntax given in [[SMT-Lib format](https://smt-lib.org), Part 2], and if the format is `py` (resp. `sympy`) the string must formed by legal definitions executable in the Python virtual environment resulting from the Runtime Monitor installation
+
+When it is defined in a separate file, it contains the following key/value pairs:
+- [**mandatory**] `name`: whose associated value is a string used as a unique identifier across all the objects (i.e., tasks, checkpoints, and properties) appearing in the process, and
+- [**mandatory**] `file`: whose associated value is a string declaring the file location that can be treated either as an absolute path if it starts with "\", or as a relative path if it starts with a ".".
+
+The structure of the file defining the property is also given in [TOML format](https://toml.io/) and it contains the key/value pairs whose key are `format`, `variables` and `formula`, analogous to those used when the property is defined within the main file.
+
+#### Syntax for declaring components
+The top-level table `component` is optional because the analysis framework might not depend on any; this table contains one key/value pair whose key is location and whose value is a string describing the path to the files containing the [implementation of the digital twins](#implementation-of-digital-twins-for-monitoring-software-components) used by the Runtime Monitor for mimicking the behaviour of the SUT’s Components, and an array of table containing the details of each of the digital twins. Each digital twin appears under a keyword `components.list` containing the following key/value pairs:
+- [**mandatory**] `name`: whose associated value is a string containing the name of the digital twin under which the events of type component event are reported,
+- [**optional**] `component path`: whose associated value is a string describing the path to the file containing the implementation of this digital twin. This key/value pair, when present, overrides the key/value pair location mentioned above,
+- [**mandatory**] `component file`: whose associated value is a string describing the name of the Python file implementing the digital twin, and
+- [**mandatory**] `component name`: whose associated value is a string describing the name of the class implementing the digital twin.
+
+#### Implementation of digital twins for monitoring software components
+Digital twins play a fundamental role in the implementation of the RM as they provide the means to mimic the behaviour of Components that, while being an integral part of the SUT, are not monitored through time, process, state events, but through component events.
+
+Digital twins are implementations of the abstract Python class [Component](https://github.com/invap/rt-monitor/blob/main/rt_monitor/framework/components/component.py) shown below.
+
+```python
+# Copyright (c) 2024 Fundacion Sadosky, info@fundacionsadosky.org.ar
+# Copyright (c) 2024 INVAP, open@invap.com.ar
+# SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
+
+import inspect
+from abc import ABC, abstractmethod
+import logging
+# Create a logger for the component component
+logger = logging.getLogger(__name__)
+
+from rt_monitor.errors.component_errors import FunctionNotImplementedError
+
+
+class Component(ABC):
+    exported_functions = {}
+
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def state(self):
+        pass
+
+    def get_status(self):
+        raise NotImplementedError
+
+    def process_high_level_call(self, string_call):
+        ls = string_call.split(",")
+        function_name = ls[0]
+
+        if function_name not in self.exported_functions:
+            logger.error(f"Function [ {function_name} ] not implemented by component [ {self.__class__.__name__} ].")
+            raise FunctionNotImplementedError(function_name)
+
+        function = self.exported_functions[function_name]
+        args_str = ls[1:]
+        self.run_with_args(function, args_str)
+        return True
+
+    def run_with_args(self, function, args):
+        signature = inspect.signature(function)
+        parameters = signature.parameters
+        new_args = [self]
+        for name, param in parameters.items():
+            exp_type = param.annotation
+            if exp_type is not inspect.Parameter.empty:
+                if not args:
+                    break  # No more args to process
+                try:
+                    value = args[0]
+                    args = args[1:]
+                    value = exp_type(value)
+                    new_args.append(value)
+                except (TypeError, ValueError) as e:
+                    logger.error(f"Error converting arg '{name}' to {exp_type.__name__}: {e}")
+                    raise
+        return function(*new_args)
 ```
+The implementation of the base class Component provide the basic means needed for a digital twin to execute its functionality within the Runtime Monitor whenever a component event is reveived. The class provides an implementation of a dynamic dispatcher for the functions whose invocation can be reported, the function process high level call.
 
-Alternatively, one can think of an SSP as a directed graph whose nodes are labeled either with a task of the form `task (<ID>, <FORMULAE>, <FORMULAE>, <CHECKPOINTS>)` or with a checkpoint of the form `checkpoint (<ID>, <FORMULAE>)`.
+Whenever a component event `timestamp,component_event,component_name,function_name,arg1,arg2, . . ., argn` is received by the Runtime Monitor through the Event exchange, it is processed by:
+1. stripping the name of the component component name from the string (it has to coincide with the value associated to the key/value pair name of one of the digital twins declared as part of the analysis framework specification under the keyword `component.list`) and obtaining the component instance from the dictionary of digital twins,
+2. calling the function `process_high_level_call` (see line 27 of the code shown above), passing the string `function_name,arg1,arg2, . . ., argn` as the argument,
+3. splitting the function invocation in two strings, function name (`function_name`), and function arguments (`arg1,arg2, . . ., argn`),
+4. extracting from the dictionary exported functions of the component class (see line 35 of the code shown above) the name of the function implementation associated to function name, and
+5. calling the function `run_with_args` (see line 40 of the code shown above) passing the function (associated to the string `function_name`) as the first parameter and the string of arguments `arg1,arg2, ..., argn` as the second parameter. This function will interpret the comma-separated string (of arguments) and construct a list of values of the types corresponding to the function signature and finally it calls the function passing the list of values as parameter.
 
-### Syntax for writing properties
-Formulae come in different flavours depending on the tool required to solve its satisfiability. There are three formula typeseach of which corresponds to one of the non-terminal symbols of the grammar shown above:
+Implementing a digital twin requires the provision of a function `state` (see lines 20 to 22 of the code shown above). This function provide the means for projecting the observable attributes of the digital twin that can be used as variables of type `Component` in the specification of properties. A dictionary of `exported_functions` whose keys are the strings used to report function calls, and values are the function symbols used as reference for the implementation of the functionalities. Finally, the implementation might incorporate a function `status` (see lines 24 to 25 of the code shown above). This function provide the means to extract execution infor- mation of the digital twin that complements the result of the function state.
 
-- SMT formulae (corresponding to the non-terminal symbols `<SMT2-FORMULA>`):
-- Simple arithmetic based formulae (corresponding to the non-terminal symbols `<PY-FORMULA>`):
-- Complex mathematical formulae (corresponding to the non-terminal symbols `<SYMPY-FORMULA>`): this type of formular require a CAS
-
-
-
-
-### Input format
-By default, the files are expected to be found in the location designated by the attribute `working_directory`. If such attribute is not present, then the path of the analysis framework specification is used instead. Nonetheless, if the `file` attribute of a property is specifies by a string starting with `/` of `.`, the path section of the value of the attribute (i.e., the substring starting at position 0 and ending right before the last occurrence of `/`) overrides the default.
-
-Components have a general path and specific paths for components. If the specific path is not preset, the general one is used. If both are missing the component is assumed to be in the directory from with the tool was launched ".".
-
-
-
-
-## Event reports map file
-
----
-
-Write.
-
----
+#### Summary
+From a methodological point of view, once one have identified the need to predicate about certain attributes of interest of a component (i.e., variables declared as of type `Component` in properties of the analysis framework specification), implementing a digital twin requires:
+1. selecting an internal structure for the digital twin, capable of representing the aspects of the component behaviour, that has impact on the attribute of interest,
+2. implementing the function `state` that returns a dictionary that associates the names of these variables of type `Component` to values projected from the internal structure of the digital twin,
+3. identifying functions of the component whose calls that have to be reported at runtime and selecting function names (strings) to report them; these strings will usually coincide with the components’ functions’ names,
+4. implementing a function in the digital twin that have to be dispatched for each function name that can be reported, the execution of these functions have to modify the internal structure of the digital twin according to the expected behaviour such that observations through the function `state` coincide with the expected behaviour of the component,
+5. build the `exported_functions` dictionary associating the function names (strings that can be reported through component events), with the functions implemented in the digital twin, and
+6. identifying additional information of the execution of the digital twin that might be of use for other digital twins or visual components and implement the function status.
 
 
+### The runtime monitoring process
+The RM implements the analysis process. It starts by constructing:
+1. a DFA of events corresponding to the SSP, and setting the current state to the initial state of the DFA,
+2. a dictionary whose keys are the variable symbols occurring free in the properties declared in the SSP, and
+3. a dictionary containing digital twins of the internal components of the SUT (the reader is referred to the section [implementation of the digital twins](#implementation-of-digital-twins-for-monitoring-software-components) for details of how these digital twins can be emplemented).
 
-
-## The runtime monitoring process
-We already gave a high level view of the verification process in Section [The Runtime Monitor architecture](#the-untime-onitor-architecture). Now we will dive into de process in a more structured and detailed way.
-
-As we mentioned before the RM has to be provided: **1)** a *Set of event reports* obtained from a concrete execution of the `Software under Test` by an `Event reporter` (see Section [Event reports map file](#event-reports-map-file) for details about the input file format), and **2)** an *Analysis framework* consisting of: **a)** a formalization of the Structured Sequential Process (SSP) (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for details about the language for describing SPP and the input file format) and **b)** a set of implementations of digital twins for the components used by the SUT (see Section [Implementation of digital twins for monitoring software components](#implementation-of-digital-twins-for-monitoring-software-components) for understanding the importance of digital twins in the verification of executions).
-
-We will 
-
-In the first place, the RM constructs a representation of SSP that stores precedences 
-
-
-## Monitoring components
-
----
-
-Write.
-
----
-
-### Implementation of digital twins for monitoring software components
-
----
-
-Write.
-
----
-
-
-## Runtime verification with hardware in the loop
-
----
-
-Write.
-
----
-
-
-## Relevant information ebout the implementation
-
----
-
-Write.
-
----
+Thereafter, it proceeds to process the event stream by:
+1. reading an event from the Event exchange,
+2. decoding the event classifying it into one of the admisible types,
+3. processing the event according to its type:
+	- **State event**: updates the execution state by associating the value to the variable symbol, both reported in the event; naturally, this association will remain until a new value is reported for the same variable symbol,
+	- **Process event**: determines whether the event is accepted by the DFA to check if the execution complies with the structural constraint formalized by the SSP. Once this condition is checked, and passed, the `Analyzer` collects the properties associated to that specific event (in the case of `task_start(a)`, it is the preconditions declared for a in the SSP, in the case of `task_finish(a)`, it is the postconditions declared for a, and in the case of `checkpoint reach(b)`, it is the properties declared for b) and checks them by successively invoking the `Property evaluator`, which: 
+		1. using the corresponding Specification builder, builds a specification consisting of the property to be checked, the declarations for the variable symbols that appear free in the property and the axioms stating the values associated to those variable symbols, and 
+		2. using the appropriate Evaluator, built on top of a specific purpose solver, analyzes the specification, and
+	- **Component event**: dynamically dispatches the corresponding function of the digital twin of the Component whose name appears in the event; this forces the component’s internal state to update according to the behaviour of the real Component executing as within the SUT.
 
 
 ## Usage
+The command line interface for the RM is very simple, see the help output below:
 
------
+```bash
+python -m rt_monitor.rt_monitor_sh --help
+usage: The Runtime Monitor [-h] [--rabbitmq_config_file RABBITMQ_CONFIG_FILE]
+                           [--log_level {debug,info,warnings,errors,critical}]
+                           [--log_file LOG_FILE] [--timeout TIMEOUT]
+                           [--stop {on_might_fail,on_fail,dont}]
+                           spec_file
 
-Write
+Performs runtime assertion checking of events got from a RabbitMQ server with
+respect to a structured sequential process specification.
 
------
+positional arguments:
+  spec_file             Path to the TOML file containing the analysis
+                        framework specification.
 
-The command line interface for the RR is very simple, it is invoked by typing `python rt-monitor [SUT full path]` and it will run the SUT producing the corresponding event log files in the same location where the SUT is, according to the indicated in `[SUT full path]`.
+options:
+  -h, --help            show this help message and exit
+  --rabbitmq_config_file RABBITMQ_CONFIG_FILE
+                        Path to the TOML file containing the RabbitMQ server
+                        configuration.
+  --log_level {debug,info,warnings,errors,critical}
+                        Log verbose level.
+  --log_file LOG_FILE   Path to log file.
+  --timeout TIMEOUT     Timeout in seconds to wait for events after last
+                        received, from the RabbitMQ server (0 = no timeout).
+  --stop {on_might_fail,on_fail,dont}
+                        Stop policy.
 
-The interface keeps itself listening to the keyboard; pressing the letter `s` stops the execution of the SUT, closes the event log files and exits the command line interface of the RR.
+Example: python -m rt_monitor.rt_monitor_sh path/to/spec.toml
+--rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log
+--log_level=event --timeout=120 --stop=dont
+```
 
-An alternative implementation for Windows-based systems can be developed using `msvcrt`.
+### Errors
+This section shows a list of errors that can be yielded by the command line interface:
+- Error -1: "Input file error" indicates that there was an error while trying to open the SUT file
+- Error -2: "RabbitMQ configuration error" indicates that there was an error during the configuration of the communication infrastructure
+- Error -3: "Monitor error" indicates that there was an error during the monitoring process
+- Error -4: "Unexpected error"
 
------
+In Mac OS the execution of the RR migth output the message "This process is not trusted! Input event monitoring will not be possible until it is added to accessibility clients.". This happens when an application attempts to monitor keyboard or mouse input without having the necessary permissions because Mac OS restricts access to certain types of input monitoring for security and privacy reasons. To solve it you need to grant accessibility permissions to the application running the program (e.g., Terminal, iTerm2, or a Python IDE). Here’s how:
+1. Open System Preferences:
+	- Go to **Apple menu** --> **System Preferences** --> **Security & Privacy**.
+2. Go to Accessibility Settings:
+	- In the **Privacy** tab, select **Accessibility** from the list on the left.
+3. Add Your Application:
+	- If you are running the RR from **Terminal**, **iTerm2**, or a specific **IDE** (like PyCharm or VS Code), you will need to add that application to the list of allowed applications.
+	- Click the **lock icon** at the bottom left and enter your password to make changes.
+	- Then, click the `+` button, navigate to the application (e.g., Terminal or Python IDE), and add it to the list.
+4. Restart the Application:
+	- After adding it to the Accessibility list, restart the application to apply the new permissions.
+Once you’ve done this, the message should go away, and pynput should be able to detect keyboard and mouse events properly.
 
-## Troubleshooting
 In Mac OS the execution of the RR migth output the message "This process is not trusted! Input event monitoring will not be possible until it is added to accessibility clients.". This happens when an application attempts to monitor keyboard or mouse input without having the necessary permissions because Mac OS restricts access to certain types of input monitoring for security and privacy reasons. To solve it you need to grant accessibility permissions to the application running the program (e.g., Terminal, iTerm2, or a Python IDE). Here’s how:
 1. Open System Preferences:
 	- Go to **Apple menu** --> **System Preferences** --> **Security & Privacy**.
