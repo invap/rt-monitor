@@ -15,7 +15,6 @@ packages = [
     { include = "rt_monitor" },
 ]
 dependencies = [
-    "black (>=25.11.0)",
     "numpy (~=2.1.2)",
     "pyformlang~=1.0.11",
     "pyobjc-core (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
