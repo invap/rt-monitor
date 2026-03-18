@@ -7,6 +7,7 @@ import signal
 import threading
 import wx
 import logging
+
 # Create a logger for the monitor component
 logger = None  # Will be initialized in main()
 
@@ -18,26 +19,26 @@ from rt_monitor.logging_configuration import (
     LoggingDestination,
     set_up_logging,
     configure_logging_destination,
-    configure_logging_level
+    configure_logging_level,
 )
 from rt_monitor.monitor import Monitor
 from rt_monitor import rabbitmq_server_connections
 from rt_monitor.utility import (
     is_valid_file_with_extension_nex,
-    is_valid_file_with_extension
+    is_valid_file_with_extension,
 )
 
 
 def rt_monitor_runner(spec_file):
     # Signal handling flags
-    signal_flags = {'stop': False, 'pause': False}
+    signal_flags = {"stop": False, "pause": False}
 
     # Signal handling functions
     def sigint_handler(signum, frame):
-        signal_flags['stop'] = True
+        signal_flags["stop"] = True
 
     def sigtstp_handler(signum, frame):
-        signal_flags['pause'] = not signal_flags['pause']  # Toggle pause state
+        signal_flags["pause"] = not signal_flags["pause"]  # Toggle pause state
 
     # Registering signal handlers
     signal.signal(signal.SIGINT, sigint_handler)
@@ -81,14 +82,40 @@ def main():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh path/to/spec.toml --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont"
+        epilog="Example: python -m rt_monitor.rt_monitor_sh path/to/spec.toml --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont",
     )
-    parser.add_argument("spec_file", type=str, help='Path to the TOML file containing the analysis framework specification.')
-    parser.add_argument("--rabbitmq_config_file", type=str, default='./rabbitmq_config.toml', help='Path to the TOML file containing the RabbitMQ server configuration.')
-    parser.add_argument("--log_level", type=str, choices=["debug", "info", "warnings", "errors", "critical"], default="info", help="Log verbose level.")
-    parser.add_argument("--log_file", help='Path to log file.')
-    parser.add_argument("--timeout", type=int, default=0, help="Timeout in seconds to wait for events after last received, from the RabbitMQ server (0 = no timeout).")
-    parser.add_argument("--stop", type=str, choices=["on_might_fail", "on_fail", "dont"], default="on_might_fail", help="Stop policy.")
+    parser.add_argument(
+        "spec_file",
+        type=str,
+        help="Path to the TOML file containing the analysis framework specification.",
+    )
+    parser.add_argument(
+        "--rabbitmq_config_file",
+        type=str,
+        default="./rabbitmq_config.toml",
+        help="Path to the TOML file containing the RabbitMQ server configuration.",
+    )
+    parser.add_argument(
+        "--log_level",
+        type=str,
+        choices=["debug", "info", "warnings", "errors", "critical"],
+        default="info",
+        help="Log verbose level.",
+    )
+    parser.add_argument("--log_file", help="Path to log file.")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=0,
+        help="Timeout in seconds to wait for events after last received, from the RabbitMQ server (0 = no timeout).",
+    )
+    parser.add_argument(
+        "--stop",
+        type=str,
+        choices=["on_might_fail", "on_fail", "dont"],
+        default="on_might_fail",
+        help="Stop policy.",
+    )
     # Start the execution of The Runtime Monitor
     # Parse arguments
     args = parser.parse_args()
@@ -145,9 +172,13 @@ def main():
     if not valid:
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
         exit(-2)
-    logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
+    logger.info(
+        f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}"
+    )
     # Create RabbitMQ communication infrastructure
-    rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
+    rabbitmq_server_connections.build_rabbitmq_server_connections(
+        args.rabbitmq_config_file
+    )
     # Run the rt_monitor
     try:
         rt_monitor_runner(args.spec_file)
@@ -166,4 +197,3 @@ def main():
 
 if __name__ == "__main__":
     main()
- 
