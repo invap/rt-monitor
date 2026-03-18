@@ -1,5 +1,4 @@
 # The Runtime Monitor
-
 This project contains an implementation of the  Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given:
 1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and
 2. a *stream of events* obtained through the RabbitMQ events exchange found in the RabbitMQ server configuration file. 
@@ -61,7 +60,7 @@ This section provide instructions for setting up the project using [Poetry](http
 [project]
 name = "rt-monitor"
 version = "2.8.1"
-description = "This project contains an implementation of the Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given: 1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and 2. a *stream of events* obtained; through the RabbitMQ events exchange found in the RabbitMQ server configuration file. The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading: - Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and - Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the System Under Test (SUT), which can later be processed by the RR for producing an event log file). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/). The analysis process consists of checking if the stream of event obtained through the RabbitMQ events exchange satisfies the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification."
+description = "This project contains an implementation of the Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given: 1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and 2. a *stream of events* obtained; through the RabbitMQ events exchange found in the RabbitMQ server configuration file. The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading: - Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and - Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the software under test (SUT), which can later be processed by the RR for producing an event log file). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/). The analysis process consists of checking if the stream of event obtained through the RabbitMQ events exchange satisfies the desired properties formalized in the analysis framework specification. If it does, the verification is considered to be *SUCCESSFUL*, and if it does not, is considered to be *UNSUCCESSFUL* exposing an execution trace of the SUT that does not behave as prescribed by the specification."
 authors = [
     {name = "Carlos Gustavo Lopez Pombo", email = "clpombo@gmail.com>"}
 ]
@@ -75,8 +74,7 @@ packages = [
     { include = "rt_monitor" },
 ]
 dependencies = [
-    "black (>=24.10.0,<24.11.0)",
-    "colorama (>=0.4.6)",
+    "numpy (~=2.1.2)",
     "pyformlang~=1.0.11",
     "pyobjc-core (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
     "pyobjc-framework-applicationservices (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
@@ -84,27 +82,22 @@ dependencies = [
     "pyobjc-framework-coretext (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
     "pyobjc-framework-quartz (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
     "pika (>=1.3.2)",
-    "pip (>=25.1.1,<25.2.0)",
-    "pynput (>=1.7.7,<1.8.0)",
-    "setuptools (>=75.3.0,<75.4.0)",
-    "six (>=1.16.0,<1.17.0)",
+    "rt-rabbitmq-wrapper @ git+https://github.com/invap/rt-rabbitmq-wrapper.git@v2.0.1",
+    "sympy (~=1.13.3)",
+    "toml (~=0.10.2)",
     "wxpython (>=4.2.2,<4.3.0); sys_platform == 'darwin'",
     "wxpython @ https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/wxPython-4.2.2-cp312-cp312-linux_x86_64.whl ; sys_platform == 'linux'",
-    "twine (>=5.1.1,<5.2.0)",
-    "boto (~=2.49.0)",
-    "igraph (~=0.11.6)",
-    "mpmath (~=1.3.0)",
-    "numpy (~=2.1.2)",
-    "sympy (~=1.13.3)",
-    "texttable (~=1.7.0)",
-    "toml (~=0.10.2)",
-    "z3-solver (~=4.13.0.0)",
-    "rt-rabbitmq-wrapper @ git+https://github.com/invap/rt-rabbitmq-wrapper.git@v2.0.0"
+    "z3-solver (~=4.13.0.0)"
 ]
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytomlcleaner (>=1.0.0,<2.0.0)"
+]
 ```
 3. **Install the project:** To install the Python project using Poetry, navigate to the directory where the project is and run:
    ```bash	
