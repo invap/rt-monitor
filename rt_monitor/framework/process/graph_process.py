@@ -2,18 +2,15 @@
 # Copyright (c) 2024 INVAP, open@invap.com.ar
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
-from pyformlang.finite_automaton import (
-    State,
-    Symbol,
-    EpsilonNFA, Epsilon
-)
+from pyformlang.finite_automaton import State, Symbol, EpsilonNFA, Epsilon
 import logging
+
 # Create a logger for the graph-based process component
 logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.process_errors import (
     ProcessSpecificationError,
-    VariableSpecificationError
+    VariableSpecificationError,
 )
 from rt_monitor.framework.process.process import Process
 
@@ -29,12 +26,18 @@ class GraphProcess(Process):
             raise ProcessSpecificationError()
         nfa = EpsilonNFA()
         # Build dictionaries containing tasks and checkpoints
-        tasks, checkpoints, properties = Process.dictionaries_from_toml_dict(process_dict, files_path)
+        tasks, checkpoints, properties = Process.dictionaries_from_toml_dict(
+            process_dict, files_path
+        )
         # Build the NFA
         nodes = process_dict["structure"]["nodes"]
         # Add the start state
         start_node_name = process_dict["structure"]["start"]
-        start_node_type = "task" if start_node_name in tasks else "checkpoint" if start_node_name in checkpoints else "invalid"
+        start_node_type = (
+            "task"
+            if start_node_name in tasks
+            else "checkpoint" if start_node_name in checkpoints else "invalid"
+        )
         if start_node_type == "invalid":  # This should never execute
             logger.error(f"Process atom [ {start_node_name} ] type error.")
             raise ProcessSpecificationError()
@@ -57,12 +60,20 @@ class GraphProcess(Process):
                 st = State(f"task_source_state_{node_name}_target_state")
                 st_f = State(f"task_{node_name}_target_state")
                 # Collect all final states (i.e., all the states)
-                final_states_names += [f"task_{node_name}_source_state", f"task_source_state_{node_name}_target_state", f"task_{node_name}_target_state"]
+                final_states_names += [
+                    f"task_{node_name}_source_state",
+                    f"task_source_state_{node_name}_target_state",
+                    f"task_{node_name}_target_state",
+                ]
                 nfa.add_transition(st_0, Symbol(f"task_started_{node_name}"), st)
-                for local_checkpoint_name in [checkpoint for checkpoint in tasks[node_name].checkpoints()]:
-                    nfa.add_transition(st, Symbol(f"checkpoint_reached_{local_checkpoint_name}"), st)
+                for local_checkpoint_name in [
+                    checkpoint for checkpoint in tasks[node_name].checkpoints()
+                ]:
+                    nfa.add_transition(
+                        st, Symbol(f"checkpoint_reached_{local_checkpoint_name}"), st
+                    )
                 nfa.add_transition(st, Symbol(f"task_finished_{node_name}"), st_f)
-            else: # node_name in checkpoint
+            else:  # node_name in checkpoint
                 ################################################################################################
                 #
                 # Add:
@@ -72,24 +83,53 @@ class GraphProcess(Process):
                 ################################################################################################
                 st_0 = State(f"checkpoint_{node_name}_source_state")
                 st_f = State(f"checkpoint_{node_name}_target_state")
-                nfa.add_transition(st_0, Symbol(f"checkpoint_reached_{node_name}"), st_f)
+                nfa.add_transition(
+                    st_0, Symbol(f"checkpoint_reached_{node_name}"), st_f
+                )
                 # Collect all final states (i.e., all the states)
-                final_states_names += [f"checkpoint_{node_name}_source_state", f"checkpoint_{node_name}_target_state"]
+                final_states_names += [
+                    f"checkpoint_{node_name}_source_state",
+                    f"checkpoint_{node_name}_target_state",
+                ]
         edges = process_dict["structure"]["edges"]
         for edge in edges:
             src_node_name, trg_node_name = edge[0], edge[1]
-            src_node_type = "task" if src_node_name in tasks else "checkpoint" if src_node_name in checkpoints else "invalid"
-            trg_node_type = "task" if trg_node_name in tasks else "checkpoint" if trg_node_name in checkpoints else "invalid"
+            src_node_type = (
+                "task"
+                if src_node_name in tasks
+                else "checkpoint" if src_node_name in checkpoints else "invalid"
+            )
+            trg_node_type = (
+                "task"
+                if trg_node_name in tasks
+                else "checkpoint" if trg_node_name in checkpoints else "invalid"
+            )
             match src_node_type, trg_node_type:
                 case "task", "task":
-                    nfa.add_transition(State(f"task_{src_node_name}_target_state"), Epsilon(), State(f"task_{trg_node_name}_source_state"))
+                    nfa.add_transition(
+                        State(f"task_{src_node_name}_target_state"),
+                        Epsilon(),
+                        State(f"task_{trg_node_name}_source_state"),
+                    )
                 case "task", "checkpoint":
-                    nfa.add_transition(State(f"task_{src_node_name}_target_state"), Epsilon(), State(f"checkpoint_{trg_node_name}_source_state"))
+                    nfa.add_transition(
+                        State(f"task_{src_node_name}_target_state"),
+                        Epsilon(),
+                        State(f"checkpoint_{trg_node_name}_source_state"),
+                    )
                 case "checkpoint", "task":
-                    nfa.add_transition(State(f"checkpoint_{src_node_name}_target_state"), Epsilon(), State(f"task_{trg_node_name}_source_state"))
+                    nfa.add_transition(
+                        State(f"checkpoint_{src_node_name}_target_state"),
+                        Epsilon(),
+                        State(f"task_{trg_node_name}_source_state"),
+                    )
                 case "checkpoint", "checkpoint":
-                    nfa.add_transition(State(f"checkpoint_{src_node_name}_target_state"), Epsilon(), State(f"checkpoint_{trg_node_name}_source_state"))
-                case _: # This should never execute
+                    nfa.add_transition(
+                        State(f"checkpoint_{src_node_name}_target_state"),
+                        Epsilon(),
+                        State(f"checkpoint_{trg_node_name}_source_state"),
+                    )
+                case _:  # This should never execute
                     logger.error(f"Process atom type error.")
                     raise ProcessSpecificationError()
         # Add all final states

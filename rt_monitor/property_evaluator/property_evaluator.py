@@ -4,6 +4,7 @@
 
 from enum import Enum
 import logging
+
 # Create a logger for the property evaluator component
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ from rt_monitor.errors.evaluator_errors import UnboundVariablesError
 
 
 class PropertyEvaluator:
-    class PropertyEvaluationResult (Enum):
+    class PropertyEvaluationResult(Enum):
         PASSED = "PASSED"
         FAILED = "FAILED"
         MIGHT_FAIL = "MIGHT_FAIL"
@@ -39,17 +40,25 @@ class PropertyEvaluator:
             dictionary = self._components[component].state()
             for variable in dictionary:
                 if variable in variables:
-                    declarations.append(self._build_declaration(variable, property.variables()[variable][1]))
+                    declarations.append(
+                        self._build_declaration(
+                            variable, property.variables()[variable][1]
+                        )
+                    )
                     variables.remove(variable)
         # building declarations for variables in the execution state
         for variable in self._execution_state:
             if variable in variables:
-                declarations.append(self._build_declaration(variable, property.variables()[variable][1]))
+                declarations.append(
+                    self._build_declaration(variable, property.variables()[variable][1])
+                )
                 variables.remove(variable)
         # building declarations for clocks in the timed state
         for variable in self._timed_state:
             if variable in variables:
-                declarations.append(self._build_declaration(variable, property.variables()[variable][1]))
+                declarations.append(
+                    self._build_declaration(variable, property.variables()[variable][1])
+                )
                 variables.remove(variable)
         if len(variables) != 0:
             logger.error(f"Variables [ {variables} ] are not bound.")
@@ -67,17 +76,25 @@ class PropertyEvaluator:
             dictionary = self._components[component].state()
             for variable in dictionary:
                 if variable in variables:
-                    assumptions.append(self._build_assumption(variable, dictionary[variable][1]))
+                    assumptions.append(
+                        self._build_assumption(variable, dictionary[variable][1])
+                    )
                     variables.remove(variable)
         # building assumptions for variables in the execution state
         for variable in self._execution_state:
             if variable in variables:
-                assumptions.append(self._build_assumption(variable, self._execution_state[variable][1]))
+                assumptions.append(
+                    self._build_assumption(variable, self._execution_state[variable][1])
+                )
                 variables.remove(variable)
         # building assumptions for clocks in the timed state
         for variable in self._timed_state:
             if variable in variables:
-                assumptions.append(self._build_time_assumption(variable, self._timed_state[variable][1], now))
+                assumptions.append(
+                    self._build_time_assumption(
+                        variable, self._timed_state[variable][1], now
+                    )
+                )
                 variables.remove(variable)
         if len(variables) != 0:
             logger.error(f"Variables [ {variables} ] are not bound.")
@@ -110,7 +127,9 @@ class PropertyEvaluator:
                 carry = (current[position] + 1) // shape_[position - 1]
                 current[position] = new_value
                 if current[position] == 0:
-                    PropertyEvaluator._plus_one_in_position(shape_, current, position - 1)
+                    PropertyEvaluator._plus_one_in_position(
+                        shape_, current, position - 1
+                    )
                     carry = 0
 
     @staticmethod
@@ -127,4 +146,3 @@ class PropertyEvaluator:
         for position in range(1, len(current)):
             value = value[current[position]]
         return value
-

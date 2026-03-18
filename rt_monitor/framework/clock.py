@@ -6,7 +6,7 @@ from rt_monitor.errors.clock_errors import (
     ClockWasAlreadyStartedError,
     ClockWasNotStartedError,
     ClockWasAlreadyPausedError,
-    ClockWasNotPausedError
+    ClockWasNotPausedError,
 )
 
 

@@ -17,5 +17,5 @@ class Checkpoint(Element):
     def checkpoint_from_toml_dict(checkpoint_name, checkpoint_dict):
         return Checkpoint(
             checkpoint_name,
-            checkpoint_dict["properties"] if "properties" in checkpoint_dict else set()
+            checkpoint_dict["properties"] if "properties" in checkpoint_dict else set(),
         )

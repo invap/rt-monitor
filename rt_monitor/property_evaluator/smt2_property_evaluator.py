@@ -8,21 +8,28 @@ import pika
 import numpy as np
 from z3 import z3
 import logging
+
 # Create a logger for the smt2 property evaluator component
 logger = logging.getLogger(__name__)
 
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import SMT2Verdict
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
-from rt_rabbitmq_wrapper.exchange_types.specification.specification import SMT2Specification
-from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import SpecificationDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import (
+    VerdictDictCoDec,
+)
+from rt_rabbitmq_wrapper.exchange_types.specification.specification import (
+    SMT2Specification,
+)
+from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import (
+    SpecificationDictCoDec,
+)
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     NoValueAssignedToVariableError,
     UnboundVariablesError,
     BuildSpecificationError,
-    EvaluationError
+    EvaluationError,
 )
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -39,7 +46,9 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
-            logger.error(f"Building specification for property [ {prop.name()} ] error.")
+            logger.error(
+                f"Building specification for property [ {prop.name()} ] error."
+            )
             raise EvaluationError()
         end_build_time = time.time()
         filename = prop.name()
@@ -58,7 +67,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     prop.name(),
                     SMT2Verdict.VERDICT.PASS,
                     end_build_time - initial_build_time,
-                    end_analysis_time - initial_analysis_time
+                    end_analysis_time - initial_analysis_time,
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
@@ -66,11 +75,13 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'verdict'}
-                        )
+                            headers={"type": "verdict"},
+                        ),
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                    )
                     exit(-2)
                 else:
                     logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -82,7 +93,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     prop.name(),
                     SMT2Verdict.VERDICT.FAIL,
                     end_build_time - initial_build_time,
-                    end_analysis_time - initial_analysis_time
+                    end_analysis_time - initial_analysis_time,
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
@@ -90,11 +101,13 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'verdict'}
-                        )
+                            headers={"type": "verdict"},
+                        ),
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                    )
                     exit(-2)
                 else:
                     logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -106,7 +119,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     prop.name(),
                     SMT2Verdict.VERDICT.MIGHT_FAIL,
                     end_build_time - initial_build_time,
-                    end_analysis_time - initial_analysis_time
+                    end_analysis_time - initial_analysis_time,
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
@@ -114,11 +127,13 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'verdict'}
-                        )
+                            headers={"type": "verdict"},
+                        ),
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                    )
                     exit(-2)
                 else:
                     logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -133,15 +148,18 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     json.dumps(specification_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'counterexample'}
-                    )
+                        headers={"type": "counterexample"},
+                    ),
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                )
                 exit(-2)
             else:
-                logger.debug(f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}.")
+                logger.debug(
+                    f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}."
+                )
             if result == z3.sat:
                 return PropertyEvaluator.PropertyEvaluationResult.FAILED
             else:
@@ -150,14 +168,17 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
             return PropertyEvaluator.PropertyEvaluationResult.PASSED
 
         # Raises: BuildSpecificationError()
+
     def _build_spec(self, prop, now):
         try:
             var_declarations = self._build_variable_declarations(prop)
             assumptions = self._build_assumptions(prop, now)
-            spec = (f"{"".join([decl + "\n" for decl in var_declarations])}\n" +
-                    f"{prop.declarations()}\n\n"
-                    f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"(assert (not {prop.formula()}))\n")
+            spec = (
+                f"{"".join([decl + "\n" for decl in var_declarations])}\n"
+                + f"{prop.declarations()}\n\n"
+                f"{"".join([ass + "\n" for ass in assumptions])}\n"
+                + f"(assert (not {prop.formula()}))\n"
+            )
             return spec
         except NoValueAssignedToVariableError:
             pass

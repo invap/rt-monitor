@@ -4,6 +4,7 @@
 
 from pathlib import Path, PurePosixPath
 import logging
+
 # Create a logger for the monitor component
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,8 @@ def is_valid_file_with_extension(path_str, extension):
     """
     # Normalize extension format
     normalized_extension = extension
-    if extension and not extension.startswith('.'):
-        normalized_extension = '.' + extension
+    if extension and not extension.startswith("."):
+        normalized_extension = "." + extension
     try:  # Normalize and convert to PurePosixPath for strict POSIX parsing
         path = PurePosixPath(path_str)
     except Exception:
@@ -31,7 +32,7 @@ def is_valid_file_with_extension(path_str, extension):
         return False
     # Validate extension
     if extension != "any" and path.suffix != normalized_extension:
-        logger.info(f"File extension does not match for path: {path_str}")  
+        logger.info(f"File extension does not match for path: {path_str}")
         return False
     # Convert to concrete Path for filesystem checks
     concrete_path = Path(path_str)
@@ -49,6 +50,7 @@ def is_valid_file_with_extension(path_str, extension):
         logger.error(f"OS error when accessing path: {path_str}")
         return False
 
+
 def is_valid_file_with_extension_nex(path_str, extension):
     """
     Validates that a POSIX path string:
@@ -58,8 +60,8 @@ def is_valid_file_with_extension_nex(path_str, extension):
     """
     # Normalize extension format
     normalized_extension = extension
-    if extension and not extension.startswith('.'):
-        normalized_extension = '.' + extension
+    if extension and not extension.startswith("."):
+        normalized_extension = "." + extension
     try:  # Normalize and convert to PurePosixPath for strict POSIX parsing
         path = PurePosixPath(path_str)
     except Exception:

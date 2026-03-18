@@ -4,17 +4,20 @@
 
 import tomllib
 import logging
+
 # Create a logger for the proporty component
 logger = logging.getLogger(__name__)
 
 from rt_monitor.errors.process_errors import (
     PropertySpecificationError,
-    VariableSpecificationError
+    VariableSpecificationError,
 )
 
 
 class Property:
-    def __init__(self, property_name, property_format, variables, declarations, formula):
+    def __init__(
+        self, property_name, property_format, variables, declarations, formula
+    ):
         self._property_name = property_name
         self._format = property_format
         self._variables = variables
@@ -47,9 +50,11 @@ class Property:
             # This operation might raise a PropertySpecificationError exception.
             return Property._property_from_toml_dict(prop_dict["name"], prop_dict)
         else:  # "file" in prop_dict
-            file_name = prop_dict["file"] \
-                if prop_dict["file"][0] == "/" or prop_dict["file"][0] == "." \
+            file_name = (
+                prop_dict["file"]
+                if prop_dict["file"][0] == "/" or prop_dict["file"][0] == "."
                 else files_path + prop_dict["file"]
+            )
             # This operation might raise a PropertySpecificationError exception.
             return Property._property_from_file(property_name, file_name)
 
@@ -105,7 +110,9 @@ class Property:
             raise PropertySpecificationError()
         else:
             formula = prop_dict["formula"]
-        return Property(property_name, prop_dict["format"], variables, declarations, formula)
+        return Property(
+            property_name, prop_dict["format"], variables, declarations, formula
+        )
 
     @staticmethod
     def build_variable_declarations(property_variables):
@@ -114,11 +121,17 @@ class Property:
         variable_decls = {}
         split_property_variables = property_variables.split(",")
         for variable_name_class_type_with_parenthesis in split_property_variables:
-            variable_name_class_type = variable_name_class_type_with_parenthesis.removeprefix("(").removesuffix(")")
+            variable_name_class_type = (
+                variable_name_class_type_with_parenthesis.removeprefix(
+                    "("
+                ).removesuffix(")")
+            )
             split_variable_name_class_type = variable_name_class_type.split(" ", 1)
             if not len(split_variable_name_class_type) == 2:
-                logger.error(f"Incorrect variable declaration [ {variable_name_class_type_with_parenthesis} ] "
-                              f"should be ([variable_name]:[variable_class] [variable_type]).")
+                logger.error(
+                    f"Incorrect variable declaration [ {variable_name_class_type_with_parenthesis} ] "
+                    f"should be ([variable_name]:[variable_class] [variable_type])."
+                )
                 raise VariableSpecificationError()
             variable_type = split_variable_name_class_type[1]
             # TODO: check integrity of the variable type in variable_type; if not OK raise
@@ -127,8 +140,7 @@ class Property:
             variable_name = split_variable_name_class[0]
             variable_class = split_variable_name_class[1]
             if variable_class not in {"Component", "State", "Clock"}:
-                logger.error(
-                    f"Variables class [ {variable_class} ] unsupported.")
+                logger.error(f"Variables class [ {variable_class} ] unsupported.")
                 raise VariableSpecificationError()
             variable_decls[variable_name] = (variable_class, variable_type)
         return variable_decls

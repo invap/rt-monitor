@@ -7,21 +7,28 @@ import time
 import pika
 import numpy as np
 import logging
+
 # Create a logger for the py property evaluator component
 logger = logging.getLogger(__name__)
 
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import PyVerdict
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
-from rt_rabbitmq_wrapper.exchange_types.specification.specification import PySpecification
-from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import SpecificationDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import (
+    VerdictDictCoDec,
+)
+from rt_rabbitmq_wrapper.exchange_types.specification.specification import (
+    PySpecification,
+)
+from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import (
+    SpecificationDictCoDec,
+)
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (
     BuildSpecificationError,
     NoValueAssignedToVariableError,
     UnboundVariablesError,
-    EvaluationError
+    EvaluationError,
 )
 from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
@@ -38,7 +45,9 @@ class PyPropertyEvaluator(PropertyEvaluator):
         try:
             spec = self._build_spec(prop, now)
         except BuildSpecificationError:
-            logger.error(f"Building specification for property [ {prop.name()} ] error.")
+            logger.error(
+                f"Building specification for property [ {prop.name()} ] error."
+            )
             raise EvaluationError()
         end_build_time = time.time()
         filename = prop.name()
@@ -46,7 +55,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
         locs = {}
         exec(spec, globals(), locs)
         # The formula is checked to be either true or false
-        result = locs['result']
+        result = locs["result"]
         end_analysis_time = time.time()
         match result:
             case True:
@@ -57,7 +66,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
                     prop.name(),
                     PyVerdict.VERDICT.PASS,
                     end_build_time - initial_build_time,
-                    end_analysis_time - initial_analysis_time
+                    end_analysis_time - initial_analysis_time,
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
@@ -65,11 +74,13 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'verdict'}
-                        )
+                            headers={"type": "verdict"},
+                        ),
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                    )
                     exit(-2)
                 else:
                     logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -81,7 +92,7 @@ class PyPropertyEvaluator(PropertyEvaluator):
                     prop.name(),
                     PyVerdict.VERDICT.FAIL,
                     end_build_time - initial_build_time,
-                    end_analysis_time - initial_analysis_time
+                    end_analysis_time - initial_analysis_time,
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
@@ -89,11 +100,13 @@ class PyPropertyEvaluator(PropertyEvaluator):
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
-                            headers={'type': 'verdict'}
-                        )
+                            headers={"type": "verdict"},
+                        ),
                     )
                 except RabbitMQError:
-                    logger.critical(f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    logger.critical(
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                    )
                     exit(-2)
                 else:
                     logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -108,15 +121,18 @@ class PyPropertyEvaluator(PropertyEvaluator):
                     json.dumps(specification_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
-                        headers={'type': 'counterexample'}
-                    )
+                        headers={"type": "counterexample"},
+                    ),
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}.")
+                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                )
                 exit(-2)
             else:
-                logger.debug(f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}.")
+                logger.debug(
+                    f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}."
+                )
             return PropertyEvaluator.PropertyEvaluationResult.FAILED
         else:
             return PropertyEvaluator.PropertyEvaluationResult.PASSED
@@ -126,9 +142,11 @@ class PyPropertyEvaluator(PropertyEvaluator):
         try:
             # TODO: Add the possibility of having declarations.
             assumptions = self._build_assumptions(prop, now)
-            spec = (f"{"".join([ass + "\n" for ass in assumptions])}\n" +
-                    f"{prop.declarations()}\n\n"
-                    f"result = {prop.formula()}\n")
+            spec = (
+                f"{"".join([ass + "\n" for ass in assumptions])}\n"
+                + f"{prop.declarations()}\n\n"
+                f"result = {prop.formula()}\n"
+            )
             return spec
         except NoValueAssignedToVariableError:
             pass

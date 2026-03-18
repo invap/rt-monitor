@@ -31,4 +31,3 @@ class ClockWasAlreadyPausedError(Exception):
 class ClockWasNotPausedError(Exception):
     def __init__(self):
         super().__init__()
-
