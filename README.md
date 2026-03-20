@@ -254,7 +254,7 @@ python -c "import rt_monitor"
 [Figure 1](#rt-monitor-architecture) shows a high level view of the architecture of the RM. In it, we highlight the most relevant components and how they interact with each other and with the other agents of the RT-Constellation, through the RabbitMQ events and results-log exchanges found in the RabbitMQ server configuration file.
 
 <figure id="rt-monitor-architecture" style="text-align: center;">
-  <img src="./README_images/rt-monitor-architecture.pdf" width="600" alt="The Runtime Monitor architecture.">
+  <img src="./README_images/rt-monitor-architecture.png" width="600" alt="The Runtime Monitor architecture.">
   <figcaption style="font-style: italic;"><b>Figure 1</b>: The Runtime Monitor architecture.
   </figcaption>
 </figure>
