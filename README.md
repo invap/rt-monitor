@@ -1,12 +1,12 @@
 # The Runtime Monitor
-This project contains an implementation of the  Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given:
+This project contains an implementation of the Runtime Monitor (RM) of the RT-Constellation. The rationale behind this tool is that it enables runtime verification capabilities provided it is given:
 1. an *analysis framework specification* (see Section [Specification language for describing the analysis framework](#specification-language-for-describing-the-analysis-framework) for a complete description of the specification language and the file format), and
 2. a *stream of events* obtained through the RabbitMQ events exchange found in the RabbitMQ server configuration file. 
 
 The reader is pointed to Section [Event language for monitoring](#event-language-for-monitoring) for a complete description of the event language and also consider reading:
  
 - Section [Relevant information about the implementation](https://github.com/invap/rt-reporter/blob/main/README.md#relevant-information-about-the-implementation) of [The Runtime Reporter](https://github.com/invap/rt-reporter/) project (an example runtime reporter (RR) that produces event log files that can be processed by the RM), and 
-- Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the SUT, which can later be processed by an event reporter). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/)
+- Section [Implementation of the C reporter API](https://github.com/invap/c-reporter-api/blob/main/README.md#implementation-of-the-reporter-api) of the [C reporter API](https://github.com/invap/c-reporter-api/) project (a library that can be used to produce an instrumented version of the source code of the *System Under Test* (SUT), which can later be processed by an event reporter). Alternatively, Section [Implementation of the Rust reporter API](https://github.com/clpombo/rust-reporter-api/blob/master/README.md#implementation-of-the-reporter-api) of the [Rust reporter API](https://github.com/clpombo/rust-reporter-api/)
 
 The analysis process consists of checking if the stream of event obtained through the RabbitMQ events exchange[^reporters]
 [^reporters]: Such a stream of events can  be produced by a specialized event reporter (for example, like the [Runtime Reporter](https://github.com/invap/rt-reporter "The Runtime Reporter") or the [DAP-supported Runtime Reporter](https://github.com/invap/dap-rt-reporter "The DAP-supported Runtime Reporter")).
@@ -17,28 +17,30 @@ The analysis process consists of checking if the stream of event obtained throug
 The RM project is organized as follows:
 ```graphql
 rt-monitor/
-├── rt_monitor                    # Package folder
-│   ├── errors                    # Folder containing the implementation of the runtime exceptions
+├── rt_monitor                           # Package folder
+│   ├── errors                           # Folder containing the implementation of the runtime exceptions
 │   ├── framework
 │   │   ├── components
-│   │   │   ├── ...               # Folders hosting the python components used by the SUT
-│   │   │   └── component.py      # Implements the interface of the python components used by the SUT
-│   │   ├── process               # Contains the python files implementing structured sequential processes
-│   │   ├── clock.py              # Implementation of the notion of clock used for checking timed properties
-│   │   └── framework.py          # Implementation of the analysis framework
-│   ├── property_evaluator        # Folder containing the implementation of the property evaluators
-│   ├── reporting                 # Folder containing the implementation of event decoder and the event types
-│   ├── logging_configuration.py  # Implementation of the structure for configuring the logger
-│   ├── monitor.py                # Implementation of the analysis framework
-│   ├── monitor_builder.py
+│   │   │   ├── ...                      # Folders hosting the python components used by the SUT
+│   │   │   └── component.py             # Implements the interface of the python components used by the SUT
+│   │   ├── process                      # Contains the python files implementing structured sequential processes
+│   │   ├── clock.py                     # Implementation of the notion of clock used for checking timed properties
+│   │   └── framework.py                 # Implementation of the analysis framework
+│   ├── property_evaluator               # Folder containing the implementation of the property evaluators
+event types
+│   ├── config.py                        # Definition of the structure containing the configuration of the tool
+│   ├── logging_configuration.py         # Implementation of the structure for configuring the logger
+│   ├── monitor.py                       # Implementation of the analysis framework
 │   ├── novalue.py
-│   └── rt_monitor_sh.py          # Entry point of the command line interface of the RR
-├── README_images                 # Images for the read me file
-│   └── ...                       # ...
-├── COPYING                       # Licence of the project 
-├── Dockerfile                    # File containing the configuration for running the RM in a docker container 
-├── pyproject.toml                # Configuration file (optional, recommended)
-└── README.md                     # Read me file of the project
+│   ├── rabbitmq_server_connections.py   # Implements the code for the rt-monitor to attach to the RabbitMQ communication channels required to execute
+│   ├── utility.py       
+│   └── rt_monitor_sh.py                 # Entry point of the command line interface of the RM
+├── README_images                        # Images for the read me file
+│   └── ...                              # ...
+├── COPYING                              # Licence of the project 
+├── Dockerfile                           # File containing the configuration for running the RM in a docker container 
+├── pyproject.toml                       # Configuration file (optional, recommended)
+└── README.md                            # Read me file of the project
 ```
 
 
@@ -114,11 +116,11 @@ this will ensure you are using the right Python virtual machine and then, activa
 ### Using the project with docker
 1. **Build the image:**
     ```bash
-    docker build . -t rt-reporter-env
+    docker build . -t rt-monitor-env
     ```
 2. **Run the container:**
 	```bash
-	docker run -it -v$PWD:/home/workspace rt-reporter-env
+	docker run -it -v$PWD:/home/workspace rt-monitor-env
 	```
 3. **Do something with RM...**
 
@@ -501,19 +503,6 @@ This section shows a list of errors that can be yielded by the command line inte
 - Error -2: "RabbitMQ configuration error" indicates that there was an error during the configuration of the communication infrastructure
 - Error -3: "Monitor error" indicates that there was an error during the monitoring process
 - Error -4: "Unexpected error"
-
-In Mac OS the execution of the RR migth output the message "This process is not trusted! Input event monitoring will not be possible until it is added to accessibility clients.". This happens when an application attempts to monitor keyboard or mouse input without having the necessary permissions because Mac OS restricts access to certain types of input monitoring for security and privacy reasons. To solve it you need to grant accessibility permissions to the application running the program (e.g., Terminal, iTerm2, or a Python IDE). Here’s how:
-1. Open System Preferences:
-	- Go to **Apple menu** --> **System Preferences** --> **Security & Privacy**.
-2. Go to Accessibility Settings:
-	- In the **Privacy** tab, select **Accessibility** from the list on the left.
-3. Add Your Application:
-	- If you are running the RR from **Terminal**, **iTerm2**, or a specific **IDE** (like PyCharm or VS Code), you will need to add that application to the list of allowed applications.
-	- Click the **lock icon** at the bottom left and enter your password to make changes.
-	- Then, click the `+` button, navigate to the application (e.g., Terminal or Python IDE), and add it to the list.
-4. Restart the Application:
-	- After adding it to the Accessibility list, restart the application to apply the new permissions.
-Once you’ve done this, the message should go away, and pynput should be able to detect keyboard and mouse events properly.
 
 In Mac OS the execution of the RR migth output the message "This process is not trusted! Input event monitoring will not be possible until it is added to accessibility clients.". This happens when an application attempts to monitor keyboard or mouse input without having the necessary permissions because Mac OS restricts access to certain types of input monitoring for security and privacy reasons. To solve it you need to grant accessibility permissions to the application running the program (e.g., Terminal, iTerm2, or a Python IDE). Here’s how:
 1. Open System Preferences:
