@@ -37,7 +37,7 @@ event types
 │   └── rt_monitor_sh.py                 # Entry point of the command line interface of the RM
 ├── README_images                        # Images for the read me file
 │   └── ...                              # ...
-├── COPYING                              # Licence of the project 
+├── LICENSE                              # Licence of the project 
 ├── Dockerfile                           # File containing the configuration for running the RM in a docker container 
 ├── pyproject.toml                       # Configuration file (optional, recommended)
 └── README.md                            # Read me file of the project
