@@ -35,14 +35,13 @@ def set_up_logging():
 def configure_logging_destination(logging_destination, log_file=""):
     logging.getLogger().handlers.clear()
     formatter = logging.Formatter(_logging_format(), datefmt=_date_logging_format())
-    match logging_destination:
-        case LoggingDestination.FILE:
-            if log_file == "":
-                handler = logging.FileHandler("log.txt", mode="w", encoding="utf-8")
-            else:
-                handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
-        case _:
-            handler = logging.StreamHandler(sys.stdout)
+    if logging_destination == LoggingDestination.FILE:
+        if log_file == "":
+            handler = logging.FileHandler("log.txt", mode="w", encoding="utf-8")
+        else:
+            handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+    else:
+        handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
     logging.getLogger().addHandler(handler)
 

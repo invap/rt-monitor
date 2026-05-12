@@ -4,6 +4,7 @@
 
 import argparse
 import signal
+import sys
 import threading
 import wx
 import logging
@@ -71,13 +72,7 @@ def rt_monitor_runner(spec_file):
     application_thread.join()
 
 
-# Exit codes:
-# -1: Input file error
-# -2: RabbitMQ configuration error
-# -3: Monitor error
-# -4: Unexpected error
-def main():
-    global logger
+def parse_arguments():
     # Argument processing
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
@@ -116,24 +111,27 @@ def main():
         default="on_might_fail",
         help="Stop policy.",
     )
-    # Start the execution of The Runtime Monitor
+    return parser.parse_args()
+
+
+# Exit codes:
+# -1: Input file error
+# -2: RabbitMQ configuration error
+# -3: Monitor error
+# -4: Unexpected error
+def main():
+    global logger
     # Parse arguments
-    args = parser.parse_args()
-    # Set up the logging infrastructure
+    args = parse_arguments()
     # Configure logging level.
-    match args.log_level:
-        case "debug":
-            logging_level = LoggingLevel.DEBUG
-        case "info":
-            logging_level = LoggingLevel.INFO
-        case "warnings":
-            logging_level = LoggingLevel.WARNING
-        case "errors":
-            logging_level = LoggingLevel.ERROR
-        case "critical":
-            logging_level = LoggingLevel.CRITICAL
-        case _:
-            logging_level = LoggingLevel.INFO
+    level_map = {
+        "debug": LoggingLevel.DEBUG,
+        "info": LoggingLevel.INFO,
+        "warnings": LoggingLevel.WARNING,
+        "errors": LoggingLevel.ERROR,
+        "critical": LoggingLevel.CRITICAL,
+    }
+    logging_level = level_map.get(args.log_level, LoggingLevel.INFO)
     # Configure logging destination.
     if args.log_file is None:
         logging_destination = LoggingDestination.CONSOLE
@@ -196,4 +194,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

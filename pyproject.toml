@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "rt-monitor"
 version = "2.8.1"
@@ -6,14 +10,8 @@ authors = [
     {name = "Carlos Gustavo Lopez Pombo", email = "clpombo@gmail.com>"}
 ]
 readme = "README.md"
-license = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
-repository = "https://github.com/invap/rt-monitor"
-
-
+license = {text = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"}
 requires-python = ">=3.12,<3.14"
-packages = [
-    { include = "rt_monitor" },
-]
 dependencies = [
     "numpy (~=2.1.2)",
     "pyformlang~=1.0.11",
@@ -31,11 +29,21 @@ dependencies = [
     "z3-solver (~=4.13.0.0)"
 ]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project.urls]
+Repository = "https://github.com/invap/rt-monitor"
+
+[tool.setuptools.packages.find]
+include = ["rt_monitor*"]
 
 [dependency-groups]
 dev = [
     "pytomlcleaner (>=1.0.0,<2.0.0)"
 ]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
