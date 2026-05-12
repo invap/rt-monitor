@@ -163,13 +163,13 @@ def main():
     valid = is_valid_file_with_extension(args.spec_file, "toml")
     if not valid:
         logger.critical(f"Analysis framework specification file error.")
-        exit(-1)
+        return -1
     logger.info(f"Analysis framework specification file: {args.spec_file}")
     # RabbitMQ infrastructure configuration
     valid = is_valid_file_with_extension(args.rabbitmq_config_file, "toml")
     if not valid:
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
-        exit(-2)
+        return -2
     logger.info(
         f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}"
     )
@@ -182,15 +182,15 @@ def main():
         rt_monitor_runner(args.spec_file)
     except MonitorError:
         logger.critical("Monitor error.")
-        exit(-3)
+        return -3
     except Exception as e:
         logger.critical(f"Unexpected error: {e}.")
-        exit(-4)
+        return -4
     # Close connection to the RabbitMQ events server if it exists
     rabbitmq_server_connections.rabbitmq_event_server_connection.close()
     # Close connection to the RabbitMQ results log server if it exists
     rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
-    exit(0)
+    return 0
 
 
 if __name__ == "__main__":
