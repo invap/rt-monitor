@@ -1,0 +1,44 @@
+FROM ubuntu:24.04 AS rt-monitor-develop-image 
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Base image installation
+RUN apt update && apt install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    # wxPython dependencies for Ubuntu 24.04
+    libwxgtk3.2-dev \
+    libgtk-3-dev \
+    libgl1-mesa-dev \
+    libgl1-mesa-dri \
+    libjpeg-dev \
+    libtiff-dev \
+    libsdl2-dev \
+    libnotify-dev \
+    libwebkit2gtk-4.1-dev \
+    x11-apps \
+    x11-utils \
+    # Additional dependencies
+    libx11-dev \
+    libxext-dev \
+    libxtst-dev \
+    libxrender-dev \
+    libxmu-dev \
+    libxmuu-dev \
+    && rm -rf /var/lib/apt/lists/*
+# Install poetry using pip (available to all users)
+RUN apt update && apt install -y pipx && \
+    pipx ensurepath && \
+    pipx install poetry
+# Add pipx to PATH for all users
+ENV PATH="/root/.local/bin:${PATH}"
+    
+# Working directory setup
+WORKDIR /workspaces
+
+# Restore interactive prompts during package installation
+ENV DEBIAN_FRONTEND=
+

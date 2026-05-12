@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# X11 forwarding
+x11-forwarding() {
+    # Allow connections from localhost
+    defaults write org.xquartz.X11.plist nolisten_tcp -bool false
+
+    # Restart XQuartz if needed
+    if pgrep -x "XQuartz" > /dev/null; then
+        killall XQuartz
+    fi
+    open -a XQuartz
+    sleep 3
+
+    # Set DISPLAY for Docker
+    IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+    export DISPLAY=${IP}:0
+
+    echo "✓ DISPLAY set to: $DISPLAY"
+}
+
+# Test X11 forwarding
+x11-test() {
+    IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+    echo "Testing with DISPLAY=${IP}:0"
+
+    docker run --rm -e DISPLAY=${IP}:0 alpine sh -c "apk add --no-cache xeyes && xeyes"
+
+    if [ $? -eq 0 ]; then
+        echo "✓ X11 is working!"
+    else
+        echo "✗ X11 test failed"
+    fi
+}

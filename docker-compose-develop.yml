@@ -1,0 +1,43 @@
+services:
+  rt-monitor_develop:
+    build:
+      context: .
+      dockerfile: Dockerfile.develop
+    container_name: rt-monitor_develop
+    # For deploying the RT-Monitor in a dedicated machine
+    # ports:
+    #   - "5672:5672"
+    #
+    environment:
+      - DISPLAY=${DISPLAY}  # This will take the DISPLAY from your host shell
+      - PYTHONUNBUFFERED=1
+      # Fix for OpenGL/Mesa errors
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - GALLIUM_DRIVER=llvmpipe
+      - QT_X11_NO_MITSHM=1
+      - XLIB_SKIP_ARGB_VISUALS=1
+    # Add extra hosts for Docker Desktop for Mac to connect back to host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/workspaces/rt-monitor
+      - /Users/clpombo/sandbox/rt-constellation-experiments/rabbitmq-infrastructure/rabbitmq-infrastructure:/workspaces/rabbitmq-infrastructure     # If the RabbitMQ configuration file path is not set, it will be mounted with the current directory (.) as default value
+      - /Users/clpombo/sandbox/rt-constellation-experiments/rt-monitor-rust-example-app:/workspaces/experiment     # If the experiment path is not set, it will be mounted with the current directory (.) as default value
+      - /Users/clpombo/sandbox/rt-monitor-rust-example-app/specification-no-clocks:/workspaces/specification     # If the specification path is not set, it will be mounted with the current directory (.) as default value
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    # For deploying the RT-Monitor in a Docker virtual network in the same machine of the RabbitMQ servers
+    networks:
+      - rabbitmq-network
+    #
+    command: ["sleep", "infinity"]  # Keep container alive
+    stdin_open: true  # Keep STDIN open
+    tty: true         # Allocate a pseudo-TTY
+
+# For deploying the RT-Monitor infrastructure in a Docker virtual network in the same machine of the RabbitMQ servers
+networks:
+  rabbitmq-network:
+    external: true
+#

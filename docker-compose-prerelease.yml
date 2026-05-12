@@ -1,0 +1,50 @@
+services:
+  rt-monitor_prerelease:
+    build:
+      context: .
+      dockerfile: Dockerfile.prerelease
+    container_name: rt-monitor_prerelease
+    # For deploying the RabbitMQ message servers infrastructure in a dedicated machine, external to the RT-Costellation
+    # ports:
+    #   - "5672:5672"
+    #
+    environment:
+      - DISPLAY=${DISPLAY}  # This will take the DISPLAY from your host shell
+      - PYTHONUNBUFFERED=1
+      # Fix for OpenGL/Mesa errors
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - GALLIUM_DRIVER=llvmpipe
+      - QT_X11_NO_MITSHM=1
+      - XLIB_SKIP_ARGB_VISUALS=1
+    # Add extra hosts for Docker Desktop for Mac to connect back to host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/workspaces/rt-monitor
+      - ${RABBITMQ_CONFIG_FILE:-.}:/workspaces/rabbitmq-infrastructure     # If the RabbitMQ configuration file path is not set, it will be mounted with the current directory (.) as default value
+      - ${EXPERIMENT_PATH:-.}:/workspaces/experiment     # If the SUT path is not set, it will be mounted with the current directory (.) as default value
+      - ${SPECIFICATION_PATH:-.}:/workspaces/specification     # If the specification path is not set, it will be mounted with the current directory (.) as default value
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    # For deploying the RT-Monitor infrastructure in a Docker virtual network in the same machine of the RabbitMQ servers
+    networks:
+      - rabbitmq-network
+    #
+    command: >
+      sh -c "
+        cd /workspaces/rt-monitor &&
+        poetry config virtualenvs.in-project true &&
+        poetry lock --no-interaction &&
+        poetry install --no-interaction --no-ansi &&
+        sleep infinity
+      "
+    stdin_open: true  # Keep STDIN open
+    tty: true         # Allocate a pseudo-TTY
+    
+# For deploying the RT-Monitor infrastructure in a Docker virtual network in the same machine of the RabbitMQ servers
+networks:
+  rabbitmq-network:
+    external: true
+#
