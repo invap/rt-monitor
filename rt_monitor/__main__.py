@@ -8,7 +8,6 @@ import sys
 import threading
 import wx
 import logging
-
 # Create a logger for the monitor component
 logger = None  # Will be initialized in main()
 
