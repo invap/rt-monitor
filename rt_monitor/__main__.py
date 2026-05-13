@@ -76,7 +76,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         prog="The Runtime Monitor",
         description="Performs runtime assertion checking of events got from a RabbitMQ server with respect to a structured sequential process specification.",
-        epilog="Example: python -m rt_monitor.rt_monitor_sh path/to/spec.toml --rabbitmq_config_file=/path/to/rabbitmq_config.toml --log_file=output.log --log_level=event --timeout=120 --stop=dont",
+        epilog="Example: python -m rt_monitor path/to/spec.toml --rabbitmq-config-file=/path/to/rabbitmq/config/file.toml --log-file=/path/to/log/file.log --log-level=event --timeout=120 --stop=dont",
     )
     parser.add_argument(
         "spec_file",
@@ -84,19 +84,26 @@ def parse_arguments():
         help="Path to the TOML file containing the analysis framework specification.",
     )
     parser.add_argument(
-        "--rabbitmq_config_file",
+        "-r",
+        "--rabbitmq-config-file",
         type=str,
         default="./rabbitmq_config.toml",
         help="Path to the TOML file containing the RabbitMQ server configuration.",
     )
     parser.add_argument(
-        "--log_level",
+        "-ll",
+        "--log-level",
         type=str,
         choices=["debug", "info", "warnings", "errors", "critical"],
         default="info",
         help="Log verbose level.",
     )
-    parser.add_argument("--log_file", help="Path to log file.")
+    parser.add_argument(
+        "-lf",
+        "--log-file",
+        type=str,
+        help="Path to log file.",
+    )
     parser.add_argument(
         "--timeout",
         type=int,
