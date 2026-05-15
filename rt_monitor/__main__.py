@@ -27,7 +27,8 @@ from rt_monitor.utility import (
     is_valid_file_with_extension_nex,
     is_valid_file_with_extension,
 )
-
+from fancy_namer.namer import FancyNamer
+from fancy_namer.enums import NameType
 
 def rt_monitor_runner(spec_file):
     # Signal handling flags
@@ -127,6 +128,8 @@ def parse_arguments():
 # -4: Unexpected error
 def main():
     global logger
+    # Generate unique name for this execution of the RT Monitor
+    process_name = FancyNamer.generate_name(name_type=NameType.TOOL, tool_name="rt_monitor", random_seed=42)
     # Parse arguments
     args = parse_arguments()
     # Configure logging level.

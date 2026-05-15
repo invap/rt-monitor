@@ -13,6 +13,7 @@ readme = "README.md"
 license = {text = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"}
 requires-python = ">=3.12,<3.14"
 dependencies = [
+    "fancy-namer @ git+https://github.com/clpombo/fancy-namer.git",
     "numpy (~=2.1.2)",
     "pyformlang~=1.0.11",
     "pyobjc-core (>=10.3.1,<10.4.0); sys_platform == 'darwin'",
@@ -37,7 +38,7 @@ include = ["rt_monitor*"]
 
 [dependency-groups]
 dev = [
-    "mypy (~=1.15.0)",
+    "mypy (~=1.19.0)",
     "pytomlcleaner (>=1.0.0,<2.0.0)"
 ]
 
