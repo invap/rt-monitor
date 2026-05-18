@@ -71,7 +71,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
-                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -80,7 +80,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     )
                 except RabbitMQError:
                     logger.critical(
-                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
                     )
                     exit(-2)
                 else:
@@ -97,7 +97,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
-                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -106,7 +106,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     )
                 except RabbitMQError:
                     logger.critical(
-                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
                     )
                     exit(-2)
                 else:
@@ -123,7 +123,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
-                    rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -132,7 +132,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                     )
                 except RabbitMQError:
                     logger.critical(
-                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
                     )
                     exit(-2)
                 else:
@@ -144,7 +144,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
             )
             # Publish counterexample at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(specification_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -153,7 +153,7 @@ class SMT2PropertyEvaluator(PropertyEvaluator):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
                 )
                 exit(-2)
             else:

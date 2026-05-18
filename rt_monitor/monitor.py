@@ -119,11 +119,11 @@ class Monitor(threading.Thread):
         )
         # Start receiving events from the RabbitMQ server
         logger.info(
-            f"Start receiving events from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}."
+            f"Start receiving events from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
         )
         # Start sending analysis results to the RabbitMQ server with timeout handling for message reception
         logger.info(
-            f"Start sending analysis results to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+            f"Start sending analysis results to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
         )
         # Sets the initial state in the event automata
         self._current_state = self._framework.process().dfa().start_state
@@ -163,29 +163,29 @@ class Monitor(threading.Thread):
                 # Get event from RabbitMQ
                 try:
                     method, properties, body = (
-                        rabbitmq_server_connections.rabbitmq_event_server_connection.get_message()
+                        rabbitmq_server_connections.rabbitmq_events_server_connection.get_message()
                     )
                 except RabbitMQError:
                     logger.critical(
-                        f"Error receiving event from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}."
+                        f"Error receiving event from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
                     )
                     raise MonitorError()
                 if method:  # Message exists
                     # ACK the message from RabbitMQ
                     try:
-                        rabbitmq_server_connections.rabbitmq_event_server_connection.ack_message(
+                        rabbitmq_server_connections.rabbitmq_events_server_connection.ack_message(
                             method.delivery_tag
                         )
                     except RabbitMQError:
                         logger.critical(
-                            f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}."
+                            f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
                         )
                         raise MonitorError()
                     # Process message
                     if properties.headers and properties.headers.get("termination"):
                         # Poison pill received
                         logger.info(
-                            f"Poison pill received from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}."
+                            f"Poison pill received from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
                         )
                         poison_received = True
                     else:
@@ -222,30 +222,30 @@ class Monitor(threading.Thread):
                                 number_of_events += 1
         # Stop receiving messages from the RabbitMQ server
         logger.info(
-            f"Stop receiving events from queue {rabbitmq_server_connections.rabbitmq_event_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_event_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_event_server_connection.server_info.port}."
+            f"Stop receiving events from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
         )
         # Close connection to the RabbitMQ events server if it exists
-        # rabbitmq_server_connections.rabbitmq_event_server_connection.close()
+        # rabbitmq_server_connections.rabbitmq_events_server_connection.close()
         # Send poison pill with the results exchange to the RabbitMQ server
         try:
-            rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+            rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                 "", pika.BasicProperties(delivery_mode=2, headers={"termination": True})
             )
         except RabbitMQError:
             logger.critical(
-                f"Error sending poison pill to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                f"Error sending poison pill to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
             )
             raise MonitorError()
         else:
             logger.info(
-                f"Poison pill sent to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                f"Poison pill sent to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
             )
         # Stop publishing results to the RabbitMQ server
         logger.info(
-            f"Stop sending verdicts to exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+            f"Stop sending verdicts to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
         )
         # Close connection to the RabbitMQ results log server if it exists
-        # rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+        # rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.close()
         # Logging the reason for stoping the verification process to the RabbitMQ server
         if poison_received:
             logger.info(
@@ -294,7 +294,7 @@ class Monitor(threading.Thread):
             print(verdict_dict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -303,7 +303,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -315,7 +315,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -324,7 +324,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -362,7 +362,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -371,7 +371,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -383,7 +383,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -392,7 +392,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -430,7 +430,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -439,7 +439,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -451,7 +451,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_result_log_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -460,7 +460,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_result_log_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_result_log_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")

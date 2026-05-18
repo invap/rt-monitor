@@ -196,9 +196,9 @@ def main():
         logger.critical(f"Unexpected error: {e}.")
         return -4
     # Close connection to the RabbitMQ events server if it exists
-    rabbitmq_server_connections.rabbitmq_event_server_connection.close()
+    rabbitmq_server_connections.rabbitmq_events_server_connection.close()
     # Close connection to the RabbitMQ results log server if it exists
-    rabbitmq_server_connections.rabbitmq_result_log_server_connection.close()
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.close()
     return 0
 
 
