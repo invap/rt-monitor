@@ -40,18 +40,14 @@ from rt_monitor.novalue import NoValue
 from rt_monitor.property_evaluator.evaluator import Evaluator
 from rt_monitor.property_evaluator.property_evaluator import PropertyEvaluator
 
+from rt_rabbitmq_wrapper.exchange_types.verdict.process_verdict import ProcessVerdict
+from rt_rabbitmq_wrapper.exchange_types.verdict.task_started_verdict import TaskStartedVerdict
+from rt_rabbitmq_wrapper.exchange_types.verdict.task_finished_verdict import TaskFinishedVerdict
+from rt_rabbitmq_wrapper.exchange_types.verdict.checkpoint_reached_verdict import CheckpointReachedVerdict
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 from rt_rabbitmq_wrapper.exchange_types.event.event_dict_codec import EventDictCoDec
 from rt_rabbitmq_wrapper.exchange_types.event.event_codec_errors import EventDictError
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import (
-    ProcessVerdict,
-    TaskStartedVerdict,
-    TaskFinishedVerdict,
-    CheckpointReachedVerdict,
-)
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import (
-    VerdictDictCoDec,
-)
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
 
 
 class Monitor(threading.Thread):
@@ -271,8 +267,8 @@ class Monitor(threading.Thread):
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_started(self, task_started_event):
-        task_name = task_started_event.name()
-        task_time = task_started_event.timestamp()
+        task_name = task_started_event.name
+        task_time = task_started_event.timestamp
         if task_name not in self._framework.process().tasks():
             logger.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
@@ -340,8 +336,8 @@ class Monitor(threading.Thread):
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_task_finished(self, task_finished_event):
-        task_name = task_finished_event.name()
-        task_time = task_finished_event.timestamp()
+        task_name = task_finished_event.name
+        task_time = task_finished_event.timestamp
         if task_name not in self._framework.process().tasks():
             logger.error(f"Task {task_name} does not exist.")
             raise TaskDoesNotExistError()
@@ -399,7 +395,7 @@ class Monitor(threading.Thread):
             # Analysis of posconditions
             task_specification = self._framework.process().tasks()[task_name]
             postconditions_are_met = self._are_all_properties_true(
-                task_finished_event.timestamp(),
+                task_finished_event.timestamp,
                 task_specification.postconditions(),
             )
             self._current_state = destinations[0]
@@ -408,8 +404,8 @@ class Monitor(threading.Thread):
     # Raises: CheckpointDoesNotExistError
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
     def process_checkpoint_reached(self, checkpoint_reached_event):
-        checkpoint_name = checkpoint_reached_event.name()
-        checkpoint_time = checkpoint_reached_event.timestamp()
+        checkpoint_name = checkpoint_reached_event.name
+        checkpoint_time = checkpoint_reached_event.timestamp
         if checkpoint_name not in self._framework.process().checkpoints():
             logger.error(f"Checkpoint [ {checkpoint_name} ] does not exist.")
             raise CheckpointDoesNotExistError()
@@ -469,7 +465,7 @@ class Monitor(threading.Thread):
                 checkpoint_name
             ]
             checkpoint_conditions_are_met = self._are_all_properties_true(
-                checkpoint_reached_event.timestamp(),
+                checkpoint_reached_event.timestamp,
                 checkpoint_specification.properties(),
             )
             self._current_state = destinations[0]
@@ -479,7 +475,7 @@ class Monitor(threading.Thread):
     def process_variable_value_assigned(self, variable_value_assigned_event):
         # Determine whether the variable being assigned is a component of an array.
         split_variable_name = re.split(
-            r"(?=\[)", variable_value_assigned_event.variable_name(), maxsplit=1
+            r"(?=\[)", variable_value_assigned_event.variable_name, maxsplit=1
         )
         variable_name = split_variable_name[0]
         if len(split_variable_name) == 1:
@@ -487,7 +483,7 @@ class Monitor(threading.Thread):
         else:
             array = True
             variable_loc = split_variable_name[1]
-        variable_value = variable_value_assigned_event.variable_value()
+        variable_value = variable_value_assigned_event.variable_value
         if variable_name not in self._execution_state:
             logger.error(f"Variable [ {variable_name} ] was not declared.")
             raise UndeclaredVariableError()
@@ -503,8 +499,8 @@ class Monitor(threading.Thread):
 
     # Raises: ComponentDoesNotExistError(), ComponentError()
     def process_component_event(self, component_event):
-        component_data = component_event.data()
-        component_name = component_event.component_name()
+        component_data = component_event.data
+        component_name = component_event.component_name
         if component_name not in self._framework.components():
             logger.error(f"Component [ {component_name} ] does not exist.")
             raise ComponentDoesNotExistError()
@@ -520,12 +516,12 @@ class Monitor(threading.Thread):
 
     # Raises: ClockError()
     def process_clock_start(self, clock_start_event):
-        clock_name = clock_start_event.clock_name()
+        clock_name = clock_start_event.clock_name
         if clock_name not in self._timed_state:
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].start(clock_start_event.timestamp())
+            self._timed_state[clock_name][1].start(clock_start_event.timestamp)
         except ClockWasAlreadyStartedError:
             logger.error(f"Clock [ {clock_name} ] was already started.")
             raise ClockError()
@@ -533,12 +529,12 @@ class Monitor(threading.Thread):
 
     # Raises: ClockError()
     def process_clock_pause(self, clock_pause_event):
-        clock_name = clock_pause_event.clock_name()
+        clock_name = clock_pause_event.clock_name
         if clock_name not in self._timed_state:
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].pause(clock_pause_event.timestamp())
+            self._timed_state[clock_name][1].pause(clock_pause_event.timestamp)
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
@@ -549,12 +545,12 @@ class Monitor(threading.Thread):
 
     # Raises: ClockError()
     def process_clock_resume(self, clock_resume_event):
-        clock_name = clock_resume_event.clock_name()
+        clock_name = clock_resume_event.clock_name
         if clock_name not in self._timed_state:
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].resume(clock_resume_event.timestamp())
+            self._timed_state[clock_name][1].resume(clock_resume_event.timestamp)
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
@@ -565,12 +561,12 @@ class Monitor(threading.Thread):
 
     # Raises: ClockError()
     def process_clock_reset(self, clock_reset_event):
-        clock_name = clock_reset_event.clock_name()
+        clock_name = clock_reset_event.clock_name
         if clock_name not in self._timed_state:
             logger.error(f"Clock [ {clock_name} ] was not declared.")
             raise UndeclaredClockError()
         try:
-            self._timed_state[clock_name][1].reset(clock_reset_event.timestamp())
+            self._timed_state[clock_name][1].reset(clock_reset_event.timestamp)
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()

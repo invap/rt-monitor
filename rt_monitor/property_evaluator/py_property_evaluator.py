@@ -12,16 +12,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import PyVerdict
+
 from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import (
+    PyVerdict,
     VerdictDictCoDec,
 )
-from rt_rabbitmq_wrapper.exchange_types.specification.specification import (
-    PySpecification,
-)
-from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import (
-    SpecificationDictCoDec,
-)
+from rt_rabbitmq_wrapper.exchange_types.specification.specification import PySpecification
+from rt_rabbitmq_wrapper.exchange_types.specification.specification_dict_codec import SpecificationDictCoDec
 
 from rt_monitor.errors.clock_errors import ClockWasNotStartedError
 from rt_monitor.errors.evaluator_errors import (

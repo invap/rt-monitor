@@ -11,8 +11,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict import SymPyVerdict
 from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import (
+    SymPyVerdict,
     VerdictDictCoDec,
 )
 from rt_rabbitmq_wrapper.exchange_types.specification.specification import (
