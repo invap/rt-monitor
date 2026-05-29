@@ -70,7 +70,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
-                    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                    rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -79,7 +79,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                     )
                 except RabbitMQError:
                     logger.critical(
-                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.port}."
                     )
                     exit(-2)
                 else:
@@ -96,7 +96,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                 )
                 verdict_dict = VerdictDictCoDec.to_dict(verdict)
                 try:
-                    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                    rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                         json.dumps(verdict_dict),
                         pika.BasicProperties(
                             delivery_mode=2,  # Persistent message
@@ -105,7 +105,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                     )
                 except RabbitMQError:
                     logger.critical(
-                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
+                        f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.port}."
                     )
                     exit(-2)
                 else:
@@ -117,7 +117,7 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
             )
             # Publish counterexample at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(specification_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -126,16 +126,13 @@ class SymPyPropertyEvaluator(PropertyEvaluator):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.port}."
+                    f"Error sending log entry to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.port}."
                 )
                 exit(-2)
             else:
                 logger.debug(
                     f"Sent counterexample: Property: {prop.name()} - Timestamp: {now}."
                 )
-            return PropertyEvaluator.PropertyEvaluationResult.FAILED
-        else:
-            return PropertyEvaluator.PropertyEvaluationResult.PASSED
 
     # Raises: BuildSpecificationError()
     def _build_spec(self, prop, now):

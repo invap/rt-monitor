@@ -47,7 +47,7 @@ from rt_rabbitmq_wrapper.exchange_types.verdict.checkpoint_reached_verdict impor
 from rt_rabbitmq_wrapper.rabbitmq_utility import RabbitMQError
 from rt_rabbitmq_wrapper.exchange_types.event.event_dict_codec import EventDictCoDec
 from rt_rabbitmq_wrapper.exchange_types.event.event_codec_errors import EventDictError
-from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import VerdictDictCoDec
+from rt_rabbitmq_wrapper.exchange_types.verdict.verdict_dict_codec import AnalysisVerdict, PyVerdict, SMT2Verdict, SymPyVerdict, VerdictDictCoDec, VerdictDictError, VerdictTypeError, VerdictTypeError
 
 
 class Monitor(threading.Thread):
@@ -73,32 +73,21 @@ class Monitor(threading.Thread):
                 case "State":
                     if "Array" in self._framework.process().variables()[variable][1]:
                         # Array data is stored as a dictionary whose keys are the position of in the array.
-                        self._execution_state[variable] = (
-                            self._framework.process().variables()[variable][1],
-                            {},
-                        )
+                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], {})
                     else:
-                        self._execution_state[variable] = (
-                            self._framework.process().variables()[variable][1],
-                            NoValue(),
-                        )
+                        self._execution_state[variable] = (self._framework.process().variables()[variable][1], NoValue())
                 case "Component":
                     # There is nothing to do here; the existence of the variables mentioned in the process in any of
                     # the declared components is checked at the moment of the creation of the framework.
                     pass
                 case "Clock":
-                    self._timed_state[variable] = (
-                        self._framework.process().variables()[variable][1],
-                        Clock(variable),
-                    )
+                    self._timed_state[variable] = (self._framework.process().variables()[variable][1], Clock(variable))
                 case _:
                     # There is nothing to do here; variables have already been checked for being of one of the right
                     # types when building the analysis framework.
                     pass
         # Build formula evaluator
-        self._evaluator = Evaluator(
-            self._framework.components(), self._execution_state, self._timed_state
-        )
+        self._evaluator = Evaluator(self._framework.components(), self._execution_state, self._timed_state)
         logger.info(f"Monitor created.")
 
     # Raises: MonitorError
@@ -117,9 +106,13 @@ class Monitor(threading.Thread):
         logger.info(
             f"Start receiving events from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
         )
+        # Start receiving analysis results from the RabbitMQ server with timeout handling for message reception
+        logger.info(
+            f"Start receiving analysis results from queue {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.port}."
+        )
         # Start sending analysis results to the RabbitMQ server with timeout handling for message reception
         logger.info(
-            f"Start sending analysis results to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+            f"Start sending analysis results to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
         )
         # Sets the initial state in the event automata
         self._current_state = self._framework.process().dfa().start_state
@@ -128,62 +121,39 @@ class Monitor(threading.Thread):
         start_time_epoch = time.time()
         number_of_events = 0
         # Control variables
-        poison_received = False
-        completed = False
-        stop = False
-        abort = False
-        while not poison_received and not completed and not stop and not abort:
-            # Handle SIGINT
-            if self._signal_flags["stop"]:
-                logger.info("SIGINT received. Stopping the event reception process.")
-                stop = True
-            # Handle SIGTSTP
-            if self._signal_flags["pause"]:
-                logger.info("SIGTSTP received. Pausing the event reception process.")
-                while self._signal_flags["pause"] and not self._signal_flags["stop"]:
-                    time.sleep(1)  # Efficiently wait for signals
-                if self._signal_flags["stop"]:
-                    logger.info(
-                        "SIGINT received. Stopping the event reception process."
-                    )
-                    stop = True
-                if not self._signal_flags["pause"]:
-                    logger.info(
-                        "SIGTSTP received. Resuming the event reception process."
-                    )
-            # Timeout handling for message reception
-            if 0 < config.timeout < (time.time() - last_message_time):
-                abort = True
-            # Process event only if temination has not been decided
-            if not stop and not abort:
-                # Get event from RabbitMQ
+        control = {
+            "poison_received": False,
+            "verdict_stop": False,
+            "timeout_stop": False,
+            "signal_stop": False
+        }
+        while not control['signal_stop'] and not control['poison_received'] and not control['timeout_stop'] and not control['verdict_stop']:
+            # Check for signals and handle them accordingly
+            Monitor._handle_signals(control, self._signal_flags)
+            # Check for termination due to timeout
+            Monitor._check_timeout(control, last_message_time)
+            # Check for termination due to negative verdict reception
+            Monitor._check_termination_by_verdict(control)
+            # Process event only if termination has not been decided
+            if not control['signal_stop'] and not control['timeout_stop'] and not control['verdict_stop']:
+                # Get event from RabbitMQ server
                 try:
-                    method, properties, body = (
-                        rabbitmq_server_connections.rabbitmq_events_server_connection.get_message()
-                    )
+                    method, properties, body = (rabbitmq_server_connections.rabbitmq_events_server_connection.get_message())
                 except RabbitMQError:
-                    logger.critical(
-                        f"Error receiving event from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
-                    )
+                    logger.critical(f"Error receiving event from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}.")
                     raise MonitorError()
                 if method:  # Message exists
                     # ACK the message from RabbitMQ
                     try:
-                        rabbitmq_server_connections.rabbitmq_events_server_connection.ack_message(
-                            method.delivery_tag
-                        )
+                        rabbitmq_server_connections.rabbitmq_events_server_connection.ack_message(method.delivery_tag)
                     except RabbitMQError:
-                        logger.critical(
-                            f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
-                        )
+                        logger.critical(f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}.")
                         raise MonitorError()
                     # Process message
                     if properties.headers and properties.headers.get("termination"):
                         # Poison pill received
-                        logger.info(
-                            f"Poison pill received from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
-                        )
-                        poison_received = True
+                        logger.info(f"Poison pill received from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}.")
+                        control["poison_received"] = True
                     else:
                         last_message_time = time.time()
                         # Event received
@@ -191,73 +161,63 @@ class Monitor(threading.Thread):
                         try:
                             event = EventDictCoDec.from_dict(event_dict)
                         except EventDictError:
-                            logger.critical(
-                                f"Error building event from dict: [ {event_dict} ]."
-                            )
-                            abort = True
+                            logger.critical(f"Error building event from dict: [ {event_dict} ].")
+                            raise MonitorError()
                         else:
                             logger.debug(f"Received event: {event_dict}")
                             # Process event.
                             try:
-                                is_a_valid_report = event.process_with(self)
+                                event.process_with(self)
                             except EXCEPTIONS as f:
-                                logger.error(
-                                    f"Event [ {event_dict} ] produced an error: {f}."
-                                )
-                                abort = True
+                                logger.error(f"Event [ {event_dict} ] produced an error: {f}.")
+                                raise MonitorError()
                             else:
-                                # TODO: Note that the stop policy is decoupled from the validity of the property, thus
-                                #  True does not necessarily mean that the analysis of the property is true itself, but
-                                #  only that the process should not stop. This ambiguity between the interpretation of
-                                #  the variable "is_a_valid_report" and the return value of the function
-                                #  _is_property_true should be eliminated in the near future in order to avoid
-                                #  misunderstandings.
-                                if not is_a_valid_report:
-                                    completed = True
                                 # Only increment number_of_events is it is a valid event (rules out poisson pill)
                                 number_of_events += 1
         # Stop receiving messages from the RabbitMQ server
         logger.info(
             f"Stop receiving events from queue {rabbitmq_server_connections.rabbitmq_events_server_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_events_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_events_server_connection.server_info.port}."
         )
-        # Close connection to the RabbitMQ events server if it exists
-        # rabbitmq_server_connections.rabbitmq_events_server_connection.close()
+        # Stop receiving messages from the RabbitMQ server
+        logger.info(
+            f"Stop receiving analysis results from queue {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.port}."
+        )
         # Send poison pill with the results exchange to the RabbitMQ server
         try:
-            rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+            rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                 "", pika.BasicProperties(delivery_mode=2, headers={"termination": True})
             )
         except RabbitMQError:
             logger.critical(
-                f"Error sending poison pill to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                f"Error sending poison pill to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
             )
             raise MonitorError()
         else:
             logger.info(
-                f"Poison pill sent to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                f"Poison pill sent to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
             )
         # Stop publishing results to the RabbitMQ server
         logger.info(
-            f"Stop sending verdicts to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+            f"Stop sending analysis results to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
         )
-        # Close connection to the RabbitMQ results log server if it exists
-        # rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.close()
+        # Close connection to the RabbitMQ analysis results server if it exists
+        # rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.close()
         # Logging the reason for stoping the verification process to the RabbitMQ server
-        if poison_received:
+        if control["poison_received"]:
             logger.info(
                 f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, poison pill received."
             )
-        elif completed:
-            logger.info(
-                f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, applied stop policy."
-            )
-        elif stop:
+        elif control["signal_stop"]:
             logger.info(
                 f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, SIGINT received."
             )
-        elif abort:
+        elif control["timeout_stop"]:
             logger.info(
-                f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, message reception timeout reached ({time.time()-last_message_time} secs.)."
+                f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, timeout reached."
+            )
+        elif control["verdict_stop"]:
+            logger.info(
+                f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, termination by verdict."
             )
         else:
             logger.info(
@@ -290,7 +250,7 @@ class Monitor(threading.Thread):
             print(verdict_dict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -299,7 +259,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -311,7 +271,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -320,18 +280,14 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             # Analysis of preconditions
             task_specification = self._framework.process().tasks()[task_name]
-            preconditions_are_met = self._are_all_properties_true(
-                task_time,
-                task_specification.preconditions(),
-            )
+            self._are_properties_satisfied(task_time, task_specification.preconditions())
             self._current_state = destinations[0]
-            return preconditions_are_met
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
@@ -358,7 +314,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -367,7 +323,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -379,7 +335,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -388,18 +344,14 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
             # Analysis of posconditions
             task_specification = self._framework.process().tasks()[task_name]
-            postconditions_are_met = self._are_all_properties_true(
-                task_finished_event.timestamp,
-                task_specification.postconditions(),
-            )
+            self._are_properties_satisfied(task_finished_event.timestamp, task_specification.postconditions())
             self._current_state = destinations[0]
-            return postconditions_are_met
 
     # Raises: CheckpointDoesNotExistError
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
@@ -426,7 +378,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -435,7 +387,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -447,7 +399,7 @@ class Monitor(threading.Thread):
             verdict_dict = VerdictDictCoDec.to_dict(verdict)
             # Publish verdict at RabbitMQ server
             try:
-                rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.publish_message(
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.publish_message(
                     json.dumps(verdict_dict),
                     pika.BasicProperties(
                         delivery_mode=2,  # Persistent message
@@ -456,7 +408,7 @@ class Monitor(threading.Thread):
                 )
             except RabbitMQError:
                 logger.critical(
-                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.server_info.port}."
+                    f"Error sending verdict to the exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}."
                 )
                 raise MonitorError()
             logger.debug(f"Sent verdict: [ {verdict} ].")
@@ -464,12 +416,8 @@ class Monitor(threading.Thread):
             checkpoint_specification = self._framework.process().checkpoints()[
                 checkpoint_name
             ]
-            checkpoint_conditions_are_met = self._are_all_properties_true(
-                checkpoint_reached_event.timestamp,
-                checkpoint_specification.properties(),
-            )
+            self._are_properties_satisfied(checkpoint_reached_event.timestamp, checkpoint_specification.properties())
             self._current_state = destinations[0]
-        return checkpoint_conditions_are_met
 
     # Raises: UndeclaredVariableError()
     def process_variable_value_assigned(self, variable_value_assigned_event):
@@ -495,7 +443,6 @@ class Monitor(threading.Thread):
                 self._execution_state[variable_name][0],
                 variable_value,
             )
-        return True
 
     # Raises: ComponentDoesNotExistError(), ComponentError()
     def process_component_event(self, component_event):
@@ -512,7 +459,6 @@ class Monitor(threading.Thread):
                 f"Function [ {e.function_name()} ] is not implemented for component [ {component_name} ]."
             )
             raise ComponentError()
-        return True
 
     # Raises: ClockError()
     def process_clock_start(self, clock_start_event):
@@ -525,7 +471,6 @@ class Monitor(threading.Thread):
         except ClockWasAlreadyStartedError:
             logger.error(f"Clock [ {clock_name} ] was already started.")
             raise ClockError()
-        return True
 
     # Raises: ClockError()
     def process_clock_pause(self, clock_pause_event):
@@ -541,7 +486,6 @@ class Monitor(threading.Thread):
         except ClockWasAlreadyPausedError:
             logger.error(f"Clock [ {clock_name} ] was already paused.")
             raise ClockError()
-        return True
 
     # Raises: ClockError()
     def process_clock_resume(self, clock_resume_event):
@@ -557,7 +501,6 @@ class Monitor(threading.Thread):
         except ClockWasNotPausedError:
             logger.error(f"Clock [ {clock_name} ] was not paused.")
             raise ClockError()
-        return True
 
     # Raises: ClockError()
     def process_clock_reset(self, clock_reset_event):
@@ -570,44 +513,155 @@ class Monitor(threading.Thread):
         except ClockWasNotStartedError:
             logger.error(f"Clock [ {clock_name} ] was not started.")
             raise ClockError()
-        return True
 
-    # Propagates: BuildSpecificationError() from _is_property_satisfied
-    def _are_all_properties_true(self, event_time, logic_properties):
-        property_is_true = True
+    # Raises: BuildSpecificationError()
+    def _are_properties_satisfied(self, event_time, logic_properties):
         for logic_property in logic_properties:
-            if not property_is_true:
-                break
-            property_is_true = self._is_property_true(
-                event_time, self._framework.process().properties()[logic_property]
-            )
-        return property_is_true
+            try:
+                self._evaluator.eval(event_time, self._framework.process().properties()[logic_property])
+            except BuildSpecificationError:
+                logger.error(f"Error evaluating formula [ {logic_property} ]")
+                raise BuildSpecificationError()
 
-    # Propagates: BuildSpecificationError()
-    def _is_property_true(self, event_time, logic_property):
+    # Functions used to check termination of the monitoring process by signals, timeout and verdict 
+    # reception. They update the control dictionary with the corresponding flags to indicate whether 
+    # the monitoring process should be stopped or not.
+    @staticmethod
+    def _handle_signals(control, signal_flags):
+        # Handle SIGINT
+        if signal_flags["stop"]:
+            logger.info("SIGINT received. Stopping the event reception process.")
+            control["signal_stop"] = True
+        # Handle SIGTSTP
+        if signal_flags["pause"]:
+            logger.info("SIGTSTP received. Pausing the event reception process.")
+            while signal_flags["pause"] and not signal_flags["stop"]:
+                time.sleep(1)  # Efficiently wait for signals
+            if signal_flags["stop"]:
+                logger.info("SIGINT received. Stopping the event reception process.")
+                control["signal_stop"] = True
+            if not signal_flags["pause"]:
+                logger.info("SIGTSTP received. Resuming the event reception process.")
+                control["signal_stop"] = False
+        control["signal_stop"] = False
+
+    @staticmethod
+    def _check_timeout(control, last_message_time):
+        if 0 < config.timeout < (time.time() - last_message_time):
+            control["timeout_stop"] = True
+
+    @staticmethod
+    def _check_termination_by_verdict(control):
+        # Get analysis results from RabbitMQ server
         try:
-            evaluation_result = self._evaluator.eval(event_time, logic_property)
-        except BuildSpecificationError:
-            logger.error(f"Error evaluating formula [ {logic_property.name()} ]")
-            raise BuildSpecificationError()
-        # TODO: Note that the stop policy is decoupled from the validity of the property, thus True does not
-        #  necessarily mean that the analysis of the property is true itself, but only that the process should not stop.
-        #  This ambiguity between the interpretation of the variable "is_a_valid_report" in lines 212 and 218 and the
-        #  return value of this function should be eliminated in the near future in order to avoid misunderstandings.
-        match config.stop:
-            case "on_might_fail":
-                return not (
-                    evaluation_result
-                    == PropertyEvaluator.PropertyEvaluationResult.FAILED
-                    or evaluation_result
-                    == PropertyEvaluator.PropertyEvaluationResult.MIGHT_FAIL
-                )
-            case "on_fail":
-                return (
-                    not evaluation_result
-                    == PropertyEvaluator.PropertyEvaluationResult.FAILED
-                )
-            case "dont":
+            method, properties, body = (rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.get_message())
+        except RabbitMQError:
+            logger.critical(f"Error receiving analysis results from queue {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.queue_name} - exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.port}.")
+            raise MonitorError()
+        if method:  # Message exists
+            # ACK the message from RabbitMQ
+            try:
+                rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.ack_message(method.delivery_tag)
+            except RabbitMQError:
+                logger.critical(f"Error sending ack to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.exchange} at the RabbitMQ event server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.server_info.port}.")
+                raise MonitorError()
+            # Process message
+            if (properties.headers and properties.headers.get("type") and properties.headers.get("type") == "verdict"):
+                # Verdict received
+                verdict_dict = json.loads(body.decode())
+                try:
+                    verdict = VerdictDictCoDec.from_dict(verdict_dict)
+                except VerdictDictError:
+                    logger.critical(f"Error parsing verdict dictionary: {verdict_dict}.")
+                    raise MonitorError()
+                except VerdictTypeError:
+                    logger.critical(f"Error building dictionary from verdict: {verdict}.")
+                    raise MonitorError()
+                else:
+                    control["verdict_stop"] = Monitor._check_termination_by_verdict_type(verdict)
+            else:
+                # Not a verdict message, ignore it
+                control["verdict_stop"] = False
+        else:
+            # No message exists
+            control["verdict_stop"] = False
+
+    @staticmethod
+    def _check_termination_by_verdict_type(verdict):
+        if isinstance(verdict, ProcessVerdict):
+            return Monitor._check_termination_by_process_verdict(verdict)
+        elif isinstance(verdict, AnalysisVerdict):
+            return Monitor._check_termination_by_analysis_verdict(verdict)
+        else:
+            logger.critical(f"Verdict [ {verdict} ] is not of a valid type.")
+            raise MonitorError()
+
+    @staticmethod
+    def _check_termination_by_process_verdict(verdict: ProcessVerdict):
+        match verdict.verdict:
+            case ProcessVerdict.VERDICT.FAIL:
+                logger.debug(f"Verdict [ {verdict} ] received, process should stop according to the stop policy.")
+                # Note that for process verdicts, the process should stop if a FAIL verdict is received 
+                # independently of the stop policy.
                 return True
-            case _:  # This case cannot happen
-                pass
+            case ProcessVerdict.VERDICT.PASS:
+                logger.debug(f"Verdict [ {verdict} ] received, process should not stop according to the stop policy.")
+                return False
+            case _:
+                logger.critical(f"Verdict [ {verdict} ] is not of a valid type.")
+                raise MonitorError()
+
+    @staticmethod
+    def _check_termination_by_analysis_verdict(verdict: AnalysisVerdict):
+        if isinstance(verdict, PyVerdict):
+            return Monitor._check_termination_by_py_verdict(verdict)
+        elif isinstance(verdict, SymPyVerdict):
+            return Monitor._check_termination_by_sympy_verdict(verdict)
+        elif isinstance(verdict, SMT2Verdict):
+            return Monitor._check_termination_by_smt2_verdict(verdict)
+        else:
+            logger.critical(f"Verdict [ {verdict} ] is not of a valid type.")
+            raise MonitorError()
+        
+    @staticmethod
+    def _check_termination_by_py_verdict(verdict: PyVerdict):
+        match verdict.verdict:
+            case PyVerdict.VERDICT.FAIL:
+                logger.debug(f"Verdict [ {verdict} ] received, process should stop according to the stop policy.")
+                return False if config.stop == "dont" else True
+            case PyVerdict.VERDICT.PASS:
+                logger.debug(f"Verdict [ {verdict} ] received, process should not stop according to the stop policy.")
+                return False
+            case _:
+                logger.critical(f"Verdict [ {verdict} ] is not of a valid type.")
+                raise MonitorError()
+
+    @staticmethod
+    def _check_termination_by_sympy_verdict(verdict: SymPyVerdict):
+        match verdict.verdict:
+            case SymPyVerdict.VERDICT.FAIL:
+                logger.debug(f"Verdict [ {verdict} ] received, process should stop according to the stop policy.")
+                return False if config.stop == "dont" else True
+            case SymPyVerdict.VERDICT.PASS:
+                logger.debug(f"Verdict [ {verdict} ] received, process should not stop according to the stop policy.")
+                return False
+            case _:
+                logger.critical(f"Verdict [ {verdict} ] is not of a valid type.")
+                raise MonitorError()
+
+    @staticmethod
+    def _check_termination_by_smt2_verdict(verdict: SMT2Verdict):
+        match verdict.verdict:
+            case SMT2Verdict.VERDICT.FAIL:
+                logger.debug(f"Verdict [ {verdict} ] received, process should stop according to the stop policy.")
+                return False if config.stop == "dont" else True
+            case SMT2Verdict.VERDICT.PASS:
+                logger.debug(f"Verdict [ {verdict} ] received, process should not stop according to the stop policy.")
+                return False
+            case SMT2Verdict.VERDICT.MIGHT_FAIL:
+                logger.debug(f"Verdict [ {verdict} ] received, process should stop according to the stop policy.")
+                return False if config.stop == "dont" or config.stop == "on_fail" else True
+            case _:
+                logger.critical(f"Verdict [ {verdict} ] is not of a valid type.")
+                raise MonitorError()
+

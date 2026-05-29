@@ -12,11 +12,6 @@ from rt_monitor.errors.evaluator_errors import UnboundVariablesError
 
 
 class PropertyEvaluator:
-    class PropertyEvaluationResult(Enum):
-        PASSED = "PASSED"
-        FAILED = "FAILED"
-        MIGHT_FAIL = "MIGHT_FAIL"
-
     def __init__(self, components, execution_state, timed_state):
         self._components = components
         self._execution_state = execution_state

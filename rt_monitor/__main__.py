@@ -8,6 +8,7 @@ import sys
 import threading
 import wx
 import logging
+
 # Create a logger for the monitor component
 logger = None  # Will be initialized in main()
 
@@ -197,8 +198,9 @@ def main():
         return -4
     # Close connection to the RabbitMQ events server if it exists
     rabbitmq_server_connections.rabbitmq_events_server_connection.close()
-    # Close connection to the RabbitMQ results log server if it exists
-    rabbitmq_server_connections.rabbitmq_analysis_results_server_connection.close()
+    # Close connections to the RabbitMQ results log server if it exists
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.close()
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.close()
     return 0
 
 
