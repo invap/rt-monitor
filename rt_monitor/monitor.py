@@ -213,7 +213,7 @@ class Monitor(threading.Thread):
             )
         elif control["timeout_stop"]:
             logger.info(
-                f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, timeout reached."
+                f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process STOPPED, timeout reached ({time.time()-last_message_time} secs.)."
             )
         elif control["verdict_stop"]:
             logger.info(
