@@ -396,7 +396,7 @@ class Monitor(threading.Thread):
         # Stop publishing results to the RabbitMQ server
         logger.info(f"Stop sending analysis results to exchange {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.exchange} at the RabbitMQ server at {rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.host}:{rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.server_info.port}.")
 
-        # Log the reason for stoping the verification process to the RabbitMQ server.
+        # Log the reason for stoping the verification process.
         if control["poison_received"]:
             logger.info(f"Events processed: {number_of_events} - Time (secs.): {time.time()-start_time_epoch:.3f} - Process COMPLETED, poison pill received.")
         elif control["signal_stop"]:
@@ -414,10 +414,10 @@ class Monitor(threading.Thread):
         #
         # Wait for the thread checking signals to finish.
         signal_thread.join(timeout=5)
-        # Wait for the thread checking verdicts to finish.
-        verdict_thread.join(timeout=5)
         # Wait for the thread checking timeout to finish.
         timeout_thread.join(timeout=5)
+        # Wait for the thread checking verdicts to finish.
+        verdict_thread.join(timeout=5)
 
     # Raises: TaskDoesNotExistError()
     # Propagates: BuildSpecificationError() from _are_all_properties_satisfied
