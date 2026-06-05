@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later OR Fundacion-Sadosky-Commercial
 
 import argparse
+import time
 import signal
 import sys
 import threading
 import wx
 import logging
-
-# Create a logger for the monitor component
-logger = None  # Will be initialized in main()
+# Create a logger for the monitor component.
+logger = None  # Will be initialized in main().
 
 from rt_monitor.config import config
 from rt_monitor.errors.framework_errors import FrameworkError
@@ -31,46 +31,51 @@ from rt_monitor.utility import (
 from fancy_namer.namer import FancyNamer
 from fancy_namer.enums import NameType
 
-def rt_monitor_runner(spec_file):
-    # Signal handling flags
-    signal_flags = {"stop": False, "pause": False}
+class MonitorRunnerFrame(wx.Frame):
+    # Hidden frame that manages the monitor thread and handles signals.
+    def __init__(self, parent, spec_file):
+        super().__init__(parent, title="MonitorRunnerFrame", size=(1, 1))
+        self._signal_flags = {
+            "stop": threading.Event(),
+            "pause": threading.Event()
+        }
+        # Register signal handlers.
+        self._register_signal_handlers()
+        # Make the frame hidden.
+        self.Show(False)
+        
+        try:
+            self._monitor = Monitor(spec_file, self._signal_flags)
+        except FrameworkError:
+            logger.critical(f"Framework error.")
+            wx.CallAfter(self._exit_wx)
+            raise MonitorError()
+        
+        def _run_monitor():
+            self._monitor.start()
+            self._monitor.join()
+            wx.CallAfter(self._exit_wx)
+        
+        self._monitor_thread = threading.Thread(target=_run_monitor, daemon=False)
+        self._monitor_thread.start()
 
-    # Signal handling functions
-    def sigint_handler(signum, frame):
-        signal_flags["stop"] = True
+    def _register_signal_handlers(self):
+        # Register signal handlers that set the flags.
+        def sigint_handler(signum, frame):
+            self._signal_flags["stop"].set()
+        
+        def sigtstp_handler(signum, frame):
+            # Toggle pause state.
+            self._signal_flags["pause"].clear() if self._signal_flags["pause"].is_set() else self._signal_flags["pause"].set()
+        
+        # Register the handlers.
+        signal.signal(signal.SIGINT, sigint_handler)
+        signal.signal(signal.SIGTSTP, sigtstp_handler)    
 
-    def sigtstp_handler(signum, frame):
-        signal_flags["pause"] = not signal_flags["pause"]  # Toggle pause state
-
-    # Registering signal handlers
-    signal.signal(signal.SIGINT, sigint_handler)
-    signal.signal(signal.SIGTSTP, sigtstp_handler)
-
-    # Initiating wx application
-    app = wx.App()
-    # Create monitor
-    try:
-        monitor = Monitor(spec_file, signal_flags)
-    except FrameworkError:
-        logger.critical(f"Framework error.")
-        raise MonitorError()
-
-    def _run_monitoring():
-        # Starts the monitor thread
-        monitor.start()
-        # Waiting for the verification process to finish, either naturally or manually.
-        monitor.join()
-        # Signal the wx main event loop to exit
-        wx.CallAfter(wx.GetApp().ExitMainLoop)
-
-    # Creates the application thread for controlling the monitor
-    application_thread = threading.Thread(target=_run_monitoring, daemon=True)
-    # Runs the application thread
-    application_thread.start()
-    # Initiating the wx main event loop
-    app.MainLoop()
-    # Waiting for the application thread to finish
-    application_thread.join()
+    def _exit_wx(self):
+        # Exit wx application (called from main thread).
+        if wx.GetApp():
+            wx.GetApp().ExitMainLoop()
 
 
 def parse_arguments():
@@ -129,9 +134,9 @@ def parse_arguments():
 # -4: Unexpected error
 def main():
     global logger
-    # Generate unique name for this execution of the RT Monitor
+    # Generate unique name for this execution of the RT Monitor.
     process_name = FancyNamer.generate_name(name_type=NameType.TOOL, tool_name="rt_monitor", random_seed=42)
-    # Parse arguments
+    # Parse arguments.
     args = parse_arguments()
     # Configure logging level.
     level_map = {
@@ -154,7 +159,7 @@ def main():
     set_up_logging()
     configure_logging_destination(logging_destination, args.log_file)
     configure_logging_level(logging_level)
-    # Create a logger for this component
+    # Create a logger for this component.
     logger = logging.getLogger("rt_monitor.rt_monitor_sh")
     logger.info(f"Log verbosity level: {logging_level}.")
     if args.log_file is None:
@@ -164,43 +169,49 @@ def main():
             logger.info("Log file error. Log destination: CONSOLE.")
         else:
             logger.info(f"Log destination: FILE ({args.log_file}).")
-    # Determine timeout
+    # Determine timeout.
     config.timeout = args.timeout if args.timeout >= 0 else 0
     logger.info(f"Timeout for message reception: {config.timeout} seconds.")
-    # Determine stop policy
+    # Determine stop policy.
     config.stop = args.stop
-    # Analysis framework specification file
+    # Analysis framework specification file.
     valid = is_valid_file_with_extension(args.spec_file, "toml")
     if not valid:
         logger.critical(f"Analysis framework specification file error.")
         return -1
     logger.info(f"Analysis framework specification file: {args.spec_file}")
-    # RabbitMQ infrastructure configuration
+    # RabbitMQ infrastructure configuration.
     valid = is_valid_file_with_extension(args.rabbitmq_config_file, "toml")
     if not valid:
         logger.critical(f"RabbitMQ infrastructure configuration file error.")
         return -2
-    logger.info(
-        f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}"
-    )
-    # Create RabbitMQ communication infrastructure
-    rabbitmq_server_connections.build_rabbitmq_server_connections(
-        args.rabbitmq_config_file
-    )
-    # Run the rt_monitor
+    logger.info(f"RabbitMQ infrastructure configuration file: {args.rabbitmq_config_file}")
+    # Create RabbitMQ communication infrastructure.
+    rabbitmq_server_connections.build_rabbitmq_server_connections(args.rabbitmq_config_file)
+    # Run the rt_monitor.
     try:
-        rt_monitor_runner(args.spec_file)
+        # Initiating wx application.
+        app = wx.App()
+        monitor_runner_frame = MonitorRunnerFrame(None, args.spec_file)
+        # Initiating the wx main event loop.
+        app.MainLoop()
+        # Give threads time to clean up
+        time.sleep(1)
     except MonitorError:
         logger.critical("Monitor error.")
         return -3
     except Exception as e:
         logger.critical(f"Unexpected error: {e}.")
         return -4
-    # Close connection to the RabbitMQ events server if it exists
-    rabbitmq_server_connections.rabbitmq_events_server_connection.close()
+    # Close connection to the RabbitMQ events server if it exists.
+    rabbitmq_server_connections.rabbitmq_events_server_connection.close_channel()
+    rabbitmq_server_connections.rabbitmq_events_server_connection.close_connection()
     # Close connections to the RabbitMQ results log server if it exists
-    rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.close()
-    rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.close()
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.close_channel()
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_incoming_connection.close_connection()
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.close_channel()
+    rabbitmq_server_connections.rabbitmq_analysis_results_server_outgoing_connection.close_connection()
+    # Exit with success code.
     return 0
 
 
